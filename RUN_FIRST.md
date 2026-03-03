@@ -66,10 +66,8 @@ Salva l’URL che viene stampato (es. `https://metabase-xxx.run.app`).
 
 ## 6. Push su GitHub (nuova repository)
 
-Se non l’hai ancora fatto:
-
-1. Su **GitHub** crea una nuova repository (es. `MediaExpertDashboard`), senza README.
-2. Nella cartella del progetto:
+1. Su **GitHub.com** → **New repository** (es. nome `MediaExpertDashboard`), **senza** README o .gitignore.
+2. Nella cartella del progetto esegui (sostituisci `TUO_ORG` con il tuo username o organizzazione):
 
 ```powershell
 cd "c:\Users\franc\Desktop\Projects\MEDIA EXPERT DASHBOARD"
@@ -78,9 +76,7 @@ git branch -M main
 git push -u origin main
 ```
 
-Sostituisci `TUO_ORG` con il tuo username o organizzazione GitHub.
-
-3. Per il **trigger Cloud Build**: in GCP → **Cloud Build** → **Triggers** → **Connect repository** (collega la repo) → **Create trigger** su branch `main` con file `cloudbuild.yaml`.
+3. **Trigger Cloud Build** (opzionale): GCP → **Cloud Build** → **Triggers** → **Connect repository** → **Create trigger** su branch `main`, file `cloudbuild.yaml`.
 
 ---
 
