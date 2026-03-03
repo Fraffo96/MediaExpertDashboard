@@ -13,6 +13,7 @@ steps:
       - 'deploy'
       - 'metabase'
       - '--image=metabase/metabase:latest'
+      - '--verbosity=info'
       - '--region=${_REGION}'
       - '--project=${_PROJECT_ID}'
       - '--platform=managed'
@@ -21,7 +22,6 @@ steps:
       - '--memory=1Gi'
       - '--cpu=1'
       - '--port=3000'
-      - '--quiet'
     id: 'deploy-metabase'
 
 options:
