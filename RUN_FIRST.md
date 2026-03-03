@@ -64,19 +64,41 @@ Salva l’URL che viene stampato (es. `https://metabase-xxx.run.app`).
 
 ---
 
-## 6. Push su GitHub (nuova repository)
+## 6. Push su GitHub e deploy automatico su GCP
 
-1. Su **GitHub.com** → **New repository** (es. nome `MediaExpertDashboard`), **senza** README o .gitignore.
-2. Nella cartella del progetto esegui (sostituisci `TUO_ORG` con il tuo username o organizzazione):
+### 6a. Crea la repository e fai il primo push
+
+**Opzione A – Da Cursor (consigliato)**  
+1. Apri il pannello **Source Control** (icona a sinistra o `Ctrl+Shift+G`).  
+2. Clicca **"Publish to GitHub"** (o **"Publish Branch"**).  
+3. Scegli nome repository: `MediaExpertDashboard`, visibilità **Public**.  
+4. Conferma: Cursor crea la repo e fa il push del branch `main`.
+
+**Opzione B – Da GitHub.com + terminale**  
+1. Su **GitHub.com** → **New repository** (nome `MediaExpertDashboard`), **senza** README o .gitignore.  
+2. In PowerShell (sostituisci `TUO_ORG` con il tuo username):
 
 ```powershell
 cd "c:\Users\franc\Desktop\Projects\MEDIA EXPERT DASHBOARD"
 git remote add origin https://github.com/TUO_ORG/MediaExpertDashboard.git
-git branch -M main
 git push -u origin main
 ```
 
-3. **Trigger Cloud Build** (opzionale): GCP → **Cloud Build** → **Triggers** → **Connect repository** → **Create trigger** su branch `main`, file `cloudbuild.yaml`.
+### 6b. Deploy automatico a ogni push (Cloud Build)
+
+Dopo che la repo è su GitHub:
+
+1. **Console GCP** → **Cloud Build** → **Triggers**.  
+2. **Connect repository** (prima volta): scegli **GitHub**, autorizza e seleziona la repo `MediaExpertDashboard`.  
+3. **Create trigger**:  
+   - Nome: `deploy-metabase`  
+   - Event: **Push to a branch**  
+   - Branch: `^main$`  
+   - Config: **Cloud Build configuration file** → `cloudbuild.yaml` (root)  
+   - Variabili: `_PROJECT_ID` = `mediaexpertdashboard`, `_REGION` = `europe-west1`  
+4. **Save**.
+
+Da quel momento, ogni **push su `main`** farà partire il build e il deploy di Metabase su Cloud Run.
 
 ---
 
