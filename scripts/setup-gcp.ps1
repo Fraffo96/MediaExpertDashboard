@@ -31,7 +31,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID `
 
 # 3. Chiave JSON
 Write-Host "--- Creazione chiave JSON ---" -ForegroundColor Yellow
-$keyPath = Join-Path $PSScriptRoot ".." $KEY_FILE
+$keyPath = Join-Path (Join-Path $PSScriptRoot "..") $KEY_FILE
 gcloud iam service-accounts keys create $keyPath `
     --iam-account=$SA_EMAIL `
     --project=$PROJECT_ID
