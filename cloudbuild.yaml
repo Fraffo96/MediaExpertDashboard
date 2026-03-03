@@ -24,6 +24,8 @@ steps:
       - '--port=3000'
       - '--no-cpu-throttling'
       - '--timeout=600'
+      - '--min-instances=0'
+      - '--max-instances=5'
     id: 'deploy-metabase'
 
 options:
