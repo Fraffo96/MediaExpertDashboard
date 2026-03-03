@@ -18,10 +18,12 @@ steps:
       - '--project=${_PROJECT_ID}'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=MB_DB_FILE=/metabase-data/metabase.db'
+      - '--set-env-vars=MB_DB_FILE=/tmp/metabase.db'
       - '--memory=1Gi'
       - '--cpu=1'
       - '--port=3000'
+      - '--no-cpu-throttling'
+      - '--timeout=600'
     id: 'deploy-metabase'
 
 options:
