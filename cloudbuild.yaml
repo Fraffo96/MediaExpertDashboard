@@ -1,0 +1,32 @@
+# =============================================================================
+# Cloud Build: build e deploy Metabase su Cloud Run
+# Trigger su push su main (o branch scelto)
+# Progetto: mediaexpertdashboard
+# =============================================================================
+
+steps:
+  # Deploy diretto da immagine ufficiale (no build)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'metabase'
+      - '--image=metabase/metabase:latest'
+      - '--region=${_REGION}'
+      - '--project=${_PROJECT_ID}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=MB_DB_FILE=/metabase-data/metabase.db'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--port=3000'
+      - '--quiet'
+    id: 'deploy-metabase'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _PROJECT_ID: mediaexpertdashboard
+  _REGION: europe-west1

@@ -1,0 +1,23 @@
+# GCP / Metabase
+metabase-bq-key.json
+*-key.json
+.env
+.env.local
+.gcloud/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
