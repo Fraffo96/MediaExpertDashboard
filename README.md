@@ -110,26 +110,21 @@ Identità: `global_user_id` è la chiave utente condivisa; per i guest si usa `g
 
 ---
 
-## Dashboard BI su Google Cloud (Metabase + BigQuery)
+## Nostra dashboard su Google Cloud
 
-Per una **dashboard BI interattiva** su GCP con **Row Level Security per brand** (Sodastream, Nespresso, Samsung):
+La **dashboard è la nostra applicazione** (FastAPI + BigQuery), personalizzabile, non un tool esterno. I **database** sono su GCP e l’app si connette a essi.
 
 | Risorsa | Descrizione |
 |--------|-------------|
-| `docs/ARCHITECTURE.md` | Architettura GCP, Service Account, connessione Metabase–BigQuery, RLS |
-| `docs/METABASE_SETUP.md` | Setup Metabase passo-passo, gruppi, utenti, filtri per brand |
-| `docs/GITHUB_CLOUD_BUILD.md` | Nuova repo GitHub e trigger Cloud Build per deploy Metabase |
-| `bigquery/schema_and_seed.sql` | Dataset `raw`/`mart`, tabelle, seed 2025 con picchi BF/Xmas |
-| `bigquery/views_rls.sql` | (Opzionale) Viste per brand per RLS in BigQuery |
-| `scripts/setup-gcp.sh` | Creazione Service Account, IAM, chiave JSON, dataset |
-| `scripts/deploy-metabase.sh` | Deploy Metabase su Cloud Run |
-| `dashboard/bigquery_queries.sql` | Query dashboard (Category Sales, Promo Share, YoY, ROI, Peak, Pre/During/Post) |
-| `cloudbuild.yaml` | Build/deploy Metabase su push (trigger GitHub) |
+| `docs/ARCHITECTURE_CUSTOM_DASHBOARD.md` | Architettura: nostra app, BigQuery, connessione, come personalizzare |
+| `app/` | Codice dashboard: `main.py`, `db/bigquery_client.py`, `templates/`, `static/` |
+| `bigquery/schema_and_seed.sql` | Dataset `raw`/`mart`, tabelle e dati 2025 (da eseguire in Console BigQuery) |
+| `dashboard/bigquery_queries.sql` | Query di riferimento (Category Sales, Promo Share, YoY, ROI, Peak) |
+| `scripts/setup-databases-gcp.ps1` | Crea dataset BigQuery; poi esegui `schema_and_seed.sql` in console |
+| `Dockerfile` + `cloudbuild.yaml` | Build e deploy della nostra app su Cloud Run a ogni push su `main` |
 
 **Quick start GCP (progetto `mediaexpertdashboard`):**
 
-1. `./scripts/setup-gcp.sh` → crea SA e chiave, dataset BigQuery.
-2. Esegui `bigquery/schema_and_seed.sql` nella console BigQuery (o `bq query`).
-3. `./scripts/deploy-metabase.sh` → deploy Metabase su Cloud Run.
-4. In Metabase: aggiungi database BigQuery con il JSON del SA; crea gruppi e utenti (Sodastream, Nespresso, Samsung), imposta filtri dati per `brand_name`.
-5. Collega la repo a Cloud Build e crea trigger su `main` → deploy automatico a ogni push.
+1. **Database su GCP**: `.\scripts\setup-databases-gcp.ps1` → crea dataset `raw` e `mart`. Poi in **Console BigQuery** esegui tutto il file `bigquery/schema_and_seed.sql` (crea tabelle e dati).
+2. **Deploy dashboard**: push su `main` (trigger Cloud Build) oppure in locale: `pip install -r app/requirements.txt` e `uvicorn app.main:app --reload` (imposta `GOOGLE_APPLICATION_CREDENTIALS` o usa `gcloud auth application-default login`).
+3. **Personalizzare**: modifica template in `app/templates/`, query in `app/db/bigquery_client.py`, stili in `app/static/`.

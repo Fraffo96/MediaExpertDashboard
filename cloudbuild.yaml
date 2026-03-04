@@ -1,32 +1,47 @@
 # =============================================================================
-# Cloud Build: build e deploy Metabase su Cloud Run
-# Trigger su push su main (o branch scelto)
-# Progetto: mediaexpertdashboard
+# Cloud Build: build e deploy della NOSTRA dashboard (app FastAPI + BigQuery)
+# Trigger su push su main. Progetto: mediaexpertdashboard
 # =============================================================================
 
 steps:
-  # Deploy diretto da immagine ufficiale (no build)
+  # 1. Build immagine Docker della nostra app
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}'
+      - '.'
+    id: 'build'
+
+  # 2. Push su Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}'
+    id: 'push'
+    waitFor: ['build']
+
+  # 3. Deploy su Cloud Run (nostra app dashboard)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'metabase'
-      - '--image=metabase/metabase:latest'
-      - '--verbosity=info'
+      - 'dashboard'
+      - '--image=gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}'
       - '--region=${_REGION}'
       - '--project=${_PROJECT_ID}'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=MB_DB_FILE=/tmp/metabase.db,MB_JETTY_HOST=0.0.0.0'
-      - '--memory=2Gi'
-      - '--cpu=2'
-      - '--port=3000'
-      - '--no-cpu-throttling'
-      - '--timeout=600'
+      - '--set-env-vars=GCP_PROJECT_ID=${_PROJECT_ID}'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--port=8080'
       - '--min-instances=0'
       - '--max-instances=5'
-    id: 'deploy-metabase'
+      - '--timeout=300'
+    id: 'deploy'
+    waitFor: ['push']
 
 options:
   logging: CLOUD_LOGGING_ONLY

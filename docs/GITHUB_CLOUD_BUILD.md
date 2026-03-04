@@ -10,7 +10,7 @@
 cd "c:\Users\franc\Desktop\Projects\MEDIA EXPERT DASHBOARD"
 git remote add origin https://github.com/<org>/<repo>.git
 git add .
-git commit -m "Add GCP/Metabase: BigQuery mart, Cloud Run, RLS, dashboard queries"
+git commit -m "Dashboard: BigQuery mart, Cloud Run, nostra app"
 git branch -M main
 git push -u origin main
 ```
@@ -19,7 +19,7 @@ Se la repo è già collegata (Cursor collegato a GitHub), dalla root del progett
 
 ```bash
 git add bigquery/ scripts/ docs/ dashboard/ cloudbuild.yaml
-git commit -m "GCP: BigQuery mart, Metabase Cloud Run, RLS, dashboard"
+git commit -m "GCP: BigQuery mart, nostra dashboard su Cloud Run"
 git push origin main
 ```
 
@@ -38,7 +38,7 @@ git push origin main
 ### 2.2 Creare il trigger
 
 1. **Create trigger**.
-2. **Name:** `deploy-metabase`.
+2. **Name:** `deploy-dashboard` (o `dashboardgit`).
 3. **Event:** Push to a branch.
 4. **Source:** repo connessa, branch `^main$` (o il branch che usi).
 5. **Configuration:** Cloud Build configuration file.
@@ -62,7 +62,7 @@ gcloud services enable cloudbuild.googleapis.com run.googleapis.com
 
 # Crea trigger da gcloud (dopo aver collegato la repo)
 gcloud builds triggers create github \
-  --name="deploy-metabase" \
+  --name="deploy-dashboard" \
   --repo-name="<nome-repo-github>" \
   --repo-owner="<org-o-username>" \
   --branch-pattern="^main$" \
@@ -70,20 +70,4 @@ gcloud builds triggers create github \
   --substitutions="_PROJECT_ID=mediaexpertdashboard,_REGION=europe-west1"
 ```
 
-Dopo ogni push su `main`, Cloud Build eseguirà `cloudbuild.yaml` e farà il deploy di Metabase su Cloud Run.
-
----
-
-## 3. File da non committare
-
-Aggiungi a `.gitignore`:
-
-```
-metabase-bq-key.json
-*.json
-!package.json
-.env
-.env.local
-```
-
-Il file della chiave del Service Account (`metabase-bq-key.json`) va tenuto fuori dalla repo; in produzione usa Secret Manager e iniettalo in Cloud Run come file montato o variabile.
+Dopo ogni push su `main`, Cloud Build eseguirà `cloudbuild.yaml` e farà il deploy della **nostra dashboard** su Cloud Run (servizio `dashboard`).

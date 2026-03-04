@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="filters">
+  <form id="filter-form" class="filter-form">
+    <label>Da <input type="date" name="period_start" value="{{ period_start }}"></label>
+    <label>A <input type="date" name="period_end" value="{{ period_end }}"></label>
+    <label>Categoria
+      <select name="category_id">
+        <option value="">Tutte</option>
+        {% for c in categories %}
+        <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Applica</button>
+  </form>
+</section>
+
+<section class="cards">
+  <div class="card">
+    <h3>Quota vendite in promo</h3>
+    <div class="chart-wrap"><canvas id="chartPromoShare"></canvas></div>
+    <p id="promo-share-value" class="big-value">--</p>
+  </div>
+  <div class="card">
+    <h3>YoY</h3>
+    <div class="chart-wrap"><canvas id="chartYoy"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Vendite per periodo (peak)</h3>
+    <div class="chart-wrap"><canvas id="chartPeak"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>ROI per promo</h3>
+    <div class="chart-wrap"><canvas id="chartRoi"></canvas></div>
+  </div>
+</section>
+
+<section class="table-section">
+  <h2>Vendite per categoria (anteprima)</h2>
+  <div class="table-wrap">
+    <table id="tableCategorySales">
+      <thead><tr><th>Data</th><th>Categoria</th><th>Gross PLN</th><th>Unità</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function getParams() {
+    const form = document.getElementById('filter-form');
+    const fd = new FormData(form);
+    return new URLSearchParams(fd).toString();
+  }
+  const base = window.location.origin;
+
+  async function loadData() {
+    const q = getParams();
+    const [promoShare, yoy, peak, roi, sales] = await Promise.all([
+      fetch(base + '/api/promo-share?' + q).then(r => r.json()),
+      fetch(base + '/api/yoy?' + q).then(r => r.json()),
+      fetch(base + '/api/peak-events?' + q).then(r => r.json()),
+      fetch(base + '/api/promo-roi?' + q).then(r => r.json()),
+      fetch(base + '/api/category-sales?' + q).then(r => r.json()),
+    ]);
+
+    const p = promoShare[0];
+    if (p) document.getElementById('promo-share-value').textContent = p.promo_share_pct + '% vendite in promo';
+
+    if (chartPromoShare) {
+      chartPromoShare.data.datasets[0].data = [p ? Number(p.total_gross) - Number(p.promo_gross) : 0, p ? Number(p.promo_gross) : 0];
+      chartPromoShare.update();
+    }
+    if (chartYoy) {
+      chartYoy.data.labels = yoy.map(r => String(r.year));
+      chartYoy.data.datasets[0].data = yoy.map(r => Number(r.total_gross));
+      chartYoy.update();
+    }
+    if (chartPeak) {
+      chartPeak.data.labels = peak.map(r => r.peak_event);
+      chartPeak.data.datasets[0].data = peak.map(r => Number(r.gross_pln));
+      chartPeak.update();
+    }
+    if (chartRoi) {
+      chartRoi.data.labels = roi.map(r => r.promo_name);
+      chartRoi.data.datasets[0].data = roi.map(r => Number(r.roi));
+      chartRoi.update();
+    }
+
+    const tbody = document.querySelector('#tableCategorySales tbody');
+    tbody.innerHTML = sales.slice(0, 50).map(r =>
+      `<tr><td>${r.date}</td><td>${r.category_name}</td><td>${Number(r.gross_pln).toLocaleString()}</td><td>${r.units}</td></tr>`
+    ).join('');
+  }
+
+  document.getElementById('filter-form').addEventListener('submit', e => { e.preventDefault(); loadData(); });
+
+  const chartOpt = { responsive: true, maintainAspectRatio: true };
+  const chartPromoShare = new Chart(document.getElementById('chartPromoShare'), {
+    type: 'doughnut',
+    data: { labels: ['Non promo', 'Promo'], datasets: [{ data: [0, 0], backgroundColor: ['#6b7280', '#10b981'] }] },
+    options: chartOpt
+  });
+  const chartYoy = new Chart(document.getElementById('chartYoy'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Vendite (PLN)', data: [], backgroundColor: '#3b82f6' }] },
+    options: chartOpt
+  });
+  const chartPeak = new Chart(document.getElementById('chartPeak'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Gross PLN', data: [], backgroundColor: '#8b5cf6' }] },
+    options: chartOpt
+  });
+  const chartRoi = new Chart(document.getElementById('chartRoi'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'ROI', data: [], backgroundColor: '#f59e0b' }] },
+    options: chartOpt
+  });
+
+  loadData();
+</script>
+{% endblock %}
