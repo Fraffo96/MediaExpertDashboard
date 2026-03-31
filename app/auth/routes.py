@@ -32,7 +32,7 @@ async def login_page(request: Request, access_token: Optional[str] = Cookie(None
             return RedirectResponse("/", status_code=302)
     finally:
         db.close()
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request, "login.html", {"error": None})
 
 
 @router.post("/login")
@@ -47,8 +47,9 @@ async def login_submit(
         user = db.query(User).filter(User.username == username, User.is_active == True).first()
         if not user or not verify_password(password, user.hashed_password):
             return templates.TemplateResponse(
+                request,
                 "login.html",
-                {"request": request, "error": "Invalid username or password."},
+                {"error": "Invalid username or password."},
                 status_code=401,
             )
         token = create_access_token({"sub": user.username, "role": user.role})

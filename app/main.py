@@ -192,7 +192,7 @@ async def page_root(request: Request, access_token: Optional[str] = Cookie(None)
     f = await _filters()
     ctx = _page_ctx(f, user)
     ctx["brand_name"] = _brand_name_for_user(user, f)
-    return templates.TemplateResponse("landing.html", {"request": request, **ctx, "active": "landing"})
+    return templates.TemplateResponse(request, "landing.html", {**ctx, "active": "landing"})
 
 
 @app.get("/basic", response_class=HTMLResponse)
@@ -201,7 +201,7 @@ async def page_basic(request: Request, access_token: Optional[str] = Cookie(None
     if redirect:
         return redirect
     f = await _filters()
-    return templates.TemplateResponse("basic.html", {"request": request, **_page_ctx(f, user), "active": "basic"})
+    return templates.TemplateResponse(request, "basic.html", {**_page_ctx(f, user), "active": "basic"})
 
 
 @app.get("/market-intelligence", response_class=HTMLResponse)
@@ -220,7 +220,7 @@ async def page_market_intelligence(request: Request, access_token: Optional[str]
     subcats = f.get("subcategories") or []
     ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
     ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
-    return templates.TemplateResponse("market_intelligence.html", {"request": request, **ctx, "active": "market_intelligence"})
+    return templates.TemplateResponse(request, "market_intelligence.html", {**ctx, "active": "market_intelligence"})
 
 
 @app.get("/brand-comparison", response_class=HTMLResponse)
@@ -240,7 +240,7 @@ async def page_brand_comparison(request: Request, access_token: Optional[str] = 
     subcats = f.get("subcategories") or []
     ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
     ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
-    return templates.TemplateResponse("brand_comparison.html", {"request": request, **ctx, "active": "brand_comparison"})
+    return templates.TemplateResponse(request, "brand_comparison.html", {**ctx, "active": "brand_comparison"})
 
 
 @app.get("/promo-creator", response_class=HTMLResponse)
@@ -258,7 +258,7 @@ async def page_promo_creator(request: Request, access_token: Optional[str] = Coo
     ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
     ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
     ctx["promo_types"] = f.get("promo_types") or []
-    return templates.TemplateResponse("promo_creator.html", {"request": request, **ctx, "active": "promo_creator"})
+    return templates.TemplateResponse(request, "promo_creator.html", {**ctx, "active": "promo_creator"})
 
 
 @app.get("/check-live-promo", response_class=HTMLResponse)
@@ -281,7 +281,7 @@ async def page_check_live_promo(request: Request, access_token: Optional[str] = 
     ctx["date_start_default"] = ds
     ctx["date_end_default"] = de
     ctx["clp_anchor_end"] = _check_live_anchor_end()
-    return templates.TemplateResponse("check_live_promo.html", {"request": request, **ctx, "active": "check_live_promo"})
+    return templates.TemplateResponse(request, "check_live_promo.html", {**ctx, "active": "check_live_promo"})
 
 
 @app.get("/marketing", response_class=HTMLResponse)
@@ -317,7 +317,7 @@ async def page_marketing_overview(request: Request, access_token: Optional[str] 
     ctx["brand_name"] = _brand_name_for_user(user, f)
     ctx["brand_id"] = default_brand_id
     ctx["available_years"] = f.get("available_years") or [2024, 2025]
-    return templates.TemplateResponse("marketing/overview.html", {"request": request, **ctx, "active": "marketing"})
+    return templates.TemplateResponse(request, "marketing/overview.html", {**ctx, "active": "marketing"})
 
 
 @app.get("/marketing/segments", response_class=HTMLResponse)
@@ -346,7 +346,7 @@ async def page_marketing_segments(request: Request, access_token: Optional[str] 
         ctx["brands"] = f.get("brands") or []
         ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
         ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
-    return templates.TemplateResponse("marketing/segments.html", {"request": request, **ctx, "active": "marketing"})
+    return templates.TemplateResponse(request, "marketing/segments.html", {**ctx, "active": "marketing"})
 
 
 @app.get("/marketing/needstates", response_class=HTMLResponse)
@@ -373,7 +373,7 @@ async def page_marketing_needstates(request: Request, access_token: Optional[str
     from app.services.marketing import get_needstates_spider_precalc_for_template
 
     ctx["needstates_precalc"] = get_needstates_spider_precalc_for_template()
-    return templates.TemplateResponse("marketing/needstates.html", {"request": request, **ctx, "active": "marketing"})
+    return templates.TemplateResponse(request, "marketing/needstates.html", {**ctx, "active": "marketing"})
 
 
 @app.get("/marketing/media-preferences", response_class=HTMLResponse)
@@ -393,7 +393,7 @@ async def page_marketing_media_preferences(request: Request, access_token: Optio
     from app.services.marketing import get_media_preferences
 
     ctx["media_preferences_precalc"] = get_media_preferences()
-    return templates.TemplateResponse("marketing/media_preferences.html", {"request": request, **ctx, "active": "marketing"})
+    return templates.TemplateResponse(request, "marketing/media_preferences.html", {**ctx, "active": "marketing"})
 
 
 @app.get("/marketing/purchasing", response_class=HTMLResponse)
@@ -410,7 +410,7 @@ async def page_marketing_purchasing(request: Request, access_token: Optional[str
     if not segs:
         segs = [{"segment_id": i, "segment_name": n} for i, n in [(1,"Liberals"),(2,"Optimistic Doers"),(3,"Go-Getters"),(4,"Outcasts"),(5,"Contributors"),(6,"Floaters")]]
     ctx["segments"] = segs
-    return templates.TemplateResponse("marketing/purchasing.html", {"request": request, **ctx, "active": "marketing"})
+    return templates.TemplateResponse(request, "marketing/purchasing.html", {**ctx, "active": "marketing"})
 
 
 @app.get("/promo", response_class=HTMLResponse)
@@ -422,7 +422,7 @@ async def page_promo(request: Request, access_token: Optional[str] = Cookie(None
     if tab_redirect:
         return tab_redirect
     f = await _filters()
-    return templates.TemplateResponse("promo.html", {"request": request, **_page_ctx(f, user), "active": "promo"})
+    return templates.TemplateResponse(request, "promo.html", {**_page_ctx(f, user), "active": "promo"})
 
 
 @app.get("/customer", response_class=HTMLResponse)
@@ -434,7 +434,7 @@ async def page_customer(request: Request, access_token: Optional[str] = Cookie(N
     if tab_redirect:
         return tab_redirect
     f = await _filters()
-    return templates.TemplateResponse("customer.html", {"request": request, **_page_ctx(f, user), "active": "customer"})
+    return templates.TemplateResponse(request, "customer.html", {**_page_ctx(f, user), "active": "customer"})
 
 
 @app.get("/simulation", response_class=HTMLResponse)
@@ -446,7 +446,7 @@ async def page_simulation(request: Request, access_token: Optional[str] = Cookie
     if tab_redirect:
         return tab_redirect
     f = await _filters()
-    return templates.TemplateResponse("simulation.html", {"request": request, **_page_ctx(f, user), "active": "simulation"})
+    return templates.TemplateResponse(request, "simulation.html", {**_page_ctx(f, user), "active": "simulation"})
 
 
 @app.get("/compare", response_class=HTMLResponse)
@@ -458,7 +458,7 @@ async def page_compare(request: Request, access_token: Optional[str] = Cookie(No
     if tab_redirect:
         return tab_redirect
     f = await _filters()
-    return templates.TemplateResponse("compare.html", {"request": request, **_page_ctx(f, user), "active": "compare"})
+    return templates.TemplateResponse(request, "compare.html", {**_page_ctx(f, user), "active": "compare"})
 
 
 @app.get("/products", response_class=HTMLResponse)
@@ -470,7 +470,7 @@ async def page_products(request: Request, access_token: Optional[str] = Cookie(N
     if tab_redirect:
         return tab_redirect
     f = await _filters()
-    return templates.TemplateResponse("products.html", {"request": request, **_page_ctx(f, user), "active": "products"})
+    return templates.TemplateResponse(request, "products.html", {**_page_ctx(f, user), "active": "products"})
 
 
 @app.get("/ecosystem/{eco_id}", response_class=HTMLResponse)
@@ -497,7 +497,7 @@ async def page_ecosystem(eco_id: int, request: Request, access_token: Optional[s
     ctx["ecosystem"] = eco_dict
     ctx["ecosystem_category_ids"] = cat_ids
     ctx["ecosystem_brand_ids"] = brand_ids
-    return templates.TemplateResponse("ecosystem.html", {"request": request, **ctx, "active": f"eco_{eco_id}"})
+    return templates.TemplateResponse(request, "ecosystem.html", {**ctx, "active": f"eco_{eco_id}"})
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -523,7 +523,7 @@ async def page_admin(request: Request, access_token: Optional[str] = Cookie(None
     ctx["subcategories"] = subcategories
     ctx["brands"] = brands
     ctx["brands_json"] = json.dumps(brands)
-    return templates.TemplateResponse("admin.html", {"request": request, **ctx, "active": "admin"})
+    return templates.TemplateResponse(request, "admin.html", {**ctx, "active": "admin"})
 
 
 @app.get("/help", response_class=HTMLResponse)
@@ -533,7 +533,7 @@ async def page_help(request: Request, access_token: Optional[str] = Cookie(None)
         return redirect
     ctx = _page_ctx({}, user)
     ctx["glossary"] = _load_glossary()
-    return templates.TemplateResponse("help.html", {"request": request, **ctx, "active": None})
+    return templates.TemplateResponse(request, "help.html", {**ctx, "active": None})
 
 
 # --- API ---
