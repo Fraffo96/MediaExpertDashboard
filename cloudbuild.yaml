@@ -37,8 +37,12 @@ steps:
           ENV_VARS="$${ENV_VARS},${_EXTRA_ENV_VARS}"
         fi
         if [ -n "${_BRAND_LOGOS_PUBLIC_BASE}" ]; then
-          ENV_VARS="$${ENV_VARS},BRAND_LOGOS_PUBLIC_BASE=${_BRAND_LOGOS_PUBLIC_BASE}"
+          BRAND_BASE="${_BRAND_LOGOS_PUBLIC_BASE}"
+        else
+          BRAND_BASE="https://storage.googleapis.com/${_PROJECT_ID}-brand-logos/brands"
         fi
+        ENV_VARS="$${ENV_VARS},BRAND_LOGOS_PUBLIC_BASE=$${BRAND_BASE}"
+        ENV_VARS="$${ENV_VARS},BRAND_LOGOS_CACHE_VERSION=${SHORT_SHA}"
         if [ -n "${_FIRESTORE_DATABASE}" ]; then
           ENV_VARS="$${ENV_VARS},FIRESTORE_DATABASE=${_FIRESTORE_DATABASE}"
         fi
