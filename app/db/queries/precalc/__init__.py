@@ -1,0 +1,122 @@
+"""
+Query che leggono dalle tabelle precalcolate (precalc_*).
+Usate quando il periodo è anno intero (ps=YYYY-01-01, pe=YYYY-12-31).
+Re-export per backward compatibility: from app.db.queries.precalc import ...
+"""
+from app.db.queries.precalc.base import (
+    query_brand_all_subcategories_from_precalc,
+    query_brand_categories_from_precalc,
+    query_brand_subcategories_from_precalc,
+    query_competitors_in_scope_from_precalc,
+)
+from app.db.queries.precalc.common import (
+    get_multi_year_full_years,
+    is_full_year_period,
+)
+from app.db.queries.precalc.sales import (
+    query_sales_value_volume_by_category_from_precalc,
+    query_sales_value_by_category_from_precalc,
+    query_sales_volume_by_category_from_precalc,
+    query_sales_value_volume_by_subcategory_from_precalc,
+    query_sales_value_by_subcategory_from_precalc,
+    query_sales_volume_by_subcategory_from_precalc,
+    query_sales_by_brand_in_all_categories_all_channels_from_precalc,
+    query_sales_by_brand_in_all_categories_from_precalc,
+    query_sales_by_brand_in_all_subcategories_all_channels_from_precalc,
+    query_sales_by_brand_in_all_subcategories_from_precalc,
+    query_sales_pie_bc_categories_all_channels_from_precalc,
+    query_sales_pie_bc_subcategories_all_channels_from_precalc,
+    query_sales_by_brand_in_all_categories_bc_from_precalc,
+    query_sales_by_brand_in_all_subcategories_bc_from_precalc,
+)
+from app.db.queries.precalc.promo import (
+    query_promo_share_bc_all_channels_from_precalc,
+    query_promo_share_sub_bc_all_channels_from_precalc,
+    query_promo_roi_bc_all_categories_from_precalc,
+    query_promo_share_mi_all_channels_from_precalc,
+    query_promo_share_sub_mi_all_channels_from_precalc,
+    query_promo_roi_mi_all_from_precalc,
+    query_promo_share_by_category_brand_vs_competitor_from_precalc,
+    query_promo_share_by_subcategory_brand_vs_competitor_from_precalc,
+    query_promo_roi_brand_vs_competitor_from_precalc,
+    query_promo_share_by_category_brand_vs_media_from_precalc,
+    query_promo_share_by_subcategory_brand_vs_media_from_precalc,
+    query_promo_roi_brand_vs_media_from_precalc,
+)
+from app.db.queries.precalc.peak import (
+    query_peak_bc_raw_all_from_precalc,
+    query_peak_mi_raw_all_from_precalc,
+    query_peak_events_brand_vs_competitor_from_precalc,
+    query_peak_events_brand_vs_media_from_precalc,
+)
+from app.db.queries.precalc.discount import (
+    query_discount_depth_brand_vs_competitor_all_categories_from_precalc,
+    query_discount_depth_for_all_subcategories_bc_from_precalc,
+    query_discount_depth_brand_vs_media_from_precalc,
+    query_discount_depth_for_all_subcategories_from_precalc,
+)
+from app.db.queries.precalc.prev_year import (
+    query_sales_pct_by_brand_prev_year_categories_all_channels_from_precalc,
+    query_sales_pct_by_brand_prev_year_categories_from_precalc,
+    query_sales_pct_by_brand_prev_year_subcategories_all_channels_from_precalc,
+    query_sales_pct_by_brand_prev_year_subcategories_from_precalc,
+)
+from app.db.queries.precalc.misc import (
+    query_roi_benchmark_by_type_from_precalc,
+    query_category_discount_benchmark_from_precalc,
+    query_incremental_yoy_vendite_from_precalc,
+    query_incremental_yoy_vendite_multi_year_from_precalc,
+    query_top_competitor_roi_from_precalc,
+)
+
+__all__ = [
+    "get_multi_year_full_years",
+    "is_full_year_period",
+    "query_brand_categories_from_precalc",
+    "query_brand_all_subcategories_from_precalc",
+    "query_brand_subcategories_from_precalc",
+    "query_competitors_in_scope_from_precalc",
+    "query_sales_value_volume_by_category_from_precalc",
+    "query_sales_value_by_category_from_precalc",
+    "query_sales_volume_by_category_from_precalc",
+    "query_sales_value_volume_by_subcategory_from_precalc",
+    "query_sales_value_by_subcategory_from_precalc",
+    "query_sales_volume_by_subcategory_from_precalc",
+    "query_sales_by_brand_in_all_categories_all_channels_from_precalc",
+    "query_sales_by_brand_in_all_categories_from_precalc",
+    "query_sales_by_brand_in_all_subcategories_all_channels_from_precalc",
+    "query_sales_by_brand_in_all_subcategories_from_precalc",
+    "query_sales_pie_bc_categories_all_channels_from_precalc",
+    "query_sales_pie_bc_subcategories_all_channels_from_precalc",
+    "query_sales_by_brand_in_all_categories_bc_from_precalc",
+    "query_sales_by_brand_in_all_subcategories_bc_from_precalc",
+    "query_promo_share_bc_all_channels_from_precalc",
+    "query_promo_share_sub_bc_all_channels_from_precalc",
+    "query_promo_roi_bc_all_categories_from_precalc",
+    "query_promo_share_mi_all_channels_from_precalc",
+    "query_promo_share_sub_mi_all_channels_from_precalc",
+    "query_promo_roi_mi_all_from_precalc",
+    "query_promo_share_by_category_brand_vs_competitor_from_precalc",
+    "query_promo_share_by_subcategory_brand_vs_competitor_from_precalc",
+    "query_promo_roi_brand_vs_competitor_from_precalc",
+    "query_promo_share_by_category_brand_vs_media_from_precalc",
+    "query_promo_share_by_subcategory_brand_vs_media_from_precalc",
+    "query_promo_roi_brand_vs_media_from_precalc",
+    "query_peak_bc_raw_all_from_precalc",
+    "query_peak_mi_raw_all_from_precalc",
+    "query_peak_events_brand_vs_competitor_from_precalc",
+    "query_peak_events_brand_vs_media_from_precalc",
+    "query_discount_depth_brand_vs_competitor_all_categories_from_precalc",
+    "query_discount_depth_for_all_subcategories_bc_from_precalc",
+    "query_discount_depth_brand_vs_media_from_precalc",
+    "query_discount_depth_for_all_subcategories_from_precalc",
+    "query_sales_pct_by_brand_prev_year_categories_all_channels_from_precalc",
+    "query_sales_pct_by_brand_prev_year_categories_from_precalc",
+    "query_sales_pct_by_brand_prev_year_subcategories_all_channels_from_precalc",
+    "query_sales_pct_by_brand_prev_year_subcategories_from_precalc",
+    "query_roi_benchmark_by_type_from_precalc",
+    "query_category_discount_benchmark_from_precalc",
+    "query_incremental_yoy_vendite_from_precalc",
+    "query_incremental_yoy_vendite_multi_year_from_precalc",
+    "query_top_competitor_roi_from_precalc",
+]

@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Promo Performance – MediaExpert Insights{% endblock %}
+{% block page_title %}Promo Performance{% endblock %}
+
+{% block extra_filters %}
+{% if user and (user.is_admin or 'promo_type' in allowed_filters) %}
+<label title="Filter by promo type">Promo Type
+  <select name="promo_type" id="f-promo-type">
+    <option value="">All</option>
+    {% for pt in promo_types %}
+    <option value="{{ pt.promo_type }}">{{ pt.promo_type }} – {{ pt.promo_mechanic }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}
+{% if user and (user.is_admin or 'category' in allowed_filters) %}
+<label title="Filter by category">Category
+  <select name="category_id" id="f-category">
+    <option value="">All</option>
+    {% for c in categories %}
+    <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}
+{% if user and (user.is_admin or 'segment' in allowed_filters) %}
+<label title="Filter by segment">Segment
+  <select name="segment_id" id="f-segment">
+    <option value="">All</option>
+    {% for s in segments %}
+    <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Promotion performance by type and category: uplift, ROI and incremental sales. Compare promo timeline vs baseline.</p>
+
+<!-- KPI -->
+<div class="kpi-row" data-widget-id="kpi-row" data-widget-label="KPI">
+  <div class="kpi-card">
+    <div class="kpi-label">Total Promo Sales <span class="info-icon" title="{{ glossary.get('attributed_sales', '') }}">i</span></div>
+    <div class="kpi-value yellow" id="kpi-promo-sales">--</div>
+    <div class="kpi-sub">PLN attributed to promo</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg Uplift <span class="info-icon" title="{{ glossary.get('uplift', '') }}">i</span></div>
+    <div class="kpi-value green" id="kpi-avg-uplift">--</div>
+    <div class="kpi-sub">% increase vs baseline</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg ROI <span class="info-icon" title="{{ glossary.get('roi', '') }}">i</span></div>
+    <div class="kpi-value amber" id="kpi-avg-roi">--</div>
+    <div class="kpi-sub">return on investment</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Total Cost <span class="info-icon" title="{{ glossary.get('total_cost', '') }}">i</span></div>
+    <div class="kpi-value blue" id="kpi-total-cost">--</div>
+    <div class="kpi-sub">discount + media</div>
+  </div>
+</div>
+
+<!-- Charts row -->
+<div class="charts-grid">
+  <div class="chart-card" data-widget-id="chartByType" data-widget-label="Performance by Promo Type">
+    <h3>Performance by Promo Type <span class="info-icon" title="{{ glossary.get('performance_by_promo_type', '') }}">i</span></h3>
+    <div class="chart-container"><canvas id="chartByType"></canvas></div>
+  </div>
+  <div class="chart-card" data-widget-id="chartUpliftCat" data-widget-label="Uplift by Category">
+    <h3>Uplift by Category <span class="info-icon" title="{{ glossary.get('uplift_by_category', '') }}">i</span></h3>
+    <div class="chart-container"><canvas id="chartUpliftCat"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <h3>ROI vs Discount Depth <span class="info-icon" title="Each bar is a promo: X = avg discount %, Y = ROI.">i</span></h3>
+    <div class="chart-container"><canvas id="chartRoiDiscount"></canvas></div>
+  </div>
+  <div class="chart-card full" data-widget-id="chartTimeline" data-widget-label="Promo Timeline vs Baseline">
+    <h3>Promo Timeline vs Baseline <span class="info-icon" title="{{ glossary.get('promo_timeline_baseline', '') }}">i</span></h3>
+    <div class="chart-container" style="min-height:240px;"><canvas id="chartTimeline"></canvas></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.DASHBOARD_ID = 'promo';
+(function () {
+  var chByType, chUpliftCat, chTimeline, chRoiDiscount;
+
+  function initCharts() {
+    var grouped = Object.assign({}, BAR_OPT, {
+      plugins: { legend: { display: true, position: 'top', labels: { color: '#999', font: { size: 13 } } } }
+    });
+    chByType    = new Chart(document.getElementById('chartByType'),    { type: 'bar',  data: { labels: [], datasets: [] }, options: grouped });
+    chUpliftCat = new Chart(document.getElementById('chartUpliftCat'), { type: 'bar',  data: { labels: [], datasets: [] }, options: HBAR_OPT });
+    chRoiDiscount = new Chart(document.getElementById('chartRoiDiscount'), {
+      type: 'bar',
+      data: { labels: [], datasets: [], roi_by_discount_rows: [] },
+      options: Object.assign({}, BAR_OPT, {
+        plugins: {
+          legend: { display: false },
+          tooltip: Object.assign({}, CHART_TOOLTIP, {
+            callbacks: {
+              label: function(context) {
+                var rows = context.chart.data.roi_by_discount_rows;
+                var r = rows && rows[context.dataIndex];
+                if (!r) return (context.dataset.label || '') + ': ' + fmtRoi(context.parsed.y);
+                return [
+                  'Avg discount: ' + Number(r.avg_discount_depth_pct).toFixed(1) + '%',
+                  'ROI: ' + fmtRoi(r.roi),
+                  'Cost: ' + fmt(r.total_cost_pln) + ' PLN',
+                  'Sales: ' + fmt(r.attributed_sales_pln) + ' PLN'
+                ];
+              }
+            }
+          })
+        },
+        scales: {
+          x: { grid: { color: '#2a2a2a' }, ticks: { color: '#999', font: { size: 12 }, maxRotation: 45 } },
+          y: { grid: { color: '#2a2a2a' }, ticks: { color: '#999', font: { size: 12 }, callback: function(v) { return (v * 100).toFixed(0) + '%'; } } }
+        }
+      })
+    });
+    chTimeline  = new Chart(document.getElementById('chartTimeline'),  { type: 'line', data: { labels: [], datasets: [] }, options: Object.assign({}, LINE_OPT, {
+      plugins: { legend: { display: true, position: 'top', labels: { color: '#999', font: { size: 13 } } } }
+    }) });
+  }
+
+  function updateKPIs(kpi) {
+    var k = (kpi || [])[0] || {};
+    document.getElementById('kpi-promo-sales').textContent = k.total_promo_sales != null ? fmt(k.total_promo_sales) + ' PLN' : '--';
+    document.getElementById('kpi-avg-uplift').textContent  = k.avg_uplift_pct != null ? fmtPct(k.avg_uplift_pct) : '--';
+    document.getElementById('kpi-avg-roi').textContent     = k.avg_roi != null ? fmtRoi(k.avg_roi) : '--';
+    document.getElementById('kpi-total-cost').textContent   = k.total_cost != null ? fmt(k.total_cost) + ' PLN' : '--';
+  }
+
+  function updateCharts(data) {
+    var bt = data.by_type || [];
+    setChart(chByType,
+      bt.map(function (r) { return r.promo_type; }),
+      [
+        { label: 'Attributed', data: bt.map(function (r) { return r.attributed_sales; }), backgroundColor: COLORS.yellow, borderWidth: 0 },
+        { label: 'Incremental', data: bt.map(function (r) { return r.incremental_sales; }), backgroundColor: COLORS.green, borderWidth: 0 }
+      ]
+    );
+
+    var uc = data.uplift_by_category || [];
+    setChart(chUpliftCat,
+      uc.map(function (r) { return r.category_name; }),
+      [{ label: 'Avg Uplift %', data: uc.map(function (r) { return r.avg_uplift; }), backgroundColor: COLORS.cat10.slice(0, uc.length), borderWidth: 0 }]
+    );
+
+    var tl = data.timeline || [];
+    setChart(chTimeline,
+      tl.map(function (r) { return r.date; }),
+      [
+        { label: 'Attributed', data: tl.map(function (r) { return r.attributed; }), borderColor: COLORS.yellow, backgroundColor: 'rgba(255,215,0,0.08)', fill: true, tension: 0.3, pointRadius: 0 },
+        { label: 'Baseline',   data: tl.map(function (r) { return r.baseline; }),   borderColor: COLORS.slate,  backgroundColor: 'rgba(100,116,139,0.08)', fill: true, tension: 0.3, pointRadius: 0 }
+      ]
+    );
+
+    var rbd = data.roi_by_discount || [];
+    if (chRoiDiscount) {
+      chRoiDiscount.data.roi_by_discount_rows = rbd;
+      chRoiDiscount.data.labels = rbd.map(function (r) { return (r.promo_name || 'Promo ' + r.promo_id).substring(0, 20); });
+      chRoiDiscount.data.datasets = [{
+        label: 'ROI', data: rbd.map(function (r) { return Number(r.roi) || 0; }),
+        backgroundColor: COLORS.amber, borderWidth: 0
+      }];
+      chRoiDiscount.update();
+    }
+  }
+
+  async function loadData() {
+    showLoading(true); showError('');
+    try {
+      var data = await fetchAPI('/api/promo');
+      updateKPIs(data.kpi);
+      updateCharts(data);
+    } catch (e) {
+      showError('Error: ' + e.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  window.loadData = loadData;
+  initCharts();
+  loadData();
+})();
+</script>
+{% endblock %}

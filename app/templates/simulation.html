@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Simulation – MediaExpert Insights{% endblock %}
+{% block page_title %}Simulation{% endblock %}
+
+{% block extra_filters %}
+{% if user and user.is_admin or 'category' in allowed_filters or not allowed_filters %}
+<label title="Filter by category">Category
+  <select name="category_id" id="f-cat">
+    <option value="">All</option>
+    {% for c in categories %}
+    <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}
+{% if user and user.is_admin or 'segment' in allowed_filters or not allowed_filters %}
+<label title="Filter by segment">Segment
+  <select name="segment_id" id="f-seg">
+    <option value="">All</option>
+    {% for s in segments %}
+    <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Simulate the impact of a promotion (type, discount, duration) on sales and uplift using historical data.</p>
+
+<!-- Simulation controls -->
+<div class="sim-controls" data-widget-id="simControls" data-widget-label="Simulation Controls">
+  <div class="sim-control">
+    <label for="sim-promo-type">Promo Type</label>
+    <select id="sim-promo-type" style="width:100%;padding:0.4rem;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;">
+      {% for pt in promo_types %}
+      <option value="{{ pt.promo_type }}">{{ pt.promo_type }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="sim-control">
+    <label for="sim-discount">Discount Depth: <strong id="sim-discount-val">15%</strong></label>
+    <input type="range" id="sim-discount" min="5" max="50" value="15" step="1">
+  </div>
+  <div class="sim-control">
+    <label for="sim-duration">Duration (days): <strong id="sim-duration-val">7</strong></label>
+    <input type="range" id="sim-duration" min="3" max="30" value="7" step="1">
+  </div>
+</div>
+
+<!-- KPI row -->
+<div class="kpi-row" data-widget-id="kpi-row" data-widget-label="KPI">
+  <div class="kpi-card">
+    <div class="kpi-label">Baseline Daily Sales</div>
+    <div class="kpi-value blue" id="kpi-baseline">--</div>
+    <div class="kpi-sub">PLN / day</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Estimated Promo Daily</div>
+    <div class="kpi-value green" id="kpi-promo-daily">--</div>
+    <div class="kpi-sub">PLN / day</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Projected Uplift</div>
+    <div class="kpi-value amber" id="kpi-uplift">--</div>
+    <div class="kpi-sub" id="kpi-uplift-sub">vs baseline</div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="charts-grid">
+  <div class="chart-card" data-widget-id="chartUplift" data-widget-label="Historical Uplift by Type">
+    <h3>Historical Uplift by Promo Type</h3>
+    <div class="chart-container"><canvas id="chartUplift"></canvas></div>
+  </div>
+  <div class="chart-card" data-widget-id="chartResponse" data-widget-label="Response Rate by Segment">
+    <h3>Response Rate by Segment</h3>
+    <div class="chart-container"><canvas id="chartResponse"></canvas></div>
+  </div>
+  <div class="chart-card full" data-widget-id="chartProjection" data-widget-label="Sales Projection">
+    <h3>Sales Projection</h3>
+    <div class="chart-container"><canvas id="chartProjection"></canvas></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.DASHBOARD_ID = 'simulation';
+(function () {
+  var chartUplift, chartResponse, chartProjection;
+  var apiData = null;
+  var discountSlider = document.getElementById('sim-discount');
+  var durationSlider = document.getElementById('sim-duration');
+  var discountVal = document.getElementById('sim-discount-val');
+  var durationVal = document.getElementById('sim-duration-val');
+
+  function initCharts() {
+    chartUplift = new Chart(document.getElementById('chartUplift'), { type: 'bar', data: { labels: [], datasets: [] }, options: BAR_OPT });
+    chartResponse = new Chart(document.getElementById('chartResponse'), { type: 'bar', data: { labels: [], datasets: [] }, options: BAR_OPT });
+    chartProjection = new Chart(document.getElementById('chartProjection'), {
+      type: 'bar', data: { labels: [], datasets: [] },
+      options: Object.assign({}, BAR_OPT, { plugins: { legend: { display: true, position: 'bottom', labels: { color: '#999', font: { size: 13 } } } } })
+    });
+  }
+
+  function recalculate() {
+    if (!apiData) return;
+    var baseline = apiData.baseline || [];
+    var upliftData = apiData.uplift_by_type || [];
+    var selectedType = document.getElementById('sim-promo-type').value;
+    var discountDepth = parseFloat(discountSlider.value);
+    var duration = parseInt(durationSlider.value, 10);
+    var bl = baseline[0] || {};
+    var avgBaselineDaily = bl.avg_baseline_daily || 0;
+    var avgDiscount = bl.avg_discount || 1;
+    var typeRow = upliftData.find(function (r) { return r.promo_type === selectedType; });
+    var avgUplift = typeRow ? typeRow.avg_uplift : 0;
+    var estimatedDaily = avgBaselineDaily * (1 + avgUplift / 100) * (discountDepth / (avgDiscount || 1));
+    var upliftPct = avgBaselineDaily > 0 ? ((estimatedDaily - avgBaselineDaily) / avgBaselineDaily * 100) : 0;
+    document.getElementById('kpi-baseline').textContent = fmt(avgBaselineDaily) + ' PLN';
+    document.getElementById('kpi-promo-daily').textContent = fmt(estimatedDaily) + ' PLN';
+    document.getElementById('kpi-uplift').textContent = (upliftPct >= 0 ? '+' : '') + upliftPct.toFixed(1) + '%';
+    setChart(chartProjection,
+      ['Baseline (' + duration + 'd)', 'Simulated scenario'],
+      [{ label: 'Baseline', data: [avgBaselineDaily * duration, null], backgroundColor: COLORS.blue, borderWidth: 0 },
+       { label: 'Simulated', data: [null, estimatedDaily * duration], backgroundColor: COLORS.yellow, borderWidth: 0 }]
+    );
+  }
+
+  function updateStaticCharts(data) {
+    var uplift = data.uplift_by_type || [];
+    setChart(chartUplift, uplift.map(function (r) { return r.promo_type; }),
+      [{ label: 'Avg uplift %', data: uplift.map(function (r) { return r.avg_uplift; }), backgroundColor: COLORS.cat10.slice(0, uplift.length), borderWidth: 0 }]);
+    var resp = data.segment_response || [];
+    setChart(chartResponse, resp.map(function (r) { return r.segment_name; }),
+      [{ label: 'Conversion rate %', data: resp.map(function (r) { return r.conversion_rate; }), backgroundColor: COLORS.segments.slice(0, resp.length), borderWidth: 0 }]);
+  }
+
+  discountSlider.addEventListener('input', function () { discountVal.textContent = this.value + '%'; recalculate(); });
+  durationSlider.addEventListener('input', function () { durationVal.textContent = this.value; recalculate(); });
+  document.getElementById('sim-promo-type').addEventListener('change', recalculate);
+
+  async function loadData() {
+    showLoading(true); showError('');
+    try {
+      var extra = {};
+      var cat = document.getElementById('f-cat');
+      var seg = document.getElementById('f-seg');
+      if (cat && cat.value) extra.category_id = cat.value;
+      if (seg && seg.value) extra.segment_id = seg.value;
+      apiData = await fetchAPI('/api/simulation', extra);
+      updateStaticCharts(apiData);
+      recalculate();
+    } catch (e) {
+      showError('Error: ' + e.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  initCharts();
+  loadData();
+  window.loadData = loadData;
+})();
+</script>
+{% endblock %}

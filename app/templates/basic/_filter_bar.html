@@ -1,0 +1,68 @@
+<form id="filter-form" class="basic-filter-bar" onsubmit="event.preventDefault(); var c=window.BasicCore; if(c&&typeof c.applyFiltersOrRefetch==='function') c.applyFiltersOrRefetch();">
+  {% if user and (user.is_admin or 'period' in allowed_filters or not allowed_filters) %}
+  <label title="Start date">From <input type="date" name="period_start" value="{{ period_start }}"></label>
+  <label title="End date">To <input type="date" name="period_end" value="{{ period_end }}"></label>
+  {% endif %}
+  {% if user and (user.is_admin or 'category' in allowed_filters or not allowed_filters) %}
+  <label title="Filter by parent category">Category
+    <select name="category_id" id="filter-category-id">
+      <option value="">All</option>
+      {% for c in categories %}
+      {% if c.level == 1 %}
+      <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+      {% endif %}
+      {% endfor %}
+    </select>
+  </label>
+  <label title="Filter by subcategory">Subcategory
+    <select name="subcategory_id" id="filter-subcategory-id">
+      <option value="">All</option>
+      {% for s in subcategories or [] %}
+      <option value="{{ s.category_id }}" data-parent="{{ s.parent_category_id }}">{{ s.category_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if user and (user.is_admin or 'segment' in allowed_filters or not allowed_filters) %}
+  <label title="Filter by segment">Segment
+    <select name="segment_id">
+      <option value="">All</option>
+      {% for s in segments %}
+      <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if user and (user.is_admin or 'gender' in allowed_filters or not allowed_filters) %}
+  <label title="Filter by gender">Gender
+    <select name="gender">
+      <option value="">All</option>
+      {% for g in genders %}
+      <option value="{{ g.gender }}">{{ g.gender }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if user and (user.is_admin or 'brand' in allowed_filters or not allowed_filters) %}
+  <label title="Filter by brand">Brand
+    <select name="brand_id">
+      <option value="">All</option>
+      {% for b in brands %}
+      <option value="{{ b.brand_id }}">{{ b.brand_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if user and (user.is_admin or 'channel' in allowed_filters or not allowed_filters) %}
+  <label title="Filter by channel (buyer analytics only)">Channel
+    <select name="channel">
+      <option value="">All</option>
+      <option value="web">Web</option>
+      <option value="app">App</option>
+      <option value="store">Store</option>
+    </select>
+  </label>
+  {% endif %}
+  <button type="submit" class="filter-apply-btn">Apply</button>
+</form>
+<p id="channel-filter-note" class="channel-filter-note" role="status" aria-live="polite" style="display:none;"></p>

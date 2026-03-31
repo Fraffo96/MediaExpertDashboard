@@ -1,0 +1,23 @@
+<div class="chart-card full mi-layout-3col" data-widget-id="mi-segment-sku" data-widget-label="Segment by SKU">
+  <div class="mi-col-left">
+    <h3 class="mi-chart-title">7. Segment by SKU</h3>
+    <p class="mi-chart-desc">Select a SKU to see which customer segments buy it.</p>
+    <div class="mi-segment-sku-controls">
+      <label>Year: <div id="mi-year-segment-sku" class="mi-dropdown-container"></div></label>
+      <label>Channel: <div id="mi-channel-segment-sku" class="mi-dropdown-container"></div></label>
+      <label>Category: <div id="mi-segment-sku-category-select" class="mi-dropdown-container"></div></label>
+      <label>Subcategory: <div id="mi-segment-sku-subcategory-select" class="mi-dropdown-container"></div></label>
+      <label>SKU: <div id="mi-segment-sku-product-select" class="mi-dropdown-container mi-dropdown-product-sku"></div></label>
+      <label>Metric: <div id="mi-segment-sku-metric" class="mi-dropdown-container"></div></label>
+    </div>
+  </div>
+  <div class="mi-col-center">
+    <div class="chart-wrap mi-pie-chart-wrap">
+      <div class="chart-loading" data-chart-scope="segment-sku"><div class="chart-spinner"></div></div>
+      <canvas id="chart-segment-sku"></canvas>
+    </div>
+  </div>
+  <div class="mi-col-right" id="mi-segment-sku-info">
+    <div class="mi-info-panel" id="mi-segment-sku-key-insight"></div>
+  </div>
+</div>

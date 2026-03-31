@@ -1,0 +1,77 @@
+<div class="dashboard-section" data-widget-id="section-cat" data-widget-label="Category Performance">
+  <div class="section-header">
+    <span class="section-badge cat">1</span>
+    <h2>Category Performance</h2>
+  </div>
+  <div class="charts-grid">
+    <div class="chart-card" data-widget-id="chartSales" data-widget-label="Sales">
+      <div class="chart-header">
+        <h3>Sales</h3>
+        <div class="chart-controls-bar" role="group" aria-label="Sales chart controls">
+          <div class="chart-control-group">
+            <span class="chart-control-label">Group by</span>
+            <select class="chart-dimension-select" data-chart="chartSales" id="dimension-chartSales" aria-label="Group by">
+              <option value="category">Parent categories</option>
+              <option value="subcategory">Subcategories</option>
+              <option value="brand">Brand</option>
+              <option value="segment">Segment</option>
+              <option value="year">Year</option>
+              <option value="gender">Gender</option>
+            </select>
+          </div>
+          <div class="chart-control-group">
+            <span class="chart-control-label">Metric</span>
+            <select class="chart-metric-select" data-chart="chartSales" id="metric-chartSales" aria-label="Metric">
+              <option value="gross_pln">Sales (PLN)</option>
+              <option value="units">Units</option>
+            </select>
+          </div>
+          <div class="chart-control-group">
+            <span class="chart-control-label">Show</span>
+            <select class="chart-display-select" data-chart="chartSales" id="topn-chartSales" aria-label="Top N">
+              <option value="10">Top 10</option>
+              <option value="20">Top 20</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartSales"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="chartPromoShare" data-widget-label="Promo Share">
+      <div class="chart-header">
+        <h3>Promo Share <span class="help-icon" title="How promo-dependent is each category? 'Filter by' (shared with Promo ROI and Avg Discount) can filter by Brand, Category, Subcategory, Segment, Gender or Channel.">ⓘ</span></h3>
+        <div class="chart-controls-bar" role="group" aria-label="Promo Share chart controls">
+          <div class="chart-control-group">
+            <span class="chart-control-label">Group by</span>
+            <select class="chart-dimension-select" data-chart="chartPromoShare" id="dimension-chartPromoShare" aria-label="Group by">
+              <option value="category">Parent categories</option>
+              <option value="subcategory">Subcategories</option>
+            </select>
+          </div>
+          <div class="chart-control-group filter-pair inline">
+            <div class="chart-control-group">
+              <span class="chart-control-label">Filter by</span>
+              <select id="chart-filter-type" class="chart-filter-select" aria-label="Filter view by">
+                <option value="">All</option>
+                <option value="brand">Brand</option>
+                <option value="category">Category</option>
+                <option value="subcategory">Subcategory</option>
+                <option value="segment">Segment</option>
+                <option value="gender">Gender</option>
+                <option value="channel">Channel</option>
+              </select>
+            </div>
+            <div class="chart-control-group chart-control-value" hidden>
+              <span class="chart-control-label">Value</span>
+              <select id="chart-filter-value" class="chart-filter-value" aria-label="Select value">
+                <option value="">All</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartPromoShare"></canvas></div>
+    </div>
+  </div>
+</div>

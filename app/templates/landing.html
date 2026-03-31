@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Home – MediaExpert Insights{% endblock %}
+{% block page_title %}{% endblock %}
+{% block topbar_actions %}{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+{% set tabs = user.tab_list if user else [] %}
+{% set has_sales = 'market_intelligence' in tabs or 'brand_comparison' in tabs or 'promo_creator' in tabs or 'check_live_promo' in tabs %}
+{% set has_marketing = 'marketing' in tabs %}
+<div class="landing-page">
+  <p class="landing-greeting fade-in">Hello, {{ user.display_name or user.username }}. At Media Expert we believe in data based decision making. What can we do to help {{ brand_name }} achieve success?</p>
+  <p class="landing-question fade-in">What do you need to do?</p>
+
+  {% if has_sales %}
+  <div class="landing-tools-section fade-in">
+    <h2 class="landing-section-title">Tools Sales</h2>
+    <div class="landing-blocks">
+      {% if 'market_intelligence' in tabs %}
+      <a href="/market-intelligence" class="landing-block fade-in" data-delay="0.2">
+        <h3>I want to see how the market is going</h3>
+        <p>Market Intelligence – sales, promo share, ROI and benchmarks by category</p>
+      </a>
+      {% endif %}
+      {% if 'brand_comparison' in tabs %}
+      <a href="/brand-comparison" class="landing-block fade-in" data-delay="0.3">
+        <h3>I want to compare my brand to a competitor</h3>
+        <p>Brand Comparison – head-to-head metrics and product deep dive</p>
+      </a>
+      {% endif %}
+      {% if 'promo_creator' in tabs %}
+      <a href="/promo-creator" class="landing-block fade-in" data-delay="0.4">
+        <h3>I want to plan a new promo</h3>
+        <p>Promo Simulator – design your promo with smart suggestions and benchmarks</p>
+      </a>
+      {% endif %}
+      {% if 'check_live_promo' in tabs %}
+      <a href="/check-live-promo" class="landing-block fade-in" data-delay="0.5">
+        <h3>I want to check how my promos are performing</h3>
+        <p>Check Live Promo – SKU-level performance and active promos</p>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if has_marketing %}
+  <div class="landing-tools-section fade-in">
+    <h2 class="landing-section-title">Tools Marketing</h2>
+    <div class="landing-blocks">
+      <a href="/marketing/overview" class="landing-block fade-in" data-delay="0.55">
+        <h3>I want to see segment mix by category</h3>
+        <p>Overview – how each segment buys your categories and subcategories</p>
+      </a>
+      <a href="/marketing/segments" class="landing-block fade-in" data-delay="0.6">
+        <h3>I want to understand customer segments</h3>
+        <p>Segment Summary – pain points, needstates, top categories and SKUs per segment</p>
+      </a>
+      <a href="/marketing/needstates" class="landing-block fade-in" data-delay="0.7">
+        <h3>I want to see needstates by category</h3>
+        <p>Needstates by Category – how each segment buys in each category</p>
+      </a>
+      <a href="/marketing/purchasing" class="landing-block fade-in" data-delay="0.8">
+        <h3>I want to analyze the purchasing journey</h3>
+        <p>Purchasing Process – channel mix, peak events, source and search intent</p>
+      </a>
+      <a href="/marketing/media-preferences" class="landing-block fade-in" data-delay="0.85">
+        <h3>I want to see media preferences by segment</h3>
+        <p>Media Preferences – social, TV, press and trade sites per segment</p>
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not has_sales and not has_marketing %}
+  <p class="landing-no-access fade-in">No tools are available for your account. Please contact your administrator.</p>
+  {% endif %}
+</div>
+{% endblock %}

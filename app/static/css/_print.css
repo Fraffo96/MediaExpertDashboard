@@ -1,0 +1,101 @@
+/* MediaExpert Insights – Stili per stampa/PDF */
+/* Mantiene tema scuro, nessuna riduzione di scala – stessa risoluzione dello schermo */
+
+@media print {
+  /* Forza il browser a stampare background e colori */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background: var(--bg) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Nessuna modifica a font-size o dimensioni – mantieni risoluzione schermo */
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Sidebar: nascondi per layout più pulito e più spazio al contenuto */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Area principale: full width senza margin per sidebar */
+  .page {
+    margin-left: 0 !important;
+    background: var(--bg) !important;
+  }
+
+  .content {
+    background: var(--bg) !important;
+  }
+
+  /* Chart cards Market Intelligence: hanno background transparent, forziamo scuro */
+  .mi-charts .chart-card,
+  .mi-charts .chart-wrap {
+    background: var(--bg-card) !important;
+  }
+
+  /* Cards, topbar, filter panel */
+  .topbar,
+  .filter-panel,
+  .filter-panel.open,
+  .card,
+  .kpi-card,
+  .chart-card,
+  .section-card,
+  .mi-summary-row,
+  .segment-card,
+  .pc-card,
+  .pc-suggestions-list,
+  .compare-card,
+  .landing-block,
+  .no-data-msg,
+  .glossary-item,
+  .products-table th {
+    background: var(--bg-card) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Canvas Chart.js: mantieni colori e dimensioni in stampa */
+  canvas {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Evita che elementi si spezzino tra pagine in modo brutto */
+  .card,
+  .chart-card,
+  .section-card,
+  .kpi-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Loading overlay e filter panel: nascondi in stampa */
+  .loading-overlay,
+  .filter-panel {
+    display: none !important;
+  }
+
+  /* Pulsante filtri: nascondi */
+  #btn-toggle-filters {
+    display: none !important;
+  }
+
+  /* Margini minimi, orientamento orizzontale (landscape) */
+  @page {
+    margin: 0.5cm;
+    size: A4 landscape;
+  }
+}

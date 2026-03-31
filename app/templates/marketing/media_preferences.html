@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Media Preferences – Marketing{% endblock %}
+{% block page_title %}Media Preferences{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Illustrative media mix by segment: social, comparison &amp; deal sites, AI in the path to purchase, and how receptive the segment is to being influenced vs influencing others.</p>
+
+<div class="mkt-media-page">
+  <div class="mkt-media-toolbar marketing-filter-bar mkt-media-filter">
+    <label class="mkt-media-segment-label">Segment <div id="mkt-media-segment" class="mi-dropdown-container"></div></label>
+  </div>
+
+  <div class="mkt-media-loading" id="mkt-media-loading">
+    <div class="chart-spinner"></div>
+    <p>Loading…</p>
+  </div>
+
+  <div id="mkt-media-content" class="mkt-media-dashboard" style="display:none;">
+    <div class="mkt-media-charts-col">
+      <p class="mkt-media-summary" id="mkt-media-summary"></p>
+
+      <div class="mkt-media-grid">
+        <section class="mkt-media-card">
+          <h3 class="mkt-media-card-title">Social media</h3>
+          <p class="mkt-media-card-desc">Where the segment actually spends scroll time.</p>
+          <div class="chart-wrap mkt-media-canvas-wrap"><canvas id="mkt-chart-social"></canvas></div>
+        </section>
+
+        <section class="mkt-media-card">
+          <h3 class="mkt-media-card-title">Comparison &amp; deal sites</h3>
+          <p class="mkt-media-card-desc">Price engines, reviews, and rankings before the buy.</p>
+          <div class="chart-wrap mkt-media-canvas-wrap"><canvas id="mkt-chart-comparison"></canvas></div>
+        </section>
+
+        <section class="mkt-media-card">
+          <h3 class="mkt-media-card-title">AI in the journey</h3>
+          <p class="mkt-media-card-desc">Chat assistants, retail bots, voice—illustrative share of touchpoints.</p>
+          <div class="chart-wrap mkt-media-canvas-wrap"><canvas id="mkt-chart-ai"></canvas></div>
+        </section>
+
+        <section class="mkt-media-card">
+          <h3 class="mkt-media-card-title">Inspired vs influences</h3>
+          <p class="mkt-media-card-desc">Relative lean: soaking through others’ content vs shaping what peers buy.</p>
+          <div class="chart-wrap mkt-media-canvas-wrap mkt-media-canvas-influence"><canvas id="mkt-chart-influence"></canvas></div>
+        </section>
+
+        <section class="mkt-media-card mkt-media-card-wide">
+          <h3 class="mkt-media-card-title">Beyond social</h3>
+          <p class="mkt-media-card-desc">TV, press, audio, retail &amp; owned channels (non-feed mix).</p>
+          <div class="chart-wrap mkt-media-canvas-wrap mkt-media-canvas-wide"><canvas id="mkt-chart-other"></canvas></div>
+        </section>
+      </div>
+    </div>
+
+    <aside class="mkt-media-takeouts mkt-key-takeouts" aria-label="Key take outs">
+      <h4>Key take outs</h4>
+      <ul class="mkt-media-takeouts-list" id="mkt-media-takeouts-list"></ul>
+    </aside>
+  </div>
+  <p id="mkt-media-empty" class="no-data-msg" style="display:none;">No profile for this segment.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DASHBOARD_ID = 'marketing_media';
+  window.MKT_MEDIA_SEGMENTS = {{ segments|tojson }};
+  window.MKT_MEDIA_PRECALC = {{ media_preferences_precalc|tojson }};
+</script>
+<script src="/static/js/market_intelligence/category-dropdown.js"></script>
+<script src="/static/js/marketing/media_preferences.js"></script>
+{% endblock %}

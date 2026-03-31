@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Glossary – MediaExpert Insights{% endblock %}
+{% block page_title %}Glossary{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Definitions of terms used across the dashboards. Hover over the <span class="info-icon">i</span> icons in each section for in-context explanations.</p>
+
+<div class="glossary-list">
+  {% for key, definition in glossary.items() %}
+  <div class="glossary-item">
+    <dt class="glossary-term">{{ key.replace('_', ' ').title() }}</dt>
+    <dd class="glossary-def">{{ definition }}</dd>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

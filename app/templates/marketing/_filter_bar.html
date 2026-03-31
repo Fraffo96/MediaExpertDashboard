@@ -1,0 +1,8 @@
+<form id="filter-form" class="marketing-filter-bar" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
+  {% block marketing_date_filters %}
+  <label title="Start date">From <input type="date" name="period_start" value="{{ period_start }}" id="f-ps"></label>
+  <label title="End date">To <input type="date" name="period_end" value="{{ period_end }}" id="f-pe"></label>
+  {% endblock %}
+  {% block marketing_extra_filters %}{% endblock %}
+  <button type="submit" class="filter-apply-btn">Apply</button>
+</form>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Needstates by Category – Marketing{% endblock %}
+{% block page_title %}Needstates by Category{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<div class="mkt-needstates-page">
+  {% include "marketing/_filter_bar_needstates.html" %}
+
+  <div id="mkt-needstates-container" class="mkt-needstates-container">
+    <div class="mkt-needstates-loading" id="mkt-needstates-loading">
+      <div class="chart-spinner"></div>
+      <p>Loading needstates…</p>
+    </div>
+    <div id="mkt-needstates-charts" class="mkt-needstates-charts" style="display:none;">
+      <div class="mkt-needstates-chart-wrap">
+        <h3>Needstate Profile</h3>
+        <p class="mkt-section-desc" id="mkt-needstates-subtitle">How this segment buys in this category</p>
+        <div class="chart-wrap mkt-spider-wrap">
+          <canvas id="mkt-needstates-chart"></canvas>
+        </div>
+      </div>
+      <div class="mkt-key-takeouts" id="mkt-needstates-takeouts-wrap">
+        <h4>Key Take Outs</h4>
+        <div id="mkt-needstates-takeouts"></div>
+      </div>
+    </div>
+  </div>
+
+  <p id="mkt-needstates-no-data" class="no-data-msg" style="display:none;">Select category and segment.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DASHBOARD_ID = 'marketing_needstates';
+  window.MKT_CATEGORIES = {{ categories|tojson }};
+  /* Spider precalcolato (10 categorie × 6 segmenti): niente round-trip API al cambio filtri */
+  window.MKT_NEEDSTATES_PRECALC = {{ needstates_precalc|tojson }};
+</script>
+<script src="/static/js/marketing/needstates.js"></script>
+{% endblock %}

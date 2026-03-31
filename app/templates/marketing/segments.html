@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Segment Summary – Marketing{% endblock %}
+{% block page_title %}Segment Summary{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Select a segment to see pain points, needstates, top categories and SKUs.</p>
+
+{% include "marketing/_filter_bar_segments.html" %}
+
+<div id="mkt-segments-grid" class="mkt-segments-grid mkt-segments-single">
+  <div class="mkt-segments-loading" id="mkt-segments-loading">
+    <div class="chart-spinner"></div>
+    <p>Loading segment data…</p>
+  </div>
+  <div id="mkt-segments-cards" class="mkt-segments-cards mkt-segment-single-layout" style="display:none;"></div>
+</div>
+
+<p id="mkt-segments-no-data" class="no-data-msg" style="display:none;">No data available for the selected segment.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DASHBOARD_ID = 'marketing_segments';
+  window.MKT_CATEGORIES = {{ categories|tojson }};
+  window.MKT_SUBCATEGORIES = {{ subcategories|tojson }};
+</script>
+<script src="/static/js/marketing/segments.js"></script>
+{% endblock %}

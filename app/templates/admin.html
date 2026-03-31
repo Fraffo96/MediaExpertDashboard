@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+{% block title %}Admin – MediaExpert Insights{% endblock %}
+{% block page_title %}Admin Panel{% endblock %}
+
+{% block topbar_actions %}{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<div class="admin-panel">
+  <div class="admin-tabs">
+    <button type="button" class="admin-tab active" data-tab="users" aria-selected="true">Users</button>
+    <button type="button" class="admin-tab" data-tab="ecosystems" aria-selected="false">Ecosystems</button>
+  </div>
+
+  <!-- USERS SECTION -->
+  <section id="admin-users" class="admin-section active">
+    <p class="admin-intro">Manage brand users. Admin account is separate and not listed here.</p>
+    <div class="admin-section-header">
+      <h2>User Management</h2>
+      <button type="button" class="admin-btn primary" id="btn-new-user" aria-label="Create new user">
+        <span class="btn-icon">+</span> New User
+      </button>
+    </div>
+
+    <div class="admin-search">
+      <input type="search" id="user-search" placeholder="Search users by name or username…" aria-label="Search users">
+    </div>
+
+    <div class="admin-table-wrap">
+      <table class="admin-table" role="grid">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Brand</th>
+            <th>Status</th>
+            <th>Access</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="user-list"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ECOSYSTEMS SECTION -->
+  <section id="admin-ecosystems" class="admin-section">
+    <div class="admin-section-header">
+      <h2>Ecosystems</h2>
+      <button type="button" class="admin-btn primary" id="btn-new-eco" aria-label="Create new ecosystem">
+        <span class="btn-icon">+</span> New Ecosystem
+      </button>
+    </div>
+
+    <div class="admin-search">
+      <input type="search" id="eco-search" placeholder="Search ecosystems…" aria-label="Search ecosystems">
+    </div>
+
+    <div class="admin-table-wrap">
+      <table class="admin-table" role="grid">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Scope</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="eco-list"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- Toast container -->
+<div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
+
+<!-- Modal: Create/Edit User -->
+<div id="user-modal" class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title" aria-hidden="true">
+  <div class="admin-modal-backdrop"></div>
+  <div class="admin-modal-dialog">
+    <div class="admin-modal-header">
+      <h3 id="user-modal-title">Create User</h3>
+      <button type="button" class="admin-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <form id="user-form" class="admin-modal-body">
+      <input type="hidden" id="eu-id">
+      <div class="admin-form-row">
+        <label for="nu-username">Username</label>
+        <input type="text" id="nu-username" name="username" required autocomplete="username" placeholder="jane.doe">
+      </div>
+      <div class="admin-form-row" id="row-display">
+        <label for="nu-display">Display Name</label>
+        <input type="text" id="nu-display" name="display_name" placeholder="Jane Doe">
+      </div>
+      <div class="admin-form-row" id="row-pw-new">
+        <label for="nu-password">Password</label>
+        <input type="password" id="nu-password" name="password" autocomplete="new-password" placeholder="••••••••">
+        <div id="pw-strength" class="pw-strength" aria-hidden="true">
+          <span class="pw-bar"></span>
+          <span class="pw-label"></span>
+        </div>
+      </div>
+      <div class="admin-form-row" id="row-pw-confirm">
+        <label for="nu-password-confirm">Confirm Password</label>
+        <input type="password" id="nu-password-confirm" autocomplete="new-password" placeholder="••••••••">
+      </div>
+      <div class="admin-form-row">
+        <label for="nu-brand">Brand <span class="admin-required">*</span></label>
+        <select id="nu-brand" name="brand_id" required>
+          <option value="">— Select brand —</option>
+          {% for b in brands %}
+          <option value="{{ b.brand_id }}">{{ b.brand_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="admin-form-section">
+        <h4>Access</h4>
+        <div class="admin-checkbox-grid" id="nu-access">
+          <label><input type="checkbox" value="sales_intelligence"> Sales Intelligence</label>
+          <label><input type="checkbox" value="marketing_insights"> Marketing Insights</label>
+        </div>
+      </div>
+      <div class="admin-form-row" id="row-active">
+        <label for="eu-active">Active</label>
+        <select id="eu-active">
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+
+      <div class="admin-form-section">
+        <h4>Categories <span class="admin-hint">(parent categories user can see)</span></h4>
+        <div class="admin-checkbox-grid grid-3" id="nu-categories">
+          {% for c in categories %}
+          <label><input type="checkbox" value="{{ c.category_id }}"> {{ c.category_name }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="admin-form-section">
+        <h4>Subcategories <span class="admin-hint">(optional: leave empty = all in selected categories)</span></h4>
+        <div class="admin-checkbox-grid grid-3" id="nu-subcategories">
+          {% for s in subcategories %}
+          <label data-parent="{{ s.parent_category_id }}"><input type="checkbox" value="{{ s.category_id }}"> {{ s.category_name }}</label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="admin-form-row" id="row-pw-edit">
+        <label for="eu-password">New Password <span class="admin-hint">(leave blank to keep)</span></label>
+        <input type="password" id="eu-password" autocomplete="new-password" placeholder="••••••••">
+      </div>
+    </form>
+    <div class="admin-modal-footer">
+      <button type="button" class="admin-btn secondary admin-modal-cancel">Cancel</button>
+      <button type="submit" form="user-form" class="admin-btn primary" id="user-save-btn">Create User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Create Ecosystem -->
+<div id="eco-modal" class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="eco-modal-title" aria-hidden="true">
+  <div class="admin-modal-backdrop"></div>
+  <div class="admin-modal-dialog admin-modal-lg">
+    <div class="admin-modal-header">
+      <h3 id="eco-modal-title">Create Ecosystem</h3>
+      <button type="button" class="admin-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <form id="eco-form" class="admin-modal-body">
+      <div class="admin-form-row">
+        <label for="ne-name">Name</label>
+        <input type="text" id="ne-name" name="name" required placeholder="Kitchen">
+      </div>
+      <div class="admin-form-row">
+        <label for="ne-desc">Description</label>
+        <input type="text" id="ne-desc" name="description" placeholder="Small kitchen appliances">
+      </div>
+      <div class="admin-form-section">
+        <h4>Categories</h4>
+        <div class="admin-checkbox-grid grid-3" id="ne-categories">
+          {% for c in categories %}
+          <label><input type="checkbox" value="{{ c.category_id }}"> {{ c.category_name }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="admin-form-section">
+        <h4>Brands</h4>
+        <div class="admin-checkbox-grid grid-3" id="ne-brands">
+          {% for b in brands %}
+          <label><input type="checkbox" value="{{ b.brand_id }}"> {{ b.brand_name }}</label>
+          {% endfor %}
+        </div>
+      </div>
+    </form>
+    <div class="admin-modal-footer">
+      <button type="button" class="admin-btn secondary admin-modal-cancel">Cancel</button>
+      <button type="submit" form="eco-form" class="admin-btn primary">Create Ecosystem</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirm Delete -->
+<div id="confirm-modal" class="admin-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-hidden="true">
+  <div class="admin-modal-backdrop"></div>
+  <div class="admin-modal-dialog admin-modal-sm">
+    <h3 id="confirm-title">Confirm</h3>
+    <p id="confirm-msg"></p>
+    <div class="admin-modal-footer">
+      <button type="button" class="admin-btn secondary" id="confirm-cancel">Cancel</button>
+      <button type="button" class="admin-btn danger" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>window.ADMIN_BRANDS = {{ brands_json | safe }};</script>
+<script>
+(function() {
+  var allEcosystems = [];
+  var brandMap = {};
+  (window.ADMIN_BRANDS || []).forEach(function(b) { brandMap[b.brand_id] = b.brand_name; });
+
+  function toast(msg, type) {
+    var el = document.getElementById('admin-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'admin-toast ' + (type || 'success');
+    el.setAttribute('aria-hidden', 'false');
+    clearTimeout(el._t);
+    el._t = setTimeout(function() { el.className = 'admin-toast'; el.setAttribute('aria-hidden', 'true'); }, 3500);
+  }
+
+  function getChecked(id) {
+    return Array.from(document.querySelectorAll('#' + id + ' input[type=checkbox]:checked:not(:disabled)')).map(function(cb) {
+      var v = cb.value; return isNaN(v) ? v : parseInt(v);
+    });
+  }
+  function getCheckedStr(id) {
+    return Array.from(document.querySelectorAll('#' + id + ' input[type=checkbox]:checked:not(:disabled)')).map(function(cb) { return cb.value; });
+  }
+  function setChecked(id, values) {
+    var cbs = document.querySelectorAll('#' + id + ' input[type=checkbox]:not(:disabled)');
+    cbs.forEach(function(cb) {
+      var v = isNaN(cb.value) ? cb.value : parseInt(cb.value);
+      cb.checked = (values || []).indexOf(v) !== -1;
+    });
+  }
+
+  function pwStrength(pw) {
+    if (!pw || pw.length < 1) return { score: 0, label: '' };
+    var s = 0;
+    if (pw.length >= 8) s++; if (pw.length >= 12) s++;
+    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+    if (/\d/.test(pw)) s++;
+    if (/[^a-zA-Z0-9]/.test(pw)) s++;
+    var labels = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
+    return { score: Math.min(s, 5), label: labels[s] };
+  }
+
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+    document.getElementById(id).setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    document.getElementById(id).setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function filterTable(tbodyId, searchId, fn) {
+    var search = document.getElementById(searchId);
+    var tbody = document.getElementById(tbodyId);
+    if (!search || !tbody) return;
+    search.addEventListener('input', function() {
+      var q = (search.value || '').toLowerCase();
+      Array.from(tbody.rows).forEach(function(row) {
+        row.style.display = fn(row, q) ? '' : 'none';
+      });
+    });
+  }
+
+  async function loadUsers() {
+    var r = await fetch('/api/admin/users');
+    var users = await r.json();
+    var tbody = document.getElementById('user-list');
+    tbody.innerHTML = users.map(function(u) {
+      var status = u.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-muted">Inactive</span>';
+      var brandName = (u.brand_id && brandMap[u.brand_id]) ? brandMap[u.brand_id] : '—';
+      var access = (u.access_types || []).map(function(a) {
+        return a === 'sales_intelligence' ? 'Sales Intelligence' : (a === 'marketing_insights' ? 'Marketing Insights' : a);
+      }).join(', ') || '—';
+      return '<tr data-username="' + (u.username || '').toLowerCase() + '" data-display="' + (u.display_name || '').toLowerCase() + '">' +
+        '<td><div class="user-cell"><span class="user-avatar">' + (u.display_name || u.username || '?').charAt(0).toUpperCase() + '</span>' +
+        '<div><strong>' + (u.display_name || u.username) + '</strong><span class="user-meta">' + u.username + '</span></div></div></td>' +
+        '<td>' + brandName + '</td>' +
+        '<td>' + status + '</td>' +
+        '<td>' + access + '</td>' +
+        '<td><div class="admin-actions"><button type="button" class="admin-btn small" onclick="window.editUser(' + u.id + ')">Edit</button>' +
+        '<button type="button" class="admin-btn small danger" onclick="window.confirmDeleteUser(' + u.id + ',\'' + (u.username || '').replace(/'/g, "\\'") + '\')">Delete</button></div></td></tr>';
+    }).join('');
+  }
+
+  async function loadEcosystems() {
+    var r = await fetch('/api/admin/ecosystems');
+    var allEcosystems = await r.json();
+    var tbody = document.getElementById('eco-list');
+    tbody.innerHTML = allEcosystems.map(function(e) {
+      var scope = (e.category_ids || []).length + ' cats · ' + (e.brand_ids || []).length + ' brands';
+      return '<tr data-name="' + (e.name || '').toLowerCase() + '">' +
+        '<td><strong>' + e.name + '</strong></td>' +
+        '<td>' + (e.description || '—') + '</td>' +
+        '<td>' + scope + '</td>' +
+        '<td><button type="button" class="admin-btn small danger" onclick="window.confirmDeleteEco(' + e.id + ',\'' + (e.name || '').replace(/'/g, "\\'") + '\')">Delete</button></td></tr>';
+    }).join('');
+  }
+
+  window.editUser = async function(id) {
+    var r = await fetch('/api/admin/users/' + id);
+    if (!r.ok) return;
+    var u = await r.json();
+    document.getElementById('user-modal-title').textContent = 'Edit User';
+    document.getElementById('eu-id').value = u.id;
+    document.getElementById('nu-username').value = u.username;
+    document.getElementById('nu-username').disabled = true;
+    document.getElementById('nu-display').value = u.display_name || '';
+    document.getElementById('nu-password').value = '';
+    document.getElementById('nu-password').required = false;
+    document.getElementById('nu-password-confirm').value = '';
+    document.getElementById('row-pw-new').style.display = 'none';
+    document.getElementById('row-pw-confirm').style.display = 'none';
+    document.getElementById('row-pw-edit').style.display = '';
+    document.getElementById('row-active').style.display = '';
+    document.getElementById('eu-password').value = '';
+    document.getElementById('nu-brand').value = u.brand_id || '';
+    document.getElementById('eu-active').value = u.is_active ? 'true' : 'false';
+    setChecked('nu-access', u.access_types || []);
+    setChecked('nu-categories', u.allowed_category_ids || []);
+    setChecked('nu-subcategories', u.allowed_subcategory_ids || []);
+    document.getElementById('user-save-btn').textContent = 'Save';
+    document.getElementById('pw-strength').setAttribute('aria-hidden', 'true');
+    openModal('user-modal');
+  };
+
+  function resetUserForm() {
+    document.getElementById('user-modal-title').textContent = 'Create User';
+    document.getElementById('user-form').reset();
+    document.getElementById('eu-id').value = '';
+    document.getElementById('nu-username').disabled = false;
+    document.getElementById('nu-username').required = true;
+    document.getElementById('nu-password').required = true;
+    document.getElementById('row-pw-new').style.display = '';
+    document.getElementById('row-pw-confirm').style.display = '';
+    document.getElementById('row-pw-edit').style.display = 'none';
+    document.getElementById('row-active').style.display = 'none';
+    document.getElementById('user-save-btn').textContent = 'Create User';
+    document.getElementById('pw-strength').setAttribute('aria-hidden', 'true');
+  }
+
+  document.getElementById('btn-new-user').onclick = function() {
+    resetUserForm();
+    setChecked('nu-categories', []);
+    setChecked('nu-subcategories', []);
+    openModal('user-modal');
+  };
+
+  document.getElementById('user-form').onsubmit = async function(e) {
+    e.preventDefault();
+    var id = document.getElementById('eu-id').value;
+    var isEdit = !!id;
+    var brandId = document.getElementById('nu-brand').value;
+    if (!brandId) { toast('Please select a brand', 'error'); return; }
+    var body = {
+      username: document.getElementById('nu-username').value,
+      display_name: document.getElementById('nu-display').value,
+      brand_id: parseInt(brandId),
+      access_types: getCheckedStr('nu-access'),
+      allowed_tabs: [],
+      allowed_filters: [],
+      allowed_category_ids: getChecked('nu-categories'),
+      allowed_subcategory_ids: getChecked('nu-subcategories')
+    };
+    if (!isEdit) {
+      body.password = document.getElementById('nu-password').value;
+      if (!body.password) { toast('Password is required', 'error'); return; }
+      if (body.password !== document.getElementById('nu-password-confirm').value) {
+        toast('Passwords do not match', 'error'); return;
+      }
+    } else {
+      body.is_active = document.getElementById('eu-active').value === 'true';
+      var pw = document.getElementById('eu-password').value;
+      if (pw) body.password = pw;
+    }
+    var url = isEdit ? '/api/admin/users/' + id : '/api/admin/users';
+    var method = isEdit ? 'PUT' : 'POST';
+    var r = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.ok) {
+      closeModal('user-modal');
+      loadUsers();
+      toast(isEdit ? 'User updated' : 'User created');
+    } else {
+      var d = await r.json();
+      toast(d.error || 'Error', 'error');
+    }
+  };
+
+  document.getElementById('nu-password').addEventListener('input', function() {
+    var s = pwStrength(this.value);
+    var el = document.getElementById('pw-strength');
+    if (s.score === 0) { el.setAttribute('aria-hidden', 'true'); return; }
+    el.setAttribute('aria-hidden', 'false');
+    el.querySelector('.pw-bar').style.width = (s.score * 20) + '%';
+    el.querySelector('.pw-label').textContent = s.label;
+    el.className = 'pw-strength pw-' + ['','weak','fair','good','strong','strong'][s.score];
+  });
+
+  window.confirmDeleteUser = function(id, name) {
+    document.getElementById('confirm-title').textContent = 'Delete User';
+    document.getElementById('confirm-msg').textContent = 'Delete user "' + name + '"? This cannot be undone.';
+    document.getElementById('confirm-ok').onclick = async function() {
+      await fetch('/api/admin/users/' + id, { method: 'DELETE' });
+      closeModal('confirm-modal');
+      loadUsers();
+      toast('User deleted');
+    };
+    openModal('confirm-modal');
+  };
+
+  document.getElementById('btn-new-eco').onclick = function() {
+    document.getElementById('eco-form').reset();
+    openModal('eco-modal');
+  };
+
+  document.getElementById('eco-form').onsubmit = async function(e) {
+    e.preventDefault();
+    var body = {
+      name: document.getElementById('ne-name').value,
+      description: document.getElementById('ne-desc').value,
+      category_ids: getChecked('ne-categories'),
+      brand_ids: getChecked('ne-brands')
+    };
+    var r = await fetch('/api/admin/ecosystems', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.ok) {
+      closeModal('eco-modal');
+      loadEcosystems();
+      toast('Ecosystem created');
+    } else {
+      var d = await r.json();
+      toast(d.error || 'Error', 'error');
+    }
+  };
+
+  window.confirmDeleteEco = function(id, name) {
+    document.getElementById('confirm-title').textContent = 'Delete Ecosystem';
+    document.getElementById('confirm-msg').textContent = 'Delete ecosystem "' + name + '"?';
+    document.getElementById('confirm-ok').onclick = async function() {
+      await fetch('/api/admin/ecosystems/' + id, { method: 'DELETE' });
+      closeModal('confirm-modal');
+      loadEcosystems();
+      toast('Ecosystem deleted');
+    };
+    openModal('confirm-modal');
+  };
+
+  document.querySelectorAll('.admin-modal-close, .admin-modal-cancel').forEach(function(btn) {
+    btn.onclick = function() {
+      var modal = btn.closest('.admin-modal');
+      if (modal) closeModal(modal.id);
+    };
+  });
+  document.querySelectorAll('.admin-modal-backdrop').forEach(function(bd) {
+    bd.onclick = function() { closeModal(bd.closest('.admin-modal').id); };
+  });
+  document.getElementById('confirm-cancel').onclick = function() { closeModal('confirm-modal'); };
+
+  document.querySelectorAll('.admin-tab').forEach(function(tab) {
+    tab.onclick = function() {
+      var t = tab.getAttribute('data-tab');
+      document.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
+      document.getElementById('admin-' + t).classList.add('active');
+    };
+  });
+
+  filterTable('user-list', 'user-search', function(row, q) {
+    if (!q) return true;
+    return (row.getAttribute('data-username') || '').indexOf(q) !== -1 || (row.getAttribute('data-display') || '').indexOf(q) !== -1;
+  });
+  filterTable('eco-list', 'eco-search', function(row, q) {
+    if (!q) return true;
+    return (row.getAttribute('data-name') || '').indexOf(q) !== -1;
+  });
+
+  loadUsers();
+  loadEcosystems();
+})();
+</script>
+{% endblock %}

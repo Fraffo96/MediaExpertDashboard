@@ -1,0 +1,239 @@
+{
+  "1": {
+    "name": "Liberals",
+    "summary": "Digital-first, wellness and sustainability-led discovery.",
+    "takeouts": [
+      "Social: strongest pull from short-form and creator wellness tech.",
+      "Comparison: uses reviews and eco-ratings before mid/high-ticket buys.",
+      "AI: often starts research with conversational tools, then narrows on retail sites.",
+      "Peers follow their picks—trend pace-setters more than passive scrollers."
+    ],
+    "social": [
+      { "label": "Instagram", "pct": 30 },
+      { "label": "TikTok", "pct": 22 },
+      { "label": "YouTube", "pct": 18 },
+      { "label": "Facebook", "pct": 14 },
+      { "label": "Pinterest", "pct": 10 },
+      { "label": "X / threads", "pct": 6 }
+    ],
+    "comparison_sites": [
+      { "label": "Ceneo / Skąpiec price", "pct": 32 },
+      { "label": "Opineo & Google reviews", "pct": 28 },
+      { "label": "Allegro smart rank", "pct": 22 },
+      { "label": "Benchmark.pl / editorial", "pct": 18 }
+    ],
+    "ai_touchpoints": [
+      { "label": "Chat-style AI (research)", "pct": 44 },
+      { "label": "Retailer AI assistant", "pct": 26 },
+      { "label": "Voice / smart display", "pct": 12 },
+      { "label": "Rarely / never", "pct": 18 }
+    ],
+    "influence": { "get_influenced": 28, "influencing_others": 72 },
+    "other_channels": [
+      { "label": "Lifestyle TV / streaming", "pct": 18 },
+      { "label": "Podcasts & newsletters", "pct": 16 },
+      { "label": "News portals (Onet / WP)", "pct": 20 },
+      { "label": "In-store + events", "pct": 14 },
+      { "label": "Print / long-form", "pct": 12 },
+      { "label": "Radio / audio", "pct": 10 },
+      { "label": "Retail apps CRM", "pct": 10 }
+    ]
+  },
+  "2": {
+    "name": "Optimistic Doers",
+    "summary": "Status-aware; blends social proof with mainstream Polish media.",
+    "takeouts": [
+      "Social: balanced Meta + polished creator content for ‘look & feel’.",
+      "Comparison: strong on Ceneo + Allegro before showing off purchases.",
+      "AI: growing use for spec compare and deal alerts—not only search.",
+      "Often sets the tone for friends and family—what they buy gets copied."
+    ],
+    "social": [
+      { "label": "Instagram", "pct": 28 },
+      { "label": "Facebook", "pct": 24 },
+      { "label": "TikTok", "pct": 18 },
+      { "label": "YouTube", "pct": 16 },
+      { "label": "LinkedIn", "pct": 10 },
+      { "label": "Snap / BeReal", "pct": 4 }
+    ],
+    "comparison_sites": [
+      { "label": "Ceneo", "pct": 30 },
+      { "label": "Allegro filters", "pct": 26 },
+      { "label": "Skąpiec", "pct": 22 },
+      { "label": "Rankings / ‘best of’ sites", "pct": 22 }
+    ],
+    "ai_touchpoints": [
+      { "label": "Chat-style AI", "pct": 38 },
+      { "label": "Retailer AI", "pct": 24 },
+      { "label": "Deal bots / alerts", "pct": 14 },
+      { "label": "Rarely / never", "pct": 24 }
+    ],
+    "influence": { "get_influenced": 34, "influencing_others": 66 },
+    "other_channels": [
+      { "label": "TVN / Polsat flagship", "pct": 22 },
+      { "label": "Glamour / lifestyle press", "pct": 14 },
+      { "label": "OOH & malls", "pct": 12 },
+      { "label": "Influencer collabs (off-platform)", "pct": 16 },
+      { "label": "Interia / news", "pct": 18 },
+      { "label": "Email from brands", "pct": 10 },
+      { "label": "Radio drive-time", "pct": 8 }
+    ]
+  },
+  "3": {
+    "name": "Go-Getters",
+    "summary": "Professional and productivity content; search and LinkedIn-heavy.",
+    "takeouts": [
+      "Social: LinkedIn + deep YouTube—less entertainment feeds.",
+      "Comparison: spec sheets, Benchmark.pl, B2B-style checklists.",
+      "AI: highest AI-assisted research; uses tools to shortlist fast.",
+      "Go-to advisors at work and among peers—recommendations carry real weight."
+    ],
+    "social": [
+      { "label": "LinkedIn", "pct": 28 },
+      { "label": "YouTube (long-form)", "pct": 26 },
+      { "label": "X / tech Twitter", "pct": 16 },
+      { "label": "Facebook groups (pro)", "pct": 12 },
+      { "label": "Instagram", "pct": 10 },
+      { "label": "Discord / Slack communities", "pct": 8 }
+    ],
+    "comparison_sites": [
+      { "label": "Benchmark.pl / PCWorld", "pct": 34 },
+      { "label": "Ceneo / Skąpiec", "pct": 28 },
+      { "label": "Manufacturer compare", "pct": 22 },
+      { "label": "B2B quote portals", "pct": 16 }
+    ],
+    "ai_touchpoints": [
+      { "label": "Chat-style AI (specs & ROI)", "pct": 52 },
+      { "label": "Retailer AI", "pct": 22 },
+      { "label": "Copilot / workspace AI", "pct": 14 },
+      { "label": "Rarely / never", "pct": 12 }
+    ],
+    "influence": { "get_influenced": 22, "influencing_others": 78 },
+    "other_channels": [
+      { "label": "Puls Biznesu / trade", "pct": 18 },
+      { "label": "TOK FM / news radio", "pct": 12 },
+      { "label": "Webinars & events", "pct": 16 },
+      { "label": "Google ecosystem", "pct": 22 },
+      { "label": "Retail pro desks", "pct": 14 },
+      { "label": "Podcasts", "pct": 12 },
+      { "label": "Email B2B", "pct": 6 }
+    ]
+  },
+  "4": {
+    "name": "Outcasts",
+    "summary": "Gaming, entertainment and deal communities; ad-light platforms.",
+    "takeouts": [
+      "Social: Discord, Twitch, Reddit—peer rooms over polish TV.",
+      "Comparison: deal aggregators + Allegro ‘okazje’ before impulse upgrades.",
+      "AI: sporadic; more meme/tools than shopping copilots."
+    ],
+    "social": [
+      { "label": "Discord", "pct": 24 },
+      { "label": "Twitch", "pct": 22 },
+      { "label": "Reddit", "pct": 18 },
+      { "label": "TikTok", "pct": 16 },
+      { "label": "YouTube gaming", "pct": 14 },
+      { "label": "X", "pct": 6 }
+    ],
+    "comparison_sites": [
+      { "label": "Allegro deals / rank", "pct": 36 },
+      { "label": "Ceneo flash lows", "pct": 28 },
+      { "label": "Promo aggregators", "pct": 22 },
+      { "label": "Gaming forums", "pct": 14 }
+    ],
+    "ai_touchpoints": [
+      { "label": "Chat-style AI", "pct": 22 },
+      { "label": "In-game / overlay tips", "pct": 18 },
+      { "label": "Retailer AI", "pct": 8 },
+      { "label": "Rarely / never", "pct": 52 }
+    ],
+    "influence": { "get_influenced": 58, "influencing_others": 42 },
+    "other_channels": [
+      { "label": "VOD / streaming ads", "pct": 18 },
+      { "label": "Gaming press (CD-Action)", "pct": 16 },
+      { "label": "Esport events", "pct": 14 },
+      { "label": "Peer LAN / cafe", "pct": 12 },
+      { "label": "Cable / esports TV", "pct": 14 },
+      { "label": "SMS / app pushes", "pct": 14 },
+      { "label": "Local gaming retail", "pct": 12 }
+    ]
+  },
+  "5": {
+    "name": "Contributors",
+    "summary": "Family-oriented TV, retail flyers and practical household media.",
+    "takeouts": [
+      "Social: local FB groups + practical YouTube (how-to).",
+      "Comparison: Ceneo + leaflets—price-per-use matters for family.",
+      "AI: cautiously curious; more likely via retailer apps than raw ChatGPT."
+    ],
+    "social": [
+      { "label": "Facebook groups", "pct": 32 },
+      { "label": "YouTube how-to", "pct": 22 },
+      { "label": "Instagram", "pct": 16 },
+      { "label": "TikTok", "pct": 12 },
+      { "label": "Messenger / WhatsApp", "pct": 12 },
+      { "label": "Pinterest", "pct": 6 }
+    ],
+    "comparison_sites": [
+      { "label": "Ceneo / Skąpiec", "pct": 34 },
+      { "label": "Allegro family buys", "pct": 28 },
+      { "label": "Muratordom & DIY compare", "pct": 22 },
+      { "label": "Parent review blogs", "pct": 16 }
+    ],
+    "ai_touchpoints": [
+      { "label": "Retailer AI (returns / size)", "pct": 28 },
+      { "label": "Chat-style AI", "pct": 22 },
+      { "label": "Voice on phone", "pct": 14 },
+      { "label": "Rarely / never", "pct": 36 }
+    ],
+    "influence": { "get_influenced": 70, "influencing_others": 30 },
+    "other_channels": [
+      { "label": "TVP / Polsat family", "pct": 24 },
+      { "label": "Store leaflets / Lidl", "pct": 20 },
+      { "label": "Muratordom press", "pct": 14 },
+      { "label": "Drive-time radio", "pct": 16 },
+      { "label": "Retail email", "pct": 12 },
+      { "label": "In-store demos", "pct": 8 },
+      { "label": "Parenting sites", "pct": 6 }
+    ]
+  },
+  "6": {
+    "name": "Floaters",
+    "summary": "Conservative media habits; in-store and traditional touchpoints.",
+    "takeouts": [
+      "Social: lighter use—Facebook utility more than discovery.",
+      "Comparison: price sites before big shops; trusts known portals over hype.",
+      "AI: lowest adoption; prefers staff, TV, and paper reassurance."
+    ],
+    "social": [
+      { "label": "Facebook", "pct": 38 },
+      { "label": "YouTube", "pct": 18 },
+      { "label": "Messenger / family chat", "pct": 16 },
+      { "label": "TikTok", "pct": 8 },
+      { "label": "Instagram", "pct": 12 },
+      { "label": "Other", "pct": 8 }
+    ],
+    "comparison_sites": [
+      { "label": "Ceneo / Skąpiec", "pct": 36 },
+      { "label": "Allegro (familiar UI)", "pct": 30 },
+      { "label": "Price portals (local)", "pct": 22 },
+      { "label": "Paper / TV price refs", "pct": 12 }
+    ],
+    "ai_touchpoints": [
+      { "label": "Rarely / never", "pct": 48 },
+      { "label": "Retailer AI (basic)", "pct": 26 },
+      { "label": "Chat-style AI", "pct": 16 },
+      { "label": "Voice", "pct": 10 }
+    ],
+    "influence": { "get_influenced": 82, "influencing_others": 18 },
+    "other_channels": [
+      { "label": "National TV news", "pct": 26 },
+      { "label": "In-store POS / staff", "pct": 22 },
+      { "label": "Gazeta Wyborcza / Fakt", "pct": 14 },
+      { "label": "Local radio", "pct": 12 },
+      { "label": "SMS / simple mobile web", "pct": 10 },
+      { "label": "Paper brochures", "pct": 10 },
+      { "label": "Retail loyalty post", "pct": 6 }
+    ]
+  }
+}

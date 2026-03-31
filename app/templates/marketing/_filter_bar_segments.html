@@ -1,0 +1,34 @@
+<form id="filter-form" class="marketing-filter-bar" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
+  <label title="Brand">Brand
+    <select name="brand_id" id="f-brand-id">
+      <option value="">All</option>
+      {% for b in brands %}
+      <option value="{{ b.brand_id }}" {% if default_brand_id and b.brand_id == default_brand_id %}selected{% endif %}>{{ b.brand_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label title="Category">Category
+    <select name="category_id" id="f-category-id">
+      <option value="">All</option>
+      {% for c in categories %}
+      <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label title="Subcategory">Subcategory
+    <select name="subcategory_id" id="f-subcategory-id">
+      <option value="">All</option>
+      {% for s in subcategories %}
+      <option value="{{ s.category_id }}" data-parent="{{ s.parent_category_id }}">{{ s.category_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label title="Segment">Segment
+    <select name="segment_id" id="f-segment-id">
+      {% for s in segments %}
+      <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="filter-apply-btn">Apply</button>
+</form>

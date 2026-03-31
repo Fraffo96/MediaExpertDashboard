@@ -1,0 +1,19 @@
+<form id="filter-form" class="marketing-filter-bar" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
+  <label title="Category">Category
+    <select name="category_id" id="f-category-id">
+      {% for c in categories %}
+      {% if c.level == 1 %}
+      <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+      {% endif %}
+      {% endfor %}
+    </select>
+  </label>
+  <label title="Segment">Segment
+    <select name="segment_id" id="f-segment-id">
+      {% for s in segments %}
+      <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="filter-apply-btn">Apply</button>
+</form>

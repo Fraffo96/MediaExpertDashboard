@@ -1,0 +1,18 @@
+# Cloud Scheduler job per pre-warming cache
+# Deploy: gcloud scheduler jobs create http prewarm-cache --config=deploy/cloud-scheduler-prewarm.yaml
+# Oppure usa scripts/setup-prewarm-scheduler.ps1
+
+# Sostituisci:
+# - PREWARM_TOKEN: stesso valore di PREWARM_TOKEN su Cloud Run
+# - SERVICE_URL: URL del servizio Cloud Run (es. https://dashboard-xxx-xxx.run.app)
+
+name: projects/mediaexpertdashboard/locations/europe-west1/jobs/prewarm-cache
+schedule: "0 * * * *"
+timeZone: "Europe/Rome"
+httpTarget:
+  uri: "https://SERVICE_URL/internal/prewarm"
+  httpMethod: GET
+  headers:
+    X-Prewarm-Token: "PREWARM_TOKEN"
+  oidcToken:
+    serviceAccountEmail: "mediaexpertdashboard@appspot.gserviceaccount.com"

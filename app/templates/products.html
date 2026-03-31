@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Products – MediaExpert Insights{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block topbar_actions %}
+<button class="refresh-btn" onclick="if(typeof loadProducts==='function')loadProducts();" title="Refresh data">
+  <img src="/static/img/favicon.png" alt="R">
+</button>
+{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Analyze product performance by brand. Select a brand to see sales by category/subcategory and top products.</p>
+
+<div class="products-controls" style="margin-bottom:1rem;">
+  <label style="font-size:.85rem; color:var(--text-muted);">Brand
+    <select id="prod-brand">
+      <option value="">-- Select brand --</option>
+      {% for b in brands %}
+      <option value="{{ b.brand_id }}">{{ b.brand_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label style="font-size:.85rem; color:var(--text-muted);">From <input type="date" id="prod-ps" value="{{ period_start }}"></label>
+  <label style="font-size:.85rem; color:var(--text-muted);">To <input type="date" id="prod-pe" value="{{ period_end }}"></label>
+  <button onclick="loadProducts()">Load</button>
+</div>
+
+<div id="products-results" style="display:none;">
+  <div class="charts-grid">
+    <div class="chart-card" data-widget-id="prodByCat" data-widget-label="Sales by Category">
+      <h3>Sales by Category / Subcategory</h3>
+      <div class="chart-container"><canvas id="chartProdByCat"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="prodTop" data-widget-label="Top Products">
+      <h3>Top 15 Products by Sales</h3>
+      <div class="chart-container"><canvas id="chartProdTop"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div id="products-placeholder" class="placeholder-msg">
+  <p>Select a brand and click Load to see product performance.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.DASHBOARD_ID = 'products';
+(function() {
+  var brands = {{ brands | tojson }};
+  var chByCat, chTop;
+
+  function initCharts() {
+    var barOpt = Object.assign({}, BAR_OPT, {
+      plugins: { legend: { display: true, position: 'top', labels: { color: '#999', font: { size: 13 } } }, tooltip: CHART_TOOLTIP }
+    });
+    chByCat = new Chart(document.getElementById('chartProdByCat'), {
+      type: 'bar',
+      data: { labels: [], datasets: [] },
+      options: barOpt
+    });
+    chTop = new Chart(document.getElementById('chartProdTop'), {
+      type: 'bar',
+      data: { labels: [], datasets: [] },
+      options: Object.assign({}, HBAR_OPT, {
+        plugins: { legend: { display: false }, tooltip: CHART_TOOLTIP },
+        indexAxis: 'y'
+      })
+    });
+  }
+
+  window.loadProducts = async function() {
+    var brandId = document.getElementById('prod-brand').value;
+    var ps = document.getElementById('prod-ps').value;
+    var pe = document.getElementById('prod-pe').value;
+
+    if (!brandId) {
+      showError('Please select a brand.');
+      return;
+    }
+
+    showLoading(true);
+    showError('');
+    try {
+      var url = '/api/products?period_start=' + ps + '&period_end=' + pe + '&brand_id=' + brandId;
+      var r = await fetch(url);
+      var data = await r.json();
+
+      document.getElementById('products-results').style.display = '';
+      document.getElementById('products-placeholder').style.display = 'none';
+
+      var byCat = data.by_category || [];
+      var labels = byCat.map(function(r) { return (r.parent_category_name || '') + ' > ' + (r.subcategory_name || ''); });
+      var values = byCat.map(function(r) { return (r.gross_pln || 0); });
+      setChart(chByCat, labels, [
+        { label: 'Sales (PLN)', data: values, backgroundColor: COLORS.cat10, borderWidth: 0 }
+      ]);
+
+      var top = data.top_products || [];
+      var topLabels = top.map(function(r) { return (r.product_name || '').substring(0, 40) + (r.product_name && r.product_name.length > 40 ? '...' : ''); });
+      var topValues = top.map(function(r) { return r.gross_pln || 0; });
+      setChart(chTop, topLabels, [
+        { label: 'Sales (PLN)', data: topValues, backgroundColor: COLORS.yellow, borderWidth: 0 }
+      ]);
+
+      chTop.options.plugins.tooltip.callbacks = {
+        afterLabel: function(ctx) {
+          var r = top[ctx.dataIndex];
+          if (!r) return '';
+          var parts = [];
+          if (r.units != null) parts.push('Units: ' + r.units);
+          if (r.promo_share_pct != null) parts.push('Promo share: ' + Number(r.promo_share_pct).toFixed(1) + '%');
+          if (r.avg_discount_pct != null) parts.push('Avg discount: ' + Number(r.avg_discount_pct).toFixed(1) + '%');
+          return parts.join(' | ');
+        }
+      };
+      chTop.update();
+    } catch (e) {
+      showError('Error loading products: ' + e.message);
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  initCharts();
+})();
+</script>
+{% endblock %}

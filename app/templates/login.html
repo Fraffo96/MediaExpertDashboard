@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login — MediaExpert Insights</title>
+  <link rel="icon" href="/static/img/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body { justify-content: center; align-items: center; min-height: 100vh; background: var(--bg); }
+    .login-box {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 2.5rem 2rem; width: 100%; max-width: 380px; text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    }
+    .login-box img { height: 40px; margin-bottom: .5rem; }
+    .login-box h1 { font-size: 1.4rem; color: var(--white); margin-bottom: .25rem; }
+    .login-box h1 .y { color: var(--yellow); }
+    .login-box .sub { font-size: .95rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .login-box label { display: block; text-align: left; font-size: .95rem; color: var(--text-muted); margin-bottom: .25rem; }
+    .login-box input {
+      width: 100%; padding: .55rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--bg-input); color: var(--text); font-size: 1rem; font-family: inherit; margin-bottom: .9rem;
+    }
+    .login-box input:focus { outline: none; border-color: var(--yellow); }
+    .login-box button {
+      width: 100%; padding: .6rem; background: var(--yellow); color: #000; border: none;
+      border-radius: var(--radius-sm); font-weight: 700; font-size: 1.05rem; cursor: pointer; font-family: inherit;
+    }
+    .login-box button:hover { background: #ffe033; }
+    .login-error { color: var(--red); font-size: .95rem; margin-bottom: .75rem; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <img src="/static/img/favicon.png" alt="ME">
+    <h1><span class="y">media</span>expert</h1>
+    <p class="sub">Insights Dashboard</p>
+    <p class="login-error">{{ error or '' }}</p>
+    <form method="POST" action="/login">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+      <button type="submit">Sign In</button>
+    </form>
+  </div>
+</body>
+</html>

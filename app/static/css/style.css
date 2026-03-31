@@ -1,24 +1,15 @@
-* { box-sizing: border-box; }
-body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #1e293b; }
-.header { background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); color: #fff; padding: 1.5rem 2rem; }
-.header h1 { margin: 0; font-size: 1.5rem; }
-.subtitle { margin: 0.25rem 0 0; opacity: 0.9; font-size: 0.9rem; }
-.main { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; }
-.filters { background: #fff; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.filter-form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
-.filter-form label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; }
-.filter-form input, .filter-form select { padding: 0.4rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; }
-.filter-form button { padding: 0.5rem 1rem; background: #1e3a5f; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-.filter-form button:hover { background: #2563eb; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-.card { background: #fff; border-radius: 8px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.card h3 { margin: 0 0 0.75rem; font-size: 1rem; color: #475569; }
-.chart-wrap { position: relative; height: 200px; }
-.big-value { font-size: 1.5rem; font-weight: 600; color: #10b981; margin: 0.5rem 0 0; }
-.table-section { background: #fff; border-radius: 8px; padding: 1rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.table-section h2 { margin: 0 0 1rem; font-size: 1.1rem; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
-th { background: #f1f5f9; font-weight: 600; }
-.footer { text-align: center; padding: 1rem; font-size: 0.8rem; color: #64748b; }
+/* MediaExpert Insights – Design System */
+/* Entry point: importa tutti i moduli CSS */
+@import url('_variables.css');
+@import url('_reset.css');
+@import url('_layout.css');
+@import url('_components.css');
+@import url('_charts.css');
+@import url('_market-intelligence.css');
+@import url('_brand-comparison.css');
+@import url('_admin.css');
+@import url('_promo-creator.css');
+@import url('_check-live-promo.css');
+@import url('_marketing.css');
+@import url('_pages.css');
+@import url('_print.css');

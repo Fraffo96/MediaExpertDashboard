@@ -1,0 +1,13 @@
+<form id="filter-form" class="marketing-filter-bar" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
+  <label title="Start date">From <input type="date" name="period_start" value="{{ period_start }}" id="f-ps"></label>
+  <label title="End date">To <input type="date" name="period_end" value="{{ period_end }}" id="f-pe"></label>
+  <label title="Filter by segment">Segment
+    <select name="segment_id" id="f-segment-id">
+      <option value="">All</option>
+      {% for s in segments %}
+      <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="filter-apply-btn">Apply</button>
+</form>

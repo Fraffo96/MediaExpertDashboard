@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Overview – Marketing{% endblock %}
+{% block page_title %}Marketing Overview{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Share of your brand’s sales by customer segment for a category and subcategory (full year).</p>
+
+<div class="chart-card full mi-layout-3col mkt-overview-layout" data-widget-id="mkt-overview-segments">
+  <div class="mi-col-left">
+    <h3 class="mi-chart-title">Segment mix by category</h3>
+    <p class="mi-chart-desc">Select year, scope and channel to see how each segment buys this category.</p>
+    <div class="mi-segment-sku-controls mkt-overview-controls">
+      <label>Year <div id="mkt-overview-year" class="mi-dropdown-container"></div></label>
+      <label>Channel <div id="mkt-overview-channel" class="mi-dropdown-container"></div></label>
+      <label>Category <div id="mkt-overview-category" class="mi-dropdown-container"></div></label>
+      <label>Subcategory <div id="mkt-overview-subcategory" class="mi-dropdown-container"></div></label>
+      <label>Metric <div id="mkt-overview-metric" class="mi-dropdown-container"></div></label>
+    </div>
+  </div>
+  <div class="mi-col-center">
+    <div class="chart-wrap mi-pie-chart-wrap">
+      <div class="chart-loading hidden" id="mkt-overview-loading"><div class="chart-spinner"></div></div>
+      <canvas id="mkt-overview-chart"></canvas>
+    </div>
+  </div>
+  <div class="mi-col-right" id="mkt-overview-info">
+    <div class="mi-info-panel" id="mkt-overview-key-insight"></div>
+  </div>
+</div>
+<p id="mkt-overview-no-brand" class="no-data-msg" style="display:{% if brand_id %}none{% else %}block{% endif %};">A brand is required for this view. Sign in with a brand user or assign a brand in Admin.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DASHBOARD_ID = 'marketing_overview';
+  window.MKT_OVERVIEW_BRAND_ID = {{ brand_id or 'null' }};
+  window.MKT_SUBCATEGORIES = {{ subcategories|tojson }};
+  window.MKT_BRAND_NAME = {{ (brand_name or '')|tojson }};
+  window.MKT_OVERVIEW_CATEGORIES = {{ categories|tojson }};
+  window.MKT_AVAILABLE_YEARS = {{ available_years|tojson }};
+</script>
+<script src="/static/js/market_intelligence/category-dropdown.js"></script>
+<script src="/static/js/marketing/overview.js"></script>
+{% endblock %}

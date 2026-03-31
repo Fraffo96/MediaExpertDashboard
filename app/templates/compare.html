@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Compare – MediaExpert Insights{% endblock %}
+{% block page_title %}Compare{% endblock %}
+
+{% block topbar_actions %}
+<button class="refresh-btn" onclick="if(typeof runCompare==='function')runCompare();" title="Run comparison">
+  <img src="/static/img/favicon.png" alt="R">
+</button>
+{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Compare two brands or categories side by side across sales, promo performance, market share and more.</p>
+
+<div class="compare-vs" style="margin-bottom:1rem;">
+  <label style="font-size:.85rem; color:var(--text-muted);">Type
+    <select id="cmp-type" onchange="updateSelectors()">
+      <option value="brand">Brand</option>
+      <option value="category">Category</option>
+    </select>
+  </label>
+  <label style="font-size:.85rem; color:var(--text-muted);">Item 1 <select id="cmp-id1"></select></label>
+  <label style="font-size:.85rem; color:var(--text-muted);">Item 2 <select id="cmp-id2"></select></label>
+  <label style="font-size:.85rem; color:var(--text-muted);">From <input type="date" id="cmp-ps" value="{{ period_start }}"></label>
+  <label style="font-size:.85rem; color:var(--text-muted);">To <input type="date" id="cmp-pe" value="{{ period_end }}"></label>
+  <button onclick="runCompare()">Compare</button>
+</div>
+
+<div id="compare-results" style="display:none;">
+  <!-- KPI comparison -->
+  <div class="compare-grid" data-widget-id="cmpKpi" data-widget-label="KPI Comparison">
+    <div class="compare-card">
+      <h4 id="cmp-name1" style="color:var(--yellow);">Item 1</h4>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+        <div class="compare-metric"><div class="val yellow" id="c1-sales">--</div><div class="lbl">Sales PLN</div></div>
+        <div class="compare-metric"><div class="val" id="c1-units">--</div><div class="lbl">Units</div></div>
+        <div class="compare-metric"><div class="val green" id="c1-promo">--</div><div class="lbl">Promo Share</div></div>
+        <div class="compare-metric"><div class="val amber" id="c1-disc">--</div><div class="lbl">Avg Discount</div></div>
+        <div class="compare-metric"><div class="val blue" id="c1-cats">--</div><div class="lbl">Categories</div></div>
+        <div class="compare-metric"><div class="val" id="c1-share">--</div><div class="lbl">Market Share</div></div>
+      </div>
+    </div>
+    <div class="compare-card">
+      <h4 id="cmp-name2" style="color:var(--blue);">Item 2</h4>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+        <div class="compare-metric"><div class="val blue" id="c2-sales">--</div><div class="lbl">Sales PLN</div></div>
+        <div class="compare-metric"><div class="val" id="c2-units">--</div><div class="lbl">Units</div></div>
+        <div class="compare-metric"><div class="val green" id="c2-promo">--</div><div class="lbl">Promo Share</div></div>
+        <div class="compare-metric"><div class="val amber" id="c2-disc">--</div><div class="lbl">Avg Discount</div></div>
+        <div class="compare-metric"><div class="val blue" id="c2-cats">--</div><div class="lbl">Categories</div></div>
+        <div class="compare-metric"><div class="val" id="c2-share">--</div><div class="lbl">Market Share</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts comparison -->
+  <div class="charts-grid">
+    <div class="chart-card" data-widget-id="cmpSales" data-widget-label="Sales Comparison">
+      <h3>Sales by Category</h3>
+      <div class="chart-container"><canvas id="chartCmpSales"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="cmpPeak" data-widget-label="Peak Events Comparison">
+      <h3>Peak Events</h3>
+      <div class="chart-container"><canvas id="chartCmpPeak"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="cmpPromo" data-widget-label="Promo Performance">
+      <h3>Promo Performance (Attributed Sales)</h3>
+      <div class="chart-container"><canvas id="chartCmpPromo"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="cmpYoy" data-widget-label="YoY Comparison">
+      <h3>YoY Trend</h3>
+      <div class="chart-container"><canvas id="chartCmpYoy"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div id="compare-placeholder" class="placeholder-msg">
+  <p>Select two items and click Compare to see a side-by-side analysis.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.DASHBOARD_ID = 'compare';
+(function() {
+  var brands = {{ brands | tojson }};
+  var categories = {{ categories | tojson }};
+
+  var chSales, chPeak, chPromo, chYoy;
+
+  function initCharts() {
+    var grouped = Object.assign({}, BAR_OPT, {
+      plugins: { legend: { display: true, position: 'top', labels: { color: '#999', font: { size: 13 } } }, tooltip: CHART_TOOLTIP }
+    });
+    chSales = new Chart(document.getElementById('chartCmpSales'), { type: 'bar', data: { labels:[], datasets:[] }, options: grouped });
+    chPeak  = new Chart(document.getElementById('chartCmpPeak'),  { type: 'bar', data: { labels:[], datasets:[] }, options: grouped });
+    chPromo = new Chart(document.getElementById('chartCmpPromo'), { type: 'bar', data: { labels:[], datasets:[] }, options: grouped });
+    chYoy   = new Chart(document.getElementById('chartCmpYoy'),   { type: 'bar', data: { labels:[], datasets:[] }, options: grouped });
+  }
+
+  window.updateSelectors = function() {
+    var type = document.getElementById('cmp-type').value;
+    var items = type === 'brand' ? brands : categories;
+    var idKey = type === 'brand' ? 'brand_id' : 'category_id';
+    var nameKey = type === 'brand' ? 'brand_name' : 'category_name';
+    var html = items.map(function(i) { return '<option value="'+i[idKey]+'">'+i[nameKey]+'</option>'; }).join('');
+    document.getElementById('cmp-id1').innerHTML = html;
+    document.getElementById('cmp-id2').innerHTML = html;
+    if (items.length > 1) document.getElementById('cmp-id2').selectedIndex = 1;
+  };
+
+  window.runCompare = async function() {
+    var type = document.getElementById('cmp-type').value;
+    var id1 = document.getElementById('cmp-id1').value;
+    var id2 = document.getElementById('cmp-id2').value;
+    var ps = document.getElementById('cmp-ps').value;
+    var pe = document.getElementById('cmp-pe').value;
+    var n1 = document.getElementById('cmp-id1').options[document.getElementById('cmp-id1').selectedIndex].text;
+    var n2 = document.getElementById('cmp-id2').options[document.getElementById('cmp-id2').selectedIndex].text;
+
+    showLoading(true);
+    try {
+      var url = '/api/compare?compare_type='+type+'&id1='+id1+'&id2='+id2+'&period_start='+ps+'&period_end='+pe;
+      var r = await fetch(url); var data = await r.json();
+
+      document.getElementById('compare-results').style.display = '';
+      document.getElementById('compare-placeholder').style.display = 'none';
+      document.getElementById('cmp-name1').textContent = n1;
+      document.getElementById('cmp-name2').textContent = n2;
+
+      var k1 = ((data.item1||{}).kpi||[])[0]||{};
+      var k2 = ((data.item2||{}).kpi||[])[0]||{};
+
+      var totalAll = Number(k1.total_gross||0) + Number(k2.total_gross||0);
+
+      document.getElementById('c1-sales').textContent = fmt(k1.total_gross) + ' PLN';
+      document.getElementById('c2-sales').textContent = fmt(k2.total_gross) + ' PLN';
+      document.getElementById('c1-units').textContent = fmt(k1.total_units);
+      document.getElementById('c2-units').textContent = fmt(k2.total_units);
+      document.getElementById('c1-promo').textContent = fmtPct(k1.promo_share_pct);
+      document.getElementById('c2-promo').textContent = fmtPct(k2.promo_share_pct);
+      document.getElementById('c1-disc').textContent = k1.avg_discount_depth != null ? Number(k1.avg_discount_depth).toFixed(1)+'%' : '--';
+      document.getElementById('c2-disc').textContent = k2.avg_discount_depth != null ? Number(k2.avg_discount_depth).toFixed(1)+'%' : '--';
+      document.getElementById('c1-cats').textContent = k1.n_categories || '--';
+      document.getElementById('c2-cats').textContent = k2.n_categories || '--';
+      document.getElementById('c1-share').textContent = totalAll > 0 ? (100*Number(k1.total_gross||0)/totalAll).toFixed(1)+'%' : '--';
+      document.getElementById('c2-share').textContent = totalAll > 0 ? (100*Number(k2.total_gross||0)/totalAll).toFixed(1)+'%' : '--';
+
+      var cats1 = (data.item1||{}).sales_by_category||[];
+      var cats2 = (data.item2||{}).sales_by_category||[];
+      var allCats = [...new Set(cats1.map(function(r){return r.category_name}).concat(cats2.map(function(r){return r.category_name})))].sort();
+      setChart(chSales, allCats, [
+        { label: n1, data: allCats.map(function(c){ var r = cats1.find(function(x){return x.category_name===c}); return r ? r.gross_pln : 0; }), backgroundColor: COLORS.yellow, borderWidth: 0 },
+        { label: n2, data: allCats.map(function(c){ var r = cats2.find(function(x){return x.category_name===c}); return r ? r.gross_pln : 0; }), backgroundColor: COLORS.blue, borderWidth: 0 }
+      ]);
+
+      var pk1 = (data.item1||{}).peak_events||[];
+      var pk2 = (data.item2||{}).peak_events||[];
+      var allPeaks = [...new Set(pk1.map(function(r){return r.peak_event}).concat(pk2.map(function(r){return r.peak_event})))];
+      setChart(chPeak, allPeaks, [
+        { label: n1, data: allPeaks.map(function(p){ var r = pk1.find(function(x){return x.peak_event===p}); return r ? r.gross_pln : 0; }), backgroundColor: COLORS.yellow, borderWidth: 0 },
+        { label: n2, data: allPeaks.map(function(p){ var r = pk2.find(function(x){return x.peak_event===p}); return r ? r.gross_pln : 0; }), backgroundColor: COLORS.blue, borderWidth: 0 }
+      ]);
+
+      var pt1 = (data.promo1||{}).by_type||[];
+      var pt2 = (data.promo2||{}).by_type||[];
+      var allTypes = [...new Set(pt1.map(function(r){return r.promo_type}).concat(pt2.map(function(r){return r.promo_type})))];
+      setChart(chPromo, allTypes, [
+        { label: n1, data: allTypes.map(function(t){ var r = pt1.find(function(x){return x.promo_type===t}); return r ? r.attributed_sales : 0; }), backgroundColor: COLORS.yellow, borderWidth: 0 },
+        { label: n2, data: allTypes.map(function(t){ var r = pt2.find(function(x){return x.promo_type===t}); return r ? r.attributed_sales : 0; }), backgroundColor: COLORS.blue, borderWidth: 0 }
+      ]);
+
+      var y1 = (data.item1||{}).yoy||[];
+      var y2 = (data.item2||{}).yoy||[];
+      var allYears = [...new Set(y1.map(function(r){return r.year}).concat(y2.map(function(r){return r.year})))].sort();
+      setChart(chYoy, allYears.map(String), [
+        { label: n1, data: allYears.map(function(y){ var r = y1.find(function(x){return x.year===y}); return r ? r.total_gross : 0; }), backgroundColor: COLORS.yellow, borderWidth: 0 },
+        { label: n2, data: allYears.map(function(y){ var r = y2.find(function(x){return x.year===y}); return r ? r.total_gross : 0; }), backgroundColor: COLORS.blue, borderWidth: 0 }
+      ]);
+
+    } catch(e) {
+      showError('Compare error: ' + e.message);
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  updateSelectors();
+  initCharts();
+})();
+</script>
+{% endblock %}

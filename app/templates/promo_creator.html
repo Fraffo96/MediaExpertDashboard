@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Promo Simulator – MediaExpert Insights{% endblock %}
+{% block page_title %}Promo Simulator{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Plan a new promo. Fill in the form and get smart suggestions based on category benchmarks and ROI history.</p>
+
+<div class="pc-layout">
+  {% include "promo_creator/_form.html" %}
+  {% include "promo_creator/_suggestions.html" %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>window.DASHBOARD_ID = 'promo_creator';</script>
+<script src="/static/js/promo_creator/core.js"></script>
+<script src="/static/js/promo_creator/filters.js"></script>
+<script src="/static/js/promo_creator/dashboard.js"></script>
+{% endblock %}

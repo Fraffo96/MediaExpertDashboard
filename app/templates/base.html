@@ -1,23 +1,384 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Media Expert Dashboard{% endblock %}</title>
+  <title>{% block title %}MediaExpert Insights{% endblock %}</title>
+  <link rel="icon" href="/static/img/favicon.png" type="image/png">
   <link rel="stylesheet" href="/static/css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/js/vendor/chart.umd.min.js"></script>
+  <script src="/static/js/chart-styles.js"></script>
 </head>
 <body>
-  <header class="header">
-    <h1>Media Expert Dashboard</h1>
-    <p class="subtitle">Dashboard vendite e promo – personalizzabile</p>
-  </header>
-  <main class="main">
-    {% block content %}{% endblock %}
-  </main>
-  <footer class="footer">
-    Dati da BigQuery (mart) · Progetto mediaexpertdashboard
-  </footer>
+  <div id="loading-overlay" class="loading-overlay" style="display:none;">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p>Loading data</p>
+    </div>
+  </div>
+
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <img src="/static/img/favicon.png" alt="ME">
+      <span><span class="logo-yellow">media</span>expert</span>
+    </div>
+    <div class="sidebar-nav">
+      {% set tabs = user.tab_list if user and not user.is_admin else [] %}
+      {% set admin_tabs = ['market_intelligence', 'brand_comparison', 'promo_creator', 'check_live_promo', 'marketing'] if user and user.is_admin else [] %}
+      {% set visible_tabs = tabs if tabs else admin_tabs %}
+
+      {% if user and not user.is_admin %}
+      <a href="/" class="{% if active == 'landing' %}active{% endif %}">
+        <span class="nav-dot"></span> Home
+      </a>
+      {% endif %}
+
+      {% set has_sales = 'market_intelligence' in visible_tabs or 'brand_comparison' in visible_tabs or 'promo_creator' in visible_tabs or 'check_live_promo' in visible_tabs %}
+      {% if has_sales %}
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section-label">Sales Access</div>
+      {% endif %}
+      {% if 'market_intelligence' in visible_tabs %}
+      <a href="/market-intelligence" class="{% if active == 'market_intelligence' %}active{% endif %}">
+        <span class="nav-dot"></span> Market Intelligence
+      </a>
+      {% endif %}
+      {% if 'brand_comparison' in visible_tabs %}
+      <a href="/brand-comparison" class="{% if active == 'brand_comparison' %}active{% endif %}">
+        <span class="nav-dot"></span> Brand Comparison
+      </a>
+      {% endif %}
+      {% if 'promo_creator' in visible_tabs %}
+      <a href="/promo-creator" class="{% if active == 'promo_creator' %}active{% endif %}">
+        <span class="nav-dot"></span> Promo Simulator
+      </a>
+      {% endif %}
+      {% if 'check_live_promo' in visible_tabs %}
+      <a href="/check-live-promo" class="{% if active == 'check_live_promo' %}active{% endif %}">
+        <span class="nav-dot"></span> Check Live Promo
+      </a>
+      {% endif %}
+
+      {% if 'marketing' in visible_tabs %}
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section-label">Marketing Access</div>
+      <a href="/marketing/overview" class="{% if active == 'marketing' and request.url.path and '/marketing/overview' in request.url.path %}active{% endif %}">
+        <span class="nav-dot"></span> Overview
+      </a>
+      <a href="/marketing/segments" class="{% if active == 'marketing' and request.url.path and '/marketing/segments' in request.url.path %}active{% endif %}">
+        <span class="nav-dot"></span> Segment Summary
+      </a>
+      <a href="/marketing/needstates" class="{% if active == 'marketing' and request.url.path and '/needstates' in request.url.path %}active{% endif %}">
+        <span class="nav-dot"></span> Needstates by Category
+      </a>
+      <a href="/marketing/purchasing" class="{% if active == 'marketing' and request.url.path and '/purchasing' in request.url.path %}active{% endif %}">
+        <span class="nav-dot"></span> Purchasing Process
+      </a>
+      <a href="/marketing/media-preferences" class="{% if active == 'marketing' and request.url.path and '/media-preferences' in request.url.path %}active{% endif %}">
+        <span class="nav-dot"></span> Media Preferences
+      </a>
+      {% endif %}
+
+      {% if user_ecosystems and not (user and user.is_admin) %}
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section-label">Ecosystems</div>
+      {% for eco in user_ecosystems %}
+      <a href="/ecosystem/{{ eco.id }}" class="{% if active == 'eco_' ~ eco.id|string %}active{% endif %}">
+        <span class="nav-dot eco"></span> {{ eco.name }}
+      </a>
+      {% endfor %}
+      {% endif %}
+
+      {% if user and user.is_admin %}
+      <div class="sidebar-divider"></div>
+      <a href="/admin" class="{% if active == 'admin' %}active{% endif %}">
+        <span class="nav-dot admin"></span> Admin
+      </a>
+      {% endif %}
+    </div>
+    <div class="sidebar-footer">
+      {% if user %}
+      <div class="sidebar-user">
+        <span class="sidebar-user-name">{{ user.display_name or user.username }}</span>
+        <span class="sidebar-user-role">{{ user.role }}</span>
+      </div>
+      {% if user.is_admin %}
+      <button type="button" class="sidebar-options-btn" id="btn-options" title="Opzioni" aria-label="Opzioni">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      {% endif %}
+      <a href="/logout" class="logout-btn">Sign Out</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <div class="page">
+    <div id="loading-bar" class="loading-bar" aria-hidden="true"></div>
+    <div class="topbar">
+      {% if active in ['market_intelligence', 'brand_comparison', 'promo_creator', 'check_live_promo', 'marketing'] %}
+      <a href="/" class="topbar-back" title="Back to Home">← Back</a>
+      {% endif %}
+      <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+      {% block topbar_actions %}
+      {% if user and user.can_recalculate %}
+      <button type="button" class="recalculate-btn" id="btn-recalculate" title="Re-calculate dashboards (aggiorna tabelle precalcolate quando cambiano i feed dati)">
+        Re-calculate
+      </button>
+      {% endif %}
+      <button class="refresh-btn" onclick="if(typeof loadData==='function')loadData();" title="Refresh data">
+        <img src="/static/img/favicon.png" alt="R">
+      </button>
+      {% endblock %}
+    </div>
+
+    <div id="widget-modal" class="widget-modal" aria-hidden="true">
+      <div class="widget-modal-content">
+        <h3>Blocks to show</h3>
+        <p class="widget-modal-desc">Select which widgets to display.</p>
+        <div id="widget-modal-list"></div>
+        <div class="widget-modal-actions">
+          <button type="button" class="widget-modal-save" id="widget-modal-save">Save</button>
+          <button type="button" class="widget-modal-cancel" id="widget-modal-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="content">
+        <p id="error-msg" class="error-msg"></p>
+        {% block content %}{% endblock %}
+      </div>
+
+      {% block filter_panel %}
+      <aside class="filter-panel" id="filter-panel">
+        <div class="filter-panel-header">
+          <h3>Filters</h3>
+          <button id="btn-close-filters" class="filter-close" title="Close">&times;</button>
+        </div>
+        <form id="filter-form" class="filter-form" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
+          {% if user and (user.is_admin or 'period' in allowed_filters or not allowed_filters) %}
+          <label>From <input type="date" name="period_start" value="{{ period_start }}" id="f-ps"></label>
+          <label>To <input type="date" name="period_end" value="{{ period_end }}" id="f-pe"></label>
+          {% endif %}
+          {% if user and (user.is_admin or 'gender' in allowed_filters) %}
+          <label>Gender
+            <select name="gender" id="f-gender">
+              <option value="">All</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+          </label>
+          {% endif %}
+          {% block extra_filters %}{% endblock %}
+          <button type="submit" class="filter-apply-btn">Apply</button>
+        </form>
+      </aside>
+      {% endblock %}
+    </div>
+
+    <div class="page-footer">
+      Data from BigQuery &middot; <a href="/help">Help</a> &middot; <a href="https://mediaexpert.pl" target="_blank">mediaexpert.pl</a>
+    </div>
+  </div>
+
+  <!-- Modal: Cambio password (solo admin) -->
+  <div id="options-modal" class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="options-modal-title" aria-hidden="true">
+    <div class="admin-modal-backdrop"></div>
+    <div class="admin-modal-dialog admin-modal-sm">
+      <div class="admin-modal-header">
+        <h3 id="options-modal-title">Opzioni</h3>
+        <button type="button" class="admin-modal-close" aria-label="Chiudi">&times;</button>
+      </div>
+      <form id="options-password-form" class="admin-modal-body">
+        <div class="admin-form-row">
+          <label for="opt-current-pw">Password attuale</label>
+          <input type="password" id="opt-current-pw" required autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <div class="admin-form-row">
+          <label for="opt-new-pw">Nuova password</label>
+          <input type="password" id="opt-new-pw" required autocomplete="new-password" placeholder="••••••••">
+        </div>
+        <div class="admin-form-row">
+          <label for="opt-confirm-pw">Conferma nuova password</label>
+          <input type="password" id="opt-confirm-pw" required autocomplete="new-password" placeholder="••••••••">
+        </div>
+      </form>
+      <div class="admin-modal-footer">
+        <button type="button" class="admin-btn secondary admin-modal-cancel">Annulla</button>
+        <button type="submit" form="options-password-form" class="admin-btn primary">Cambia password</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    Chart.defaults.color = '#b0b0b0';
+    Chart.defaults.borderColor = 'rgba(0,212,255,0.15)';
+    Chart.defaults.font.size = 13;
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+
+    /* High-tech palette: cyan, magenta, amber, green, coral */
+    var COLORS = {
+      yellow: '#FFD700', yellowDim: '#B89900', yellowLight: '#FFE44D',
+      white: '#fff', gray: '#E0E0E0', grayMid: '#888', grayDark: '#444', slate: '#64748b',
+      green: '#FFD700', amber: '#FFE44D', blue: '#FFD700', violet: '#B89900', rose: '#FFE44D',
+      segments: ['#FFD700','#FFE44D','#B89900','#E0E0E0','#888','#64748b'],
+      cat10: ['#FFD700','#FFE44D','#B89900','#E0E0E0','#fff','#888','#FFD700','#B89900','#FFE44D','#64748b']
+    };
+    var tooltipLabel = function(ctx) {
+      var v = ctx.dataset.data[ctx.dataIndex];
+      if (v == null || (typeof v === 'number' && isNaN(v))) return (ctx.dataset.label || '') + ': —';
+      var num = Number(v);
+      var label = (ctx.dataset.label || '').trim();
+      var s = label ? label + ': ' : '';
+      var isPct = ctx.dataset._isPct === true || (label && (label.indexOf('ROI') !== -1 || label.indexOf('roi') !== -1 || label.indexOf('%') !== -1 || label.indexOf('Uplift') !== -1 || label.indexOf('rate') !== -1 || label.indexOf('Share') !== -1));
+      if (label && (label.indexOf('ROI') !== -1 || label.indexOf('roi') !== -1))
+        return s + num.toFixed(2) + 'x';
+      if (isPct)
+        return s + num.toFixed(1) + '%';
+      var n = num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+      var isUnits = label && (label.indexOf('Units') !== -1 || label === 'Units');
+      return s + n + (isUnits ? '' : (label && label.indexOf('PLN') !== -1 ? ' PLN' : ''));
+    };
+    var CHART_TOOLTIP = {
+      enabled: true, backgroundColor: 'rgba(26,26,26,0.95)',
+      titleColor: '#E0E0E0', titleFont: { size: 14 },
+      bodyColor: '#E0E0E0', bodyFont: { size: 14 },
+      borderColor: '#2a2a2a', borderWidth: 1, padding: 12, displayColors: true,
+      callbacks: { label: tooltipLabel }
+    };
+    var CHART_OPT = {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: CHART_TOOLTIP },
+      animation: { duration: 600, easing: 'easeOutQuart' }
+    };
+    var BAR_OPT = Object.assign({}, CHART_OPT, {
+      scales: { x: { grid: { color: '#2a2a2a' }, ticks: { color: '#999', font: { size: 14 } } },
+                y: { grid: { color: '#2a2a2a' }, ticks: { color: '#999', font: { size: 14 } } } }
+    });
+    var HBAR_OPT = Object.assign({}, BAR_OPT, { indexAxis: 'y' });
+    var DOUGHNUT_OPT = Object.assign({}, CHART_OPT, {
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: '#999', font: { size: 15 }, padding: 16 } }, tooltip: CHART_TOOLTIP }, cutout: '65%'
+    });
+    var LINE_OPT = Object.assign({}, BAR_OPT);
+
+    function fmt(n) { return n == null ? '--' : Number(n).toLocaleString('en-US', {maximumFractionDigits: 0}); }
+    function fmtPct(n) { return n == null ? '--' : Number(n).toFixed(1) + '%'; }
+    function fmtRoi(n) { return n == null ? '--' : (Number(n) * 100).toFixed(1) + '%'; }
+    function getParams(extra) {
+      var p = {};
+      var form = document.getElementById('filter-form');
+      if (form) { var fd = new FormData(form); for (var pair of fd.entries()) p[pair[0]] = pair[1]; }
+      if (extra) Object.assign(p, extra);
+      Object.keys(p).forEach(function(k){ if(!p[k]) delete p[k]; });
+      return new URLSearchParams(p).toString();
+    }
+    async function fetchAPI(endpoint, extra) {
+      var url = window.location.origin + endpoint + '?' + getParams(extra);
+      var r = await fetch(url); return await r.json();
+    }
+    function setChart(ch, labels, datasets) { if(!ch) return; ch.data.labels = labels; ch.data.datasets = datasets; ch.update(); }
+    function showLoading(v) {
+      var bar = document.getElementById('loading-bar');
+      var overlay = document.getElementById('loading-overlay');
+      if (bar) { bar.classList.toggle('active', !!v); bar.setAttribute('aria-hidden', v ? 'false' : 'true'); }
+      if (overlay) overlay.style.display = v ? 'flex' : 'none';
+    }
+    function showLoadingLight(v) {
+      console.debug('[showLoadingLight]', v);
+      var bar = document.getElementById('loading-bar');
+      if (bar) { bar.classList.toggle('active', !!v); bar.setAttribute('aria-hidden', v ? 'false' : 'true'); }
+    }
+    function showError(msg) { var e = document.getElementById('error-msg'); if(e) e.textContent = msg || ''; }
+
+    (function() {
+      var panel = document.getElementById('filter-panel');
+      var btnOpen = document.getElementById('btn-toggle-filters');
+      var btnClose = document.getElementById('btn-close-filters');
+      if (btnOpen && panel) btnOpen.addEventListener('click', function() { panel.classList.toggle('open'); });
+      if (btnClose && panel) btnClose.addEventListener('click', function() { panel.classList.remove('open'); });
+    })();
+
+    window.DASHBOARD_ID = window.DASHBOARD_ID || 'basic';
+    (function widgetPersonalize() {
+      var KEY = 'me_widgets_' + (window.DASHBOARD_ID || 'basic');
+      function getSaved() { try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch(e) { return null; } }
+      function apply(ids) {
+        document.querySelectorAll('[data-widget-id]').forEach(function(el) {
+          el.style.display = (ids === null || ids.indexOf(el.getAttribute('data-widget-id')) !== -1) ? '' : 'none';
+        });
+      }
+      function openModal() {
+        var list = document.getElementById('widget-modal-list'); if (!list) return;
+        var widgets = []; document.querySelectorAll('[data-widget-id]').forEach(function(el) {
+          widgets.push({ id: el.getAttribute('data-widget-id'), label: el.getAttribute('data-widget-label') || el.getAttribute('data-widget-id') });
+        });
+        var vis = getSaved();
+        list.innerHTML = widgets.map(function(w) {
+          return '<label class="widget-modal-item"><input type="checkbox" data-widget-id="'+w.id+'" '+(vis===null||vis.indexOf(w.id)!==-1?'checked':'')+'>'+w.label+'</label>';
+        }).join('');
+        document.getElementById('widget-modal').classList.add('open');
+      }
+      function closeModal() { var m = document.getElementById('widget-modal'); if(m) m.classList.remove('open'); }
+      function save() {
+        var ids = []; document.querySelectorAll('#widget-modal-list input:checked').forEach(function(cb) { ids.push(cb.getAttribute('data-widget-id')); });
+        try { localStorage.setItem(KEY, JSON.stringify(ids)); } catch(e) {}
+        apply(ids); closeModal();
+      }
+      document.addEventListener('DOMContentLoaded', function() {
+        apply(getSaved());
+        var btn = document.getElementById('btn-personalize'); if(btn) btn.onclick = openModal;
+        var s = document.getElementById('widget-modal-save'); if(s) s.onclick = save;
+        var c = document.getElementById('widget-modal-cancel'); if(c) c.onclick = closeModal;
+        var m = document.getElementById('widget-modal'); if(m) m.onclick = function(e) { if(e.target.id==='widget-modal') closeModal(); };
+      });
+    })();
+
+    (function recalculateBtn() {
+      var btn = document.getElementById('btn-recalculate');
+      if (!btn) return;
+      btn.onclick = async function() {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.textContent = 'Calcolando...';
+        try {
+          var r = await fetch('/api/admin/recalculate', { method: 'POST', credentials: 'include' });
+          var d = await r.json();
+          if (r.ok) {
+            alert('Tabelle precalcolate aggiornate in ' + (d.duration_sec || 0) + ' secondi.');
+            if (typeof loadData === 'function') loadData();
+          } else {
+            alert('Errore: ' + (d.error || d.detail || 'Unknown'));
+          }
+        } catch (e) {
+          alert('Errore: ' + (e.message || 'Network error'));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Re-calculate';
+        }
+      };
+    })();
+
+    (function optionsModal() {
+      var modal = document.getElementById('options-modal');
+      var btn = document.getElementById('btn-options');
+      if (!modal || !btn) return;
+      function openOpt() { modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
+      function closeOpt() { modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); document.body.style.overflow=''; document.getElementById('options-password-form').reset(); }
+      btn.onclick = openOpt;
+      modal.querySelectorAll('.admin-modal-close, .admin-modal-cancel').forEach(function(b){ b.onclick = closeOpt; });
+      modal.querySelector('.admin-modal-backdrop').onclick = closeOpt;
+      document.getElementById('options-password-form').onsubmit = async function(e) {
+        e.preventDefault();
+        var cur = document.getElementById('opt-current-pw').value;
+        var neu = document.getElementById('opt-new-pw').value;
+        var conf = document.getElementById('opt-confirm-pw').value;
+        if (neu !== conf) { alert('Le password non coincidono'); return; }
+        var r = await fetch('/api/me/password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({current_password:cur,new_password:neu,confirm_password:conf}) });
+        if (r.ok) { closeOpt(); alert('Password aggiornata'); }
+        else { var d = await r.json(); alert(d.error || 'Errore'); }
+      };
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

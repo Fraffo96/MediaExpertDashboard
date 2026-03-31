@@ -1,0 +1,39 @@
+<div class="custom-widget-section" style="margin-top:1.5rem;" data-widget-id="custom-builder" data-widget-label="Custom Chart Builder">
+  <h3 style="font-size:1rem; color:var(--white); margin-bottom:.5rem;">Add your own chart</h3>
+  <p class="dashboard-intro" style="margin-bottom:.75rem;">Choose metric, dimension and chart type. Charts use the same filters as the dashboard.</p>
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:end;">
+    <label style="font-size:.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:.15rem;">Metric
+      <select id="wb-metric" class="chart-metric-select" style="min-width:120px;">
+        <option value="gross_pln">Sales (PLN)</option>
+        <option value="units">Units Sold</option>
+        <option value="share_pct">Share %</option>
+      </select>
+    </label>
+    <label style="font-size:.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:.15rem;">Group by
+      <select id="wb-group" class="chart-metric-select" style="min-width:130px;">
+        <option value="category">Category</option>
+        <option value="subcategory">Subcategory</option>
+        <option value="brand">Brand</option>
+        <option value="peak">Peak period</option>
+        <option value="year">Year (YoY)</option>
+      </select>
+    </label>
+    <label style="font-size:.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:.15rem;">Compare by
+      <select id="wb-compare" class="chart-metric-select" style="min-width:100px;">
+        <option value="none">—</option>
+        <option value="segment">Segment</option>
+        <option value="gender">Gender</option>
+      </select>
+    </label>
+    <label style="font-size:.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:.15rem;">Chart type
+      <select id="wb-type" class="chart-type-select" style="min-width:100px;">
+        <option value="hbar">Bar (H)</option>
+        <option value="bar">Bar (V)</option>
+        <option value="doughnut">Doughnut</option>
+      </select>
+    </label>
+    <button type="button" class="topbar-btn" id="wb-add" style="padding:.35rem .75rem;">Add chart</button>
+    <button type="button" class="topbar-btn" id="wb-clear-all" style="padding:.35rem .75rem;">Clear all</button>
+  </div>
+  <div class="charts-grid" id="custom-widgets-container" style="margin-top:.75rem;"></div>
+</div>

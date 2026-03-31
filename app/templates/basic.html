@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% set active = 'basic' %}
+{% block page_title %}Basic Dashboard{% endblock %}
+
+{# No extra filters in right panel – filters are per-chart #}
+{% block filter_panel %}{% endblock %}
+{% block topbar_actions %}
+<button class="refresh-btn" onclick="if(typeof refreshData==='function')refreshData();" title="Refresh data">
+  <img src="/static/img/favicon.png" alt="R">
+</button>
+{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">One-screen overview: category size, promo effectiveness, event dependence. Each chart enables a decision in &lt;30 seconds.</p>
+
+{% include "basic/_filter_bar.html" %}
+{% include "basic/_kpi_row.html" %}
+{% include "basic/_section_category.html" %}
+{% include "basic/_section_promo.html" %}
+{% include "basic/_section_events.html" %}
+{% include "basic/_section_buyers.html" %}
+{% include "basic/_section_products.html" %}
+{% include "basic/_custom_builder.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>window.DASHBOARD_ID = 'basic';</script>
+<script src="/static/js/basic/core.js"></script>
+<script src="/static/js/basic/filters.js"></script>
+<script src="/static/js/basic/charts/sales.js"></script>
+<script src="/static/js/basic/charts/promo.js"></script>
+<script src="/static/js/basic/charts/peak.js"></script>
+<script src="/static/js/basic/charts/buyer.js"></script>
+<script src="/static/js/basic/charts/products.js"></script>
+<script src="/static/js/basic/charts/incremental-yoy.js"></script>
+<script src="/static/js/basic/charts/custom-widgets.js"></script>
+<script src="/static/js/basic/dashboard.js"></script>
+{% endblock %}

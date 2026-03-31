@@ -1,0 +1,26 @@
+<div class="basic-filter-bar">
+  <label>From <input type="date" name="period_start" value="{{ period_start }}" id="bc-ps"></label>
+  <label>To <input type="date" name="period_end" value="{{ period_end }}" id="bc-pe"></label>
+  <label>Category
+    <select name="category_id" id="bc-category">
+      <option value="">All</option>
+      {% for c in categories %}
+      <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Subcategory
+    <select name="subcategory_id" id="bc-subcategory">
+      <option value="">All</option>
+      {% for s in subcategories %}
+      <option value="{{ s.category_id }}" data-parent="{{ s.parent_category_id }}">{{ s.category_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Competitor
+    <select name="competitor_id" id="bc-competitor">
+      <option value="">— Select competitor —</option>
+    </select>
+  </label>
+  <button type="button" class="filter-apply-btn" id="bc-apply">Apply</button>
+</div>

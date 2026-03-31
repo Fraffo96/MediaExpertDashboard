@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Check Live Promo – MediaExpert Insights{% endblock %}
+{% block page_title %}Check Live Promo{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+
+<div id="clp-active-promos" class="clp-active-promos">
+  <span class="clp-active-label">Promos with sales in period:</span>
+  <div id="clp-promo-chips" class="clp-promo-chips">
+    <span class="clp-chip-skeleton">Loading…</span>
+  </div>
+</div>
+
+<div class="basic-filter-bar clp-filter-bar">
+  <div class="clp-date-presets">
+    <button type="button" class="clp-preset" data-days="1">Last 24h</button>
+    <button type="button" class="clp-preset active" data-days="7">Last 7d</button>
+    <button type="button" class="clp-preset" data-days="month">Last month</button>
+    <button type="button" class="clp-preset" data-days="custom">Custom</button>
+  </div>
+  <p class="clp-preset-hint">Ranges use the latest available sales date as the end anchor (not “today” if data ends earlier).</p>
+  <div class="clp-date-custom" style="display:none;">
+    <label>From <input type="date" id="clp-date-start" value="{{ date_start_default }}"></label>
+    <label>To <input type="date" id="clp-date-end" value="{{ date_end_default }}"></label>
+  </div>
+  <label>Promo
+    <select id="clp-promo">
+      <option value="">All</option>
+    </select>
+  </label>
+  <label>Category
+    <select id="clp-category">
+      <option value="">All</option>
+      {% for c in categories %}
+      <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+      {% endfor %}
+      {% for s in subcategories %}
+      <option value="{{ s.category_id }}" data-parent="{{ s.parent_category_id }}">{{ s.category_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Channel
+    <select id="clp-channel">
+      <option value="">All</option>
+      <option value="web">Web</option>
+      <option value="app">App</option>
+      <option value="store">Store</option>
+    </select>
+  </label>
+  <button type="button" class="filter-apply-btn" id="clp-apply">Apply</button>
+</div>
+
+<div class="kpi-row clp-kpi-row">
+  <div class="kpi-card"><span class="kpi-label">Total promo sales (PLN)</span><span class="kpi-value" id="clp-total-sales">—</span></div>
+  <div class="kpi-card"><span class="kpi-label">Total units</span><span class="kpi-value" id="clp-total-units">—</span></div>
+  <div class="kpi-card"><span class="kpi-label"># SKUs in promo</span><span class="kpi-value" id="clp-sku-count">—</span></div>
+  <div class="kpi-card"><span class="kpi-label"># Orders</span><span class="kpi-value" id="clp-order-count">—</span></div>
+</div>
+
+<div class="clp-chart-wrap">
+  <div class="clp-chart-skeleton" id="clp-chart-skeleton">
+    <div class="chart-loading"><div class="chart-spinner"></div></div>
+  </div>
+  <div class="clp-chart-container" id="clp-chart-container" style="display:none;">
+    <div class="clp-chart-header">
+      <h3 class="clp-chart-title">Top products by promo</h3>
+      <label class="clp-metric-dropdown">Metric
+        <select id="clp-metric">
+          <option value="value">Value (PLN)</option>
+          <option value="units">Units</option>
+        </select>
+      </label>
+    </div>
+    <p class="clp-chart-hint">Click a bar to filter donuts by SKU. Showing top <span id="clp-bar-count">15</span> of <span id="clp-total-count">0</span> products.</p>
+    <div class="clp-bar-wrap">
+      <div class="clp-chart-scroll" id="clp-chart-scroll">
+        <div class="chart-wrap" id="clp-chart-wrap">
+          <canvas id="clp-chart"></canvas>
+        </div>
+      </div>
+      <button type="button" class="clp-show-all-btn" id="clp-show-all" style="display:none;">Show all</button>
+    </div>
+    <div class="clp-donuts-section">
+      <div class="clp-donuts-header">
+        <h4 class="clp-donuts-title" id="clp-donuts-title">All products – by channel & segment</h4>
+        <label class="clp-metric-dropdown">Metric
+          <select id="clp-deepdive-metric">
+            <option value="value">Value (PLN)</option>
+            <option value="units">Units</option>
+          </select>
+        </label>
+      </div>
+      <div class="clp-deepdive-charts">
+        <div class="clp-deepdive-half">
+          <h5 class="clp-deepdive-subtitle">By channel</h5>
+          <div class="clp-deepdive-chart-wrap">
+            <canvas id="clp-donut-chart"></canvas>
+          </div>
+        </div>
+        <div class="clp-deepdive-half">
+          <h5 class="clp-deepdive-subtitle">By segment</h5>
+          <div class="clp-deepdive-chart-wrap">
+            <canvas id="clp-segment-donut-chart"></canvas>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="clp-deepdive-close" id="clp-deepdive-close" style="display:none;">Clear selection</button>
+    </div>
+  </div>
+</div>
+
+<p id="clp-no-data" class="no-data-msg" style="display:none;">No promo data for the selected period. Try a different date range or filters.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DASHBOARD_ID = 'check_live_promo';
+  window.CLP_ANCHOR_END = {{ clp_anchor_end|tojson }};
+  window.CLP_DATE_START = {{ date_start_default|tojson }};
+  window.CLP_DATE_END = {{ date_end_default|tojson }};
+</script>
+<script src="/static/js/check_live_promo/core.js"></script>
+<script src="/static/js/check_live_promo/chart.js"></script>
+<script src="/static/js/check_live_promo/dashboard.js"></script>
+{% endblock %}

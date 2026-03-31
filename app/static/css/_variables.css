@@ -1,0 +1,31 @@
+/* MediaExpert Insights – Design tokens */
+:root {
+  --bg: #111;
+  --bg-sidebar: #0a0a0a;
+  --bg-card: #1a1a1a;
+  --bg-card-hover: #222;
+  --bg-input: #151515;
+  --yellow: #FFD700;
+  --yellow-dim: #B8990060;
+  --yellow-glow: rgba(255,215,0,0.15);
+  --white: #FFF;
+  --text: #E0E0E0;
+  --text-muted: #888;
+  --border: #2a2a2a;
+  --green: #34d399;
+  --red: #fb7185;
+  --blue: #38bdf8;
+  --violet: #a78bfa;
+  --amber: #fbbf24;
+  --rose: #f472b6;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --sidebar-w: 200px;
+  --filter-w: 260px;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.25rem;
+  --space-2xl: 1.5rem;
+}

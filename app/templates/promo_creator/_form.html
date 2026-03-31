@@ -1,0 +1,37 @@
+<div class="pc-form-section">
+  <h3>Promo draft</h3>
+  <form id="pc-form" class="pc-form">
+    <div class="admin-form-row">
+      <label for="pc-promo-type">Promo type</label>
+      <select id="pc-promo-type" name="promo_type">
+        <option value="">— Select —</option>
+        {% for pt in promo_types %}
+        <option value="{{ pt.promo_type }}">{{ pt.promo_type }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="admin-form-row">
+      <label for="pc-discount-depth">Discount depth (%)</label>
+      <input type="number" id="pc-discount-depth" name="discount_depth" min="0" max="100" step="1" placeholder="e.g. 20">
+    </div>
+    <div class="admin-form-row">
+      <label for="pc-category">Category</label>
+      <select id="pc-category" name="category_id">
+        <option value="">All</option>
+        {% for c in categories %}
+        <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="admin-form-row">
+      <label for="pc-subcategory">Subcategory</label>
+      <select id="pc-subcategory" name="subcategory_id">
+        <option value="">All</option>
+        {% for s in subcategories %}
+        <option value="{{ s.category_id }}" data-parent="{{ s.parent_category_id }}">{{ s.category_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="button" class="filter-apply-btn" id="pc-get-suggestions">Get suggestions</button>
+  </form>
+</div>

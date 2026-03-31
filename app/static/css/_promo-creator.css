@@ -1,0 +1,48 @@
+/* Promo Creator */
+.pc-layout { display: grid; grid-template-columns: 320px 1fr; gap: 2rem; }
+.pc-form-section h3, .pc-suggestions-section h3 { font-size: 1.1rem; color: var(--white); margin-bottom: 0.75rem; }
+.pc-form { display: flex; flex-direction: column; gap: 0.6rem; }
+.pc-suggestions-container { display: flex; flex-direction: column; gap: 1rem; position: relative; min-height: 140px; }
+.pc-suggestions-body.pc-suggestions-dimmed { opacity: 0.35; pointer-events: none; }
+.pc-suggestions-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: rgba(10, 10, 12, 0.72);
+  border-radius: var(--radius);
+  z-index: 2;
+}
+.pc-suggestions-loading.hidden { display: none; }
+.pc-suggestions-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--yellow);
+  border-radius: 50%;
+  animation: pc-spin 0.75s linear infinite;
+}
+.pc-suggestions-loading-text { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
+@keyframes pc-spin { to { transform: rotate(360deg); } }
+.pc-suggestions-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.pc-suggestions-list { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; min-height: 120px; }
+.pc-suggestions-placeholder { color: var(--text-muted); font-size: 0.95rem; }
+.pc-suggestions-empty { color: var(--text-muted); font-size: 0.95rem; }
+.pc-suggestions-error { color: var(--red); font-size: 0.95rem; }
+.pc-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+.pc-card-title { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+.pc-card-value { font-size: 1.1rem; font-weight: 600; color: var(--white); }
+.pc-card-meta { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem; }
+.pc-card-expected-roi { border-color: var(--blue); background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), transparent); }
+.pc-card-expected-roi .pc-card-value { color: var(--blue); font-size: 1.35rem; }
+.pc-card-expected-roi .pc-card-value.pc-roi-negative { color: var(--amber); }
+.pc-card-competitor .pc-card-value { font-size: 1rem; }
+.pc-card-segments .pc-card-value { font-size: 0.95rem; }
+.pc-suggestion { padding: 0.5rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); }
+.pc-suggestion:last-child { border-bottom: none; }
+.pc-suggestion-info { color: var(--text); }
+.pc-suggestion-benchmark { color: var(--blue); }
+.pc-suggestion-warning { color: var(--amber); }

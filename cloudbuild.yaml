@@ -1,10 +1,15 @@
 # =============================================================================
-# Cloud Build: build e deploy della NOSTRA dashboard (app FastAPI + BigQuery)
+# Cloud Build: build e deploy della dashboard (FastAPI + BigQuery)
 # Trigger su push su main. Progetto: mediaexpertdashboard
+#
+# Substitution opzionali (Console → Trigger → Variable substitutions):
+#   _VPC_CONNECTOR     es. run-vpc-connector (nome Serverless VPC Access). Vuoto = niente Redis privato.
+#   _EXTRA_ENV_VARS    es. REDIS_URL=redis://10.0.0.3:6379,CACHE_TTL_LONG_SECONDS=604800
+#   _SET_SECRETS       es. JWT_SECRET_KEY=jwt-secret-key:latest,PREWARM_TOKEN=prewarm-token:latest
+#                      Richiede Secret Manager + IAM per il runtime SA (secretAccessor).
 # =============================================================================
 
 steps:
-  # 1. Build immagine Docker della nostra app
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -13,7 +18,6 @@ steps:
       - '.'
     id: 'build'
 
-  # 2. Push su Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
@@ -21,25 +25,36 @@ steps:
     id: 'push'
     waitFor: ['build']
 
-  # 3. Deploy su Cloud Run (nostra app dashboard)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
+    entrypoint: 'bash'
     args:
-      - 'run'
-      - 'deploy'
-      - 'dashboard'
-      - '--image=gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}'
-      - '--region=${_REGION}'
-      - '--project=${_PROJECT_ID}'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=${_PROJECT_ID}'
-      - '--memory=512Mi'
-      - '--cpu=1'
-      - '--port=8080'
-      - '--min-instances=0'
-      - '--max-instances=5'
-      - '--timeout=300'
+      - '-ec'
+      - |
+        ENV_VARS="GCP_PROJECT_ID=${_PROJECT_ID}"
+        if [ -n "${_EXTRA_ENV_VARS}" ]; then
+          ENV_VARS="${ENV_VARS},${_EXTRA_ENV_VARS}"
+        fi
+        DEPLOY=(gcloud run deploy dashboard
+          --image="gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}"
+          --region="${_REGION}"
+          --project="${_PROJECT_ID}"
+          --platform=managed
+          --allow-unauthenticated
+          --set-env-vars="${ENV_VARS}"
+          --memory=2Gi
+          --cpu=2
+          --port=8080
+          --min-instances=1
+          --max-instances=5
+          --timeout=120
+        )
+        if [ -n "${_VPC_CONNECTOR}" ]; then
+          DEPLOY+=(--vpc-connector="${_VPC_CONNECTOR}" --vpc-egress=private-ranges-only)
+        fi
+        if [ -n "${_SET_SECRETS}" ]; then
+          DEPLOY+=(--set-secrets="${_SET_SECRETS}")
+        fi
+        "${DEPLOY[@]}"
     id: 'deploy'
     waitFor: ['push']
 
@@ -49,3 +64,6 @@ options:
 substitutions:
   _PROJECT_ID: mediaexpertdashboard
   _REGION: europe-west1
+  _VPC_CONNECTOR: ''
+  _EXTRA_ENV_VARS: ''
+  _SET_SECRETS: ''

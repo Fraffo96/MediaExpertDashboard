@@ -1,0 +1,31 @@
+<div class="dashboard-section" data-widget-id="section-events" data-widget-label="Event Dependence">
+  <div class="section-header">
+    <span class="section-badge event">3</span>
+    <h2>Event Dependence</h2>
+  </div>
+  <div class="charts-grid">
+    <div class="chart-card" data-widget-id="chartPeak" data-widget-label="Peak Events (% of Annual)">
+      <div class="chart-header">
+        <h3>Peak Events (% of Annual Sales)</h3>
+        <div class="chart-controls-bar" role="group" aria-label="Peak Events chart controls">
+          <div class="chart-control-group">
+            <span class="chart-control-label">Group by</span>
+            <select class="chart-dimension-select" data-chart="chartPeak" id="dimension-chartPeak" aria-label="Group by">
+              <option value="peak">Peak period</option>
+              <option value="year">Year</option>
+            </select>
+          </div>
+          <div class="chart-control-group">
+            <span class="chart-control-label">Metric</span>
+            <select class="chart-metric-select" data-chart="chartPeak" id="metric-chartPeak" aria-label="Metric">
+              <option value="pct_of_annual">% of Annual</option>
+              <option value="gross_pln">Sales (PLN)</option>
+              <option value="units">Units</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartPeak"></canvas></div>
+    </div>
+  </div>
+</div>

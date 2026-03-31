@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Purchasing Process – Marketing{% endblock %}
+{% block page_title %}Purchasing Process{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Channel mix, peak events, and promo behavior per segment.</p>
+<p id="mkt-purchasing-segment-label" class="mkt-purchasing-segment-label" style="display:none;"></p>
+
+{% include "marketing/_filter_bar_purchasing.html" %}
+
+<div id="mkt-purchasing-container" class="mkt-purchasing-container">
+  <div class="mkt-purchasing-loading" id="mkt-purchasing-loading">
+    <div class="chart-spinner"></div>
+    <p>Loading purchasing data…</p>
+  </div>
+
+  <div id="mkt-purchasing-content" style="display:none;">
+    <div class="mkt-purchasing-charts">
+      <section class="mkt-purchasing-section" data-widget-id="mkt-channel-mix" data-widget-label="Channel Mix">
+        <h3>Channel Mix</h3>
+        <p class="mkt-section-desc">Where they buy: web, app, store</p>
+        <div class="chart-wrap">
+          <canvas id="mkt-channel-chart"></canvas>
+        </div>
+      </section>
+
+      <section class="mkt-purchasing-section" data-widget-id="mkt-source" data-widget-label="Traffic Source">
+        <h3>Traffic Source</h3>
+        <p class="mkt-section-desc">How they arrived before purchase</p>
+        <div class="chart-wrap">
+          <canvas id="mkt-source-chart"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <div class="mkt-purchasing-charts">
+      <section class="mkt-purchasing-section" data-widget-id="mkt-peak-events" data-widget-label="Peak Events">
+        <h3>Orders by Peak Event</h3>
+        <p class="mkt-section-desc">Share of orders during Black Friday, Christmas, etc.</p>
+        <div class="chart-wrap">
+          <canvas id="mkt-peak-chart"></canvas>
+        </div>
+      </section>
+
+      <section class="mkt-purchasing-section" data-widget-id="mkt-searches" data-widget-label="Pre-Purchase Searches">
+        <h3>Pre-Purchase Search Intent</h3>
+        <p class="mkt-section-desc">What they searched before buying</p>
+        <div class="chart-wrap">
+          <canvas id="mkt-searches-chart"></canvas>
+        </div>
+      </section>
+    </div>
+
+  </div>
+</div>
+
+<p id="mkt-purchasing-no-data" class="no-data-msg" style="display:none;">No data available for the selected period.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DASHBOARD_ID = 'marketing_purchasing';
+  window.MKT_SEGMENTS = {{ segments|tojson }};
+</script>
+<script src="/static/js/marketing/purchasing.js"></script>
+{% endblock %}

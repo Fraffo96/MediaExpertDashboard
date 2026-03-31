@@ -1,4 +1,0 @@
-# Seed script dependencies
-faker>=22.0.0
-psycopg2-binary>=2.9.0
-numpy>=1.24.0

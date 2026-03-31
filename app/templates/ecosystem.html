@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}{{ ecosystem.name }} – MediaExpert Insights{% endblock %}
+{% block page_title %}{{ ecosystem.name }}{% endblock %}
+
+{% block extra_filters %}
+{% if user and (user.is_admin or 'brand' in allowed_filters) %}
+<label>Brand
+  <select name="brand_id" id="f-brand">
+    <option value="">All</option>
+    {% for b in brands %}
+    <option value="{{ b.brand_id }}">{{ b.brand_name }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">{{ ecosystem.description or 'Ecosystem dashboard for the selected categories and brands.' }}</p>
+
+<div class="kpi-row" data-widget-id="kpi" data-widget-label="KPI Cards">
+  <div class="kpi-card">
+    <div class="kpi-label">Total Sales (PLN)</div>
+    <div class="kpi-value yellow" id="kpi-total">--</div>
+    <div class="kpi-sub" id="kpi-units">--</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Promo Share</div>
+    <div class="kpi-value green" id="kpi-promo">--</div>
+    <div class="kpi-sub" id="kpi-promo-sub">--</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg Discount Depth</div>
+    <div class="kpi-value amber" id="kpi-disc">--</div>
+    <div class="kpi-sub">average promo discount</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Scope</div>
+    <div class="kpi-value blue" id="kpi-scope">{{ ecosystem_category_ids|length }}c / {{ ecosystem_brand_ids|length }}b</div>
+    <div class="kpi-sub" id="kpi-period">--</div>
+  </div>
+</div>
+
+<div class="charts-grid" id="eco-charts">
+  <div class="chart-card" data-widget-id="chartCat" data-widget-label="Sales by Category">
+    <div class="chart-header">
+      <h3>Sales by Category</h3>
+      <select class="chart-type-select" data-chart="chartCat" onchange="switchType('chartCat',this.value)">
+        <option value="hbar" selected>Bar (H)</option><option value="bar">Bar (V)</option><option value="doughnut">Doughnut</option>
+      </select>
+    </div>
+    <div class="chart-container"><canvas id="chartCat"></canvas></div>
+  </div>
+  <div class="chart-card" data-widget-id="chartPromo" data-widget-label="Promo Share">
+    <div class="chart-header">
+      <h3>Promo Share</h3>
+      <select class="chart-type-select" data-chart="chartPromo" onchange="switchType('chartPromo',this.value)">
+        <option value="doughnut" selected>Doughnut</option><option value="bar">Bar</option>
+      </select>
+    </div>
+    <div class="chart-container"><canvas id="chartPromo"></canvas></div>
+  </div>
+  <div class="chart-card" data-widget-id="chartPeak" data-widget-label="Peak Period Sales">
+    <div class="chart-header">
+      <h3>Sales by Peak Period</h3>
+      <select class="chart-type-select" data-chart="chartPeak" onchange="switchType('chartPeak',this.value)">
+        <option value="bar" selected>Bar (V)</option><option value="hbar">Bar (H)</option><option value="doughnut">Doughnut</option>
+      </select>
+    </div>
+    <div class="chart-container"><canvas id="chartPeak"></canvas></div>
+  </div>
+  <div class="chart-card" data-widget-id="chartRoi" data-widget-label="Top Promo ROI">
+    <div class="chart-header">
+      <h3>Top Promo ROI</h3>
+      <select class="chart-type-select" data-chart="chartRoi" onchange="switchType('chartRoi',this.value)">
+        <option value="hbar" selected>Bar (H)</option><option value="bar">Bar (V)</option><option value="doughnut">Doughnut</option>
+      </select>
+    </div>
+    <div class="chart-container"><canvas id="chartRoi"></canvas></div>
+  </div>
+  <div class="chart-card" data-widget-id="chartBrand" data-widget-label="Sales by Brand">
+    <div class="chart-header">
+      <h3>Sales by Brand</h3>
+      <select class="chart-type-select" data-chart="chartBrand" onchange="switchType('chartBrand',this.value)">
+        <option value="hbar" selected>Bar (H)</option><option value="bar">Bar (V)</option><option value="doughnut">Doughnut</option>
+      </select>
+    </div>
+    <div class="chart-container"><canvas id="chartBrand"></canvas></div>
+  </div>
+</div>
+
+<!-- Widget Builder -->
+<div style="margin-bottom:1rem;">
+  <h3 style="font-size:1rem; color:var(--white); margin-bottom:.5rem;">Add Custom Widget</h3>
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:end;">
+    <label style="font-size:.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:.15rem;">Metric
+      <select id="wb-metric" style="padding:.3rem .5rem; background:var(--bg-input); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:.85rem; font-family:inherit;">
+        <option value="gross_pln">Sales (PLN)</option>
+        <option value="units">Units Sold</option>
+        <option value="promo_share_pct">Promo Share %</option>
+        <option value="avg_discount">Avg Discount %</option>
+      </select>
+    </label>
+    <label style="font-size:.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:.15rem;">Group by
+      <select id="wb-groupby" style="padding:.3rem .5rem; background:var(--bg-input); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:.85rem; font-family:inherit;">
+        <option value="category">Category</option>
+        <option value="brand">Brand</option>
+        <option value="peak_event">Peak Event</option>
+      </select>
+    </label>
+    <label style="font-size:.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:.15rem;">Chart Type
+      <select id="wb-type" style="padding:.3rem .5rem; background:var(--bg-input); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:.85rem; font-family:inherit;">
+        <option value="bar">Bar (V)</option>
+        <option value="hbar">Bar (H)</option>
+        <option value="doughnut">Doughnut</option>
+      </select>
+    </label>
+    <button onclick="addWidget()" style="padding:.35rem .75rem; background:var(--yellow); color:#000; border:none; border-radius:var(--radius-sm); font-weight:600; font-size:.85rem; cursor:pointer; font-family:inherit;">Add Widget</button>
+  </div>
+</div>
+<div class="charts-grid" id="custom-widgets"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.DASHBOARD_ID = 'eco_{{ ecosystem.id }}';
+(function() {
+  var ECO_CATS = {{ ecosystem_category_ids | tojson }};
+  var ECO_BRANDS = {{ ecosystem_brand_ids | tojson }};
+  var reg = {};
+  var apiData = null;
+  var widgetCount = 0;
+
+  function optFor(t) {
+    if (t === 'doughnut') return DOUGHNUT_OPT;
+    if (t === 'hbar') return HBAR_OPT;
+    return BAR_OPT;
+  }
+
+  function mk(id, type, container) {
+    var el = container ? container.querySelector('canvas') : document.getElementById(id);
+    if (!el) return null;
+    var realType = type === 'hbar' ? 'bar' : type;
+    var ch = new Chart(el, { type: realType, data: { labels: [], datasets: [] }, options: optFor(type) });
+    reg[id] = { chart: ch, type: type, canvas: el };
+    return ch;
+  }
+
+  window.switchType = function(id, newType) {
+    var entry = reg[id]; if (!entry) return;
+    var data = JSON.parse(JSON.stringify(entry.chart.data));
+    entry.chart.destroy();
+    var realType = newType === 'hbar' ? 'bar' : newType;
+    var ch = new Chart(entry.canvas, { type: realType, data: data, options: optFor(newType) });
+    reg[id] = { chart: ch, type: newType, canvas: entry.canvas };
+    try { localStorage.setItem('ct_eco_' + id, newType); } catch(e) {}
+  };
+
+  function saved(id, def) { try { return localStorage.getItem('ct_eco_' + id) || def; } catch(e) { return def; } }
+
+  var chCat   = mk('chartCat',   saved('chartCat','hbar'));
+  var chPromo = mk('chartPromo', saved('chartPromo','doughnut'));
+  var chPeak  = mk('chartPeak',  saved('chartPeak','bar'));
+  var chRoi   = mk('chartRoi',   saved('chartRoi','hbar'));
+  var chBrand = mk('chartBrand', saved('chartBrand','hbar'));
+
+  document.querySelectorAll('.chart-type-select').forEach(function(s) {
+    var sv = saved(s.getAttribute('data-chart'), s.value);
+    if (sv) s.value = sv;
+  });
+
+  function gc(id) { return reg[id] ? reg[id].chart : null; }
+
+  function extractMetric(data, metric, groupby) {
+    var items = [];
+    if (groupby === 'category') {
+      items = data._byCat || [];
+      return { labels: items.map(function(r){return r.category_name}), values: items.map(function(r){
+        if (metric === 'gross_pln') return r.gross_pln;
+        if (metric === 'units') return r.units;
+        return r.gross_pln;
+      })};
+    }
+    if (groupby === 'brand') {
+      items = data._byBrand || [];
+      return { labels: items.map(function(r){return r.brand_name}), values: items.map(function(r){
+        if (metric === 'gross_pln') return r.gross_pln;
+        if (metric === 'units') return r.units;
+        return r.gross_pln;
+      })};
+    }
+    if (groupby === 'peak_event') {
+      items = data._peaks || [];
+      return { labels: items.map(function(r){return r.peak_event}), values: items.map(function(r){
+        if (metric === 'gross_pln') return r.gross_pln;
+        if (metric === 'units') return r.units;
+        return r.gross_pln;
+      })};
+    }
+    return { labels: [], values: [] };
+  }
+
+  window.addWidget = function() {
+    var metric = document.getElementById('wb-metric').value;
+    var groupby = document.getElementById('wb-groupby').value;
+    var type = document.getElementById('wb-type').value;
+    widgetCount++;
+    var wid = 'custom_w' + widgetCount;
+    var container = document.getElementById('custom-widgets');
+    var card = document.createElement('div');
+    card.className = 'chart-card';
+    card.setAttribute('data-widget-id', wid);
+    var metricLabel = document.getElementById('wb-metric').options[document.getElementById('wb-metric').selectedIndex].text;
+    var groupLabel = document.getElementById('wb-groupby').options[document.getElementById('wb-groupby').selectedIndex].text;
+    card.innerHTML = '<div class="chart-header"><h3>' + metricLabel + ' by ' + groupLabel + '</h3>'
+      + '<button onclick="this.closest(\'.chart-card\').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;" title="Remove">×</button></div>'
+      + '<div class="chart-container"><canvas id="' + wid + '"></canvas></div>';
+    container.appendChild(card);
+    var ch = mk(wid, type, card);
+    if (apiData && ch) {
+      var d = extractMetric(apiData, metric, groupby);
+      setChart(ch, d.labels, [{ label: metricLabel, data: d.values, backgroundColor: COLORS.cat10, borderWidth: 0 }]);
+    }
+    card.dataset.metric = metric;
+    card.dataset.groupby = groupby;
+  };
+
+  function updateCustomWidgets() {
+    if (!apiData) return;
+    document.querySelectorAll('#custom-widgets .chart-card').forEach(function(card) {
+      var wid = card.getAttribute('data-widget-id');
+      var ch = gc(wid); if (!ch) return;
+      var metric = card.dataset.metric || 'gross_pln';
+      var groupby = card.dataset.groupby || 'category';
+      var d = extractMetric(apiData, metric, groupby);
+      var metricLabel = metric === 'units' ? 'Units' : metric === 'promo_share_pct' ? 'Promo Share %' : metric === 'avg_discount' ? 'Avg Discount %' : 'Sales PLN';
+      setChart(ch, d.labels, [{ label: metricLabel, data: d.values, backgroundColor: COLORS.cat10, borderWidth: 0 }]);
+    });
+  }
+
+  async function loadData() {
+    showLoading(true); showError('');
+    try {
+      var results = [];
+      for (var i = 0; i < ECO_CATS.length; i++) {
+        results.push(fetchAPI('/api/basic', { category_id: ECO_CATS[i] }));
+      }
+      var all = await Promise.all(results);
+
+      var totalGross = 0, totalUnits = 0, promoGross = 0, totalGrossAll = 0, discSum = 0, discN = 0;
+      var catMap = {}, catUnits = {}, brandMap = {}, brandUnits = {}, peakMap = {}, peakUnits = {}, roiMap = {};
+
+      all.forEach(function(d) {
+        var k = (d.kpi || [])[0] || {};
+        totalGross += Number(k.total_gross || 0);
+        totalUnits += Number(k.total_units || 0);
+        var ps = (d.promo_share || [])[0];
+        if (ps) { promoGross += Number(ps.promo_gross || 0); totalGrossAll += Number(ps.total_gross || 0); }
+        if (k.avg_discount_depth != null) { discSum += Number(k.avg_discount_depth); discN++; }
+        (d.sales_by_category || []).forEach(function(r) {
+          catMap[r.category_name] = (catMap[r.category_name] || 0) + Number(r.gross_pln || 0);
+          catUnits[r.category_name] = (catUnits[r.category_name] || 0) + Number(r.units || 0);
+        });
+        (d.sales_by_brand || []).forEach(function(r) {
+          if (ECO_BRANDS.length === 0 || ECO_BRANDS.indexOf(r.brand_id) !== -1) {
+            brandMap[r.brand_name] = (brandMap[r.brand_name] || 0) + Number(r.gross_pln || 0);
+            brandUnits[r.brand_name] = (brandUnits[r.brand_name] || 0) + Number(r.units || 0);
+          }
+        });
+        (d.peak_events || []).forEach(function(r) {
+          peakMap[r.peak_event] = (peakMap[r.peak_event] || 0) + Number(r.gross_pln || 0);
+          peakUnits[r.peak_event] = (peakUnits[r.peak_event] || 0) + Number(r.units || 0);
+        });
+        (d.top_promo_roi || []).forEach(function(r) {
+          if (!roiMap[r.promo_name]) roiMap[r.promo_name] = [];
+          roiMap[r.promo_name].push(Number(r.avg_roi || 0));
+        });
+      });
+
+      document.getElementById('kpi-total').textContent = fmt(totalGross) + ' PLN';
+      document.getElementById('kpi-units').textContent = fmt(totalUnits) + ' units';
+      document.getElementById('kpi-promo').textContent = totalGrossAll > 0 ? (100 * promoGross / totalGrossAll).toFixed(1) + '%' : '--';
+      document.getElementById('kpi-promo-sub').textContent = fmt(promoGross) + ' of ' + fmt(totalGrossAll) + ' PLN';
+      document.getElementById('kpi-disc').textContent = discN > 0 ? (discSum / discN).toFixed(1) + '%' : '--';
+
+      var catLabels = Object.keys(catMap).sort(function(a,b){return catMap[b]-catMap[a]});
+      var c = gc('chartCat'); if(c) setChart(c, catLabels, [{label:'Gross PLN',data:catLabels.map(function(l){return catMap[l]}),backgroundColor:COLORS.cat10,borderWidth:0}]);
+
+      c = gc('chartPromo'); if(c) { var nonP = totalGrossAll - promoGross; setChart(c, ['Non-Promo','Promo'],[{data:[nonP,promoGross],backgroundColor:[COLORS.slate,COLORS.green],borderWidth:0}]); }
+
+      var peakLabels = Object.keys(peakMap);
+      c = gc('chartPeak'); if(c) setChart(c, peakLabels, [{label:'Gross PLN',data:peakLabels.map(function(l){return peakMap[l]}),backgroundColor:[COLORS.rose,COLORS.green,COLORS.amber,COLORS.blue,COLORS.violet],borderWidth:0}]);
+
+      var roiLabels = Object.keys(roiMap);
+      c = gc('chartRoi'); if(c) setChart(c, roiLabels, [{label:'Avg ROI',data:roiLabels.map(function(l){var a=roiMap[l];return a.reduce(function(s,v){return s+v},0)/a.length}),backgroundColor:COLORS.amber,borderWidth:0}]);
+
+      var bLabels = Object.keys(brandMap).sort(function(a,b){return brandMap[b]-brandMap[a]});
+      c = gc('chartBrand'); if(c) setChart(c, bLabels, [{label:'Gross PLN',data:bLabels.map(function(l){return brandMap[l]}),backgroundColor:COLORS.cat10,borderWidth:0}]);
+
+      apiData = {
+        _byCat: catLabels.map(function(l){return {category_name:l,gross_pln:catMap[l],units:catUnits[l]||0}}),
+        _byBrand: bLabels.map(function(l){return {brand_name:l,gross_pln:brandMap[l],units:brandUnits[l]||0}}),
+        _peaks: peakLabels.map(function(l){return {peak_event:l,gross_pln:peakMap[l],units:peakUnits[l]||0}}),
+      };
+      updateCustomWidgets();
+    } catch(e) {
+      showError('Error: ' + e.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  loadData();
+  window.loadData = loadData;
+})();
+</script>
+{% endblock %}

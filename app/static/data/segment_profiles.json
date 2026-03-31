@@ -1,0 +1,168 @@
+{
+  "1": {
+    "name": "Liberals",
+    "pain_points": [
+      "Time to research sustainable options",
+      "Finding tech that supports wellness"
+    ],
+    "needstates": [
+      "Improve quality of life",
+      "Support wellbeing",
+      "Stay informed and connected"
+    ],
+    "top_categories_note": "Smart Home, Health & Beauty Tech, Computers & IT",
+    "top_driver": "wellness"
+  },
+  "2": {
+    "name": "Optimistic Doers",
+    "pain_points": [
+      "Maintaining image",
+      "Work-life balance"
+    ],
+    "needstates": [
+      "Status and image",
+      "Optimize life",
+      "Design and performance"
+    ],
+    "top_categories_note": "Smartphones premium, TV premium, Audio",
+    "top_driver": "status"
+  },
+  "3": {
+    "name": "Go-Getters",
+    "pain_points": [
+      "Efficiency at scale",
+      "Professional edge"
+    ],
+    "needstates": [
+      "Performance",
+      "Productivity",
+      "Career advancement"
+    ],
+    "top_categories_note": "Computers & IT, Mobile, Gaming hardware",
+    "top_driver": "performance"
+  },
+  "4": {
+    "name": "Outcasts",
+    "pain_points": [
+      "Budget constraints",
+      "Social escape"
+    ],
+    "needstates": [
+      "Entertainment",
+      "Gaming",
+      "Connection"
+    ],
+    "top_categories_note": "Gaming, Smartphones mid-range, Audio budget",
+    "top_driver": "entertainment"
+  },
+  "5": {
+    "name": "Contributors",
+    "pain_points": [
+      "Family needs",
+      "Home management"
+    ],
+    "needstates": [
+      "Help family",
+      "Improve home",
+      "Practicality"
+    ],
+    "top_categories_note": "Small Appliances, Large Appliances, Kitchen tech",
+    "top_driver": "family"
+  },
+  "6": {
+    "name": "Floaters",
+    "pain_points": [
+      "Change resistance",
+      "Price sensitivity"
+    ],
+    "needstates": [
+      "Necessity",
+      "Stability",
+      "Replace when broken"
+    ],
+    "top_categories_note": "Large Appliances, TV mid-range, Smartphones entry",
+    "top_driver": "necessity"
+  },
+  "category_needstates": {
+    "1": {
+      "1": "Home entertainment, premium quality",
+      "2": "Status and image",
+      "3": "Premium viewing experience",
+      "4": "Entertainment and gaming",
+      "5": "Family comfort",
+      "6": "Reliable replacement"
+    },
+    "2": {
+      "1": "Stay connected, wellness",
+      "2": "Status and image",
+      "3": "Performance and productivity",
+      "4": "Entertainment and gaming",
+      "5": "Family communication",
+      "6": "Basic connectivity"
+    },
+    "3": {
+      "1": "Work flexibly, stay informed",
+      "2": "Status and design",
+      "3": "Performance and career",
+      "4": "Gaming and entertainment",
+      "5": "Family productivity",
+      "6": "Basic computing needs"
+    },
+    "4": {
+      "1": "Smart home gaming",
+      "2": "Premium gaming",
+      "3": "Performance and competition",
+      "4": "Entertainment and escape",
+      "5": "Family entertainment",
+      "6": "Occasional gaming"
+    },
+    "5": {
+      "1": "Sustainable home",
+      "2": "Premium appliances",
+      "3": "Efficiency",
+      "4": "Budget essentials",
+      "5": "Family and home",
+      "6": "Necessity and replacement"
+    },
+    "6": {
+      "1": "Wellness and kitchen",
+      "2": "Design and lifestyle",
+      "3": "Efficiency",
+      "4": "Budget essentials",
+      "5": "Family and home",
+      "6": "Necessity"
+    },
+    "7": {
+      "1": "Wellness and travel",
+      "2": "Status and design",
+      "3": "Sound quality & specs",
+      "4": "Entertainment and gaming",
+      "5": "Family comfort",
+      "6": "Basic audio"
+    },
+    "8": {
+      "1": "Home sustainability, energy",
+      "2": "Smart lifestyle",
+      "3": "Efficiency",
+      "4": "Entertainment",
+      "5": "Family comfort",
+      "6": "Basic convenience"
+    },
+    "9": {
+      "1": "Wellness and self-care",
+      "2": "Status and grooming",
+      "3": "Performance",
+      "4": "Budget grooming",
+      "5": "Family and home",
+      "6": "Necessity"
+    },
+    "10": {
+      "1": "Travel and creativity",
+      "2": "Status and hobby",
+      "3": "Professional content",
+      "4": "Entertainment",
+      "5": "Family memories",
+      "6": "Occasional use"
+    }
+  }
+}

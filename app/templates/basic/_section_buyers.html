@@ -1,0 +1,108 @@
+<div class="dashboard-section" data-widget-id="section-buyers" data-widget-label="Buyer Analytics">
+  <div class="section-header">
+    <span class="section-badge" style="background:rgba(255,215,0,.12); color:var(--yellow);">4</span>
+    <h2>Buyer Analytics</h2>
+  </div>
+
+  <div class="kpi-row" style="margin-bottom:.75rem;">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Buyers</div>
+      <div class="kpi-value yellow" id="kpi-buyers">--</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Repeat Rate</div>
+      <div class="kpi-value yellow" id="kpi-repeat">--</div>
+      <div class="kpi-sub" id="kpi-repeat-sub">--</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg Frequency</div>
+      <div class="kpi-value yellow" id="kpi-freq">--</div>
+      <div class="kpi-sub">orders per buyer</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg Lifetime Spend</div>
+      <div class="kpi-value yellow" id="kpi-ltv">--</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card" data-widget-id="chartChannel" data-widget-label="Channel Mix">
+      <div class="chart-header">
+        <h3>Channel Mix (app / web / store)</h3>
+        <div class="chart-controls-bar" role="group" aria-label="Channel chart controls">
+          <div class="chart-control-group">
+            <span class="chart-control-label">Metric</span>
+            <select class="chart-metric-select" data-chart="chartChannel" id="metric-chartChannel" aria-label="Metric">
+              <option value="gross_pln">Sales (PLN)</option>
+              <option value="buyers">Buyers</option>
+              <option value="orders">Orders</option>
+              <option value="aov">AOV</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartChannel"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="chartLoyalty" data-widget-label="Loyalty Breakdown">
+      <div class="chart-header">
+        <h3>Loyalty Tier Breakdown</h3>
+        <div class="chart-controls-bar" role="group" aria-label="Loyalty chart controls">
+          <div class="chart-control-group">
+            <span class="chart-control-label">Metric</span>
+            <select class="chart-metric-select" data-chart="chartLoyalty" id="metric-chartLoyalty" aria-label="Metric">
+              <option value="gross_pln">Sales (PLN)</option>
+              <option value="buyers">Buyers</option>
+              <option value="aov">AOV</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartLoyalty"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="chartBuyerSeg" data-widget-label="Buyers by Segment">
+      <div class="chart-header">
+        <h3>Buyers by Segment</h3>
+        <div class="chart-controls-bar" role="group" aria-label="Buyers by Segment chart controls">
+          <div class="chart-control-group">
+            <span class="chart-control-label">Metric</span>
+            <select class="chart-metric-select" data-chart="chartBuyerSeg" id="metric-chartBuyerSeg" aria-label="Metric">
+              <option value="gross_pln">Sales (PLN)</option>
+              <option value="buyers">Buyers</option>
+              <option value="aov">AOV</option>
+              <option value="promo_pct">Promo %</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartBuyerSeg"></canvas></div>
+    </div>
+    <div class="chart-card" data-widget-id="chartDemo" data-widget-label="Demographics">
+      <div class="chart-header">
+        <h3>Buyer Demographics</h3>
+        <div class="chart-controls-bar" role="group" aria-label="Demographics chart controls">
+          <div class="chart-control-group">
+            <span class="chart-control-label">Group by</span>
+            <select class="chart-display-select" data-chart="chartDemo" id="dim-chartDemo" aria-label="Group by">
+              <option value="gender">By Gender</option>
+              <option value="age">By Age Band</option>
+            </select>
+          </div>
+          <div class="chart-control-group">
+            <span class="chart-control-label">Metric</span>
+            <select class="chart-metric-select" data-chart="chartDemo" id="metric-chartDemo" aria-label="Metric">
+              <option value="buyers">Buyers</option>
+              <option value="gross_pln">Sales (PLN)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="chartDemo"></canvas></div>
+    </div>
+    <div class="chart-card full" data-widget-id="chartChannelSeg" data-widget-label="Channel × Segment">
+      <div class="chart-header">
+        <h3>Channel by Segment <span class="help-icon" title="Which segments prefer app vs web vs store?">ⓘ</span></h3>
+      </div>
+      <div class="chart-container"><canvas id="chartChannelSeg"></canvas></div>
+    </div>
+  </div>
+</div>

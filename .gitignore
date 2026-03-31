@@ -1,9 +1,14 @@
 # GCP / Metabase
 metabase-bq-key.json
 *-key.json
+credentials/
 .env
 .env.local
 .gcloud/
+
+# SQLite locale (auth dev — non versionare)
+app_data.db
+*.db
 
 # Python
 __pycache__/

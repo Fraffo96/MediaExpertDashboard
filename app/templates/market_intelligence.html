@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Market Intelligence – MediaExpert Insights{% endblock %}
+{% block page_title %}Market Intelligence{% endblock %}
+{% block filter_panel %}{% endblock %}
+
+{% block content %}
+<p class="dashboard-intro">Compare your brand performance vs category/subcategory average.</p>
+
+<div id="mi-summary-row" class="mi-summary-row">
+  <div class="mi-summary-revenue">
+    <span class="mi-summary-label">Revenue by category:</span>
+    <span id="mi-revenue-chips"></span>
+  </div>
+  <div class="mi-summary-discount" style="position:relative;">
+    <label>Avg Discount Depth <div id="mi-discount-scope-dropdown" class="mi-discount-dropdown-inline"></div></label>
+    <div class="chart-loading mi-summary-loading" data-chart-scope="discount"><div class="chart-spinner"></div></div>
+    <span id="mi-discount-depth-text" class="mi-discount-depth-text empty"></span>
+  </div>
+</div>
+
+<p id="mi-no-data" class="no-data-msg" style="display:none;">No data available. Ensure BigQuery is configured (GCP project, mart dataset) and contains data for your brand.</p>
+
+<div class="mi-charts">
+  {% include "market_intelligence/_section_sales.html" %}
+  {% include "market_intelligence/_section_promo.html" %}
+  {% include "market_intelligence/_section_peak.html" %}
+  {% include "market_intelligence/_section_incremental_yoy.html" %}
+  {% include "market_intelligence/_section_segment_sku.html" %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.DASHBOARD_ID = 'market_intelligence';
+  window._miDebugPeak = false;
+  window.MI_BRAND_NAME = {{ brand_name|tojson }};
+  window.MI_BRAND_ID = {{ brand_id|default(None)|tojson }};
+  window.MI_AVAILABLE_YEARS = {{ available_years|default([])|tojson }};
+  window.MI_DEFAULT_YEAR = {{ (available_years[-1] if available_years else none)|tojson }};
+</script>
+{% set mi_js_v = '3' %}
+<script src="/static/js/market_intelligence/core.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/category-dropdown.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/dropdowns.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/charts/sales.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/charts/promo.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/charts/peak.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/charts/segment-sku.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/charts/incremental-yoy.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/dashboard.js?v={{ mi_js_v }}"></script>
+{% endblock %}
