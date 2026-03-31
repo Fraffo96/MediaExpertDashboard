@@ -58,7 +58,10 @@ git push origin main
 gcloud config set project mediaexpertdashboard
 
 # Abilita API
-gcloud services enable cloudbuild.googleapis.com run.googleapis.com
+gcloud services enable cloudbuild.googleapis.com run.googleapis.com artifactregistry.googleapis.com
+
+# Repository Docker per le immagini (regione = stessa di Cloud Run, es. europe-west1)
+gcloud artifacts repositories create dashboard --repository-format=docker --location=europe-west1 --project=mediaexpertdashboard --description="Dashboard images"
 
 # Connessione repo (se non già fatta da Console)
 # Vai in Cloud Build → Repositories → Link repository

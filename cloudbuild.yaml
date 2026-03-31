@@ -14,14 +14,14 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/dashboard/dashboard:${SHORT_SHA}'
       - '.'
     id: 'build'
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/dashboard/dashboard:${SHORT_SHA}'
     id: 'push'
     waitFor: ['build']
 
@@ -35,7 +35,7 @@ steps:
           EXTRA_SUFFIX=",${_EXTRA_ENV_VARS}"
         fi
         DEPLOY=(gcloud run deploy dashboard
-          --image="gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}"
+          --image="${_REGION}-docker.pkg.dev/${_PROJECT_ID}/dashboard/dashboard:${SHORT_SHA}"
           --region="${_REGION}"
           --project="${_PROJECT_ID}"
           --platform=managed
