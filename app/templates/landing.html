@@ -1,6 +1,4 @@
 {% extends "base.html" %}
-{# Home: solo il logo hero sotto; niente duplicato in topbar #}
-{% block topbar_brand_logo %}{% endblock %}
 {% block title %}Home – MediaExpert Insights{% endblock %}
 {% block page_title %}{% endblock %}
 {% block topbar_actions %}{% endblock %}
@@ -11,11 +9,7 @@
 {% set has_sales = 'market_intelligence' in tabs or 'brand_comparison' in tabs or 'promo_creator' in tabs or 'check_live_promo' in tabs %}
 {% set has_marketing = 'marketing' in tabs %}
 <div class="landing-page">
-  {% if brand_logo_url %}
-  <div class="landing-brand-hero fade-in">
-    <img src="{{ brand_logo_url }}" alt="" class="landing-brand-logo" width="280" height="80" loading="eager" onerror="this.parentElement.style.display='none'">
-  </div>
-  {% endif %}
+  {# Logo brand solo in topbar (base.html): niente hero duplicato #}
   <p class="landing-greeting fade-in">Hello, {{ user.display_name or user.username }}. At Media Expert we believe in data based decision making. What can we do to help {{ brand_name }} achieve success?</p>
   <p class="landing-question fade-in">What do you need to do?</p>
 
