@@ -159,6 +159,45 @@ def _brand_name_for_user(user: Optional[StoredUser], f: dict) -> str:
     return "your brand"
 
 
+def _brand_category_scope_ids(user: StoredUser) -> tuple[list[int], list[int]]:
+    """Parent e subcategory ID per il brand utente, rispettando allowed_* da Firestore."""
+    if not user.brand_id:
+        return [], []
+    from app.auth.brand_scope import full_scope_for_brand
+
+    parent_ids, sub_ids = full_scope_for_brand(int(user.brand_id))
+    if user.category_ids_list:
+        allow = set(user.category_ids_list)
+        parent_ids = [p for p in parent_ids if p in allow]
+    if user.subcategory_ids_list:
+        allow_s = set(user.subcategory_ids_list)
+        sub_ids = [s for s in sub_ids if s in allow_s]
+    return parent_ids, sub_ids
+
+
+def _scoped_categories_subcategories_for_promo(user: StoredUser, f: dict) -> tuple[list, list]:
+    """Dropdown Promo Creator: solo categorie/sottocategorie dove il brand ha prodotti (dim_product)."""
+    cats_src = f.get("categories") or []
+    subs_src = f.get("subcategories") or []
+    if not user.brand_id:
+        cats = [c for c in cats_src if c.get("level") == 1] or list(ADMIN_CATEGORIES)
+        subs = subs_src or list(ADMIN_SUBCATEGORIES)
+        return cats, subs
+    parent_ids, sub_ids = _brand_category_scope_ids(user)
+    pset, sset = set(parent_ids), set(sub_ids)
+    cats = [
+        c
+        for c in cats_src
+        if c.get("level") == 1 and int(c.get("category_id", -1)) in pset
+    ]
+    subs = [s for s in subs_src if int(s.get("category_id", -1)) in sset]
+    if not cats:
+        cats = [c for c in ADMIN_CATEGORIES if int(c["category_id"]) in pset]
+    if not subs:
+        subs = [s for s in ADMIN_SUBCATEGORIES if int(s["category_id"]) in sset]
+    return cats, subs
+
+
 def _require_login(access_token: Optional[str]):
     user = _get_user(access_token)
     if not user:
@@ -266,10 +305,9 @@ async def page_promo_creator(request: Request, access_token: Optional[str] = Coo
         return tab_redirect
     f = await _filters()
     ctx = _page_ctx(f, user)
-    cats = f.get("categories") or []
-    subcats = f.get("subcategories") or []
-    ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
-    ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
+    pc_cats, pc_subs = _scoped_categories_subcategories_for_promo(user, f)
+    ctx["categories"] = pc_cats
+    ctx["subcategories"] = pc_subs
     ctx["promo_types"] = f.get("promo_types") or []
     return templates.TemplateResponse(request, "promo_creator.html", {**ctx, "active": "promo_creator"})
 
@@ -1110,6 +1148,22 @@ async def api_promo_creator(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.brand_id:
         return JSONResponse({"error": "Brand required for Promo Simulator"}, status_code=400)
+    _pc_p, _pc_s = _brand_category_scope_ids(user)
+    pset, sset = set(_pc_p), set(_pc_s)
+    if category_id and str(category_id).strip():
+        try:
+            cid = int(category_id)
+            if cid not in pset:
+                return JSONResponse({"error": "Category not in your brand scope"}, status_code=400)
+        except ValueError:
+            return JSONResponse({"error": "Invalid category_id"}, status_code=400)
+    if subcategory_id and str(subcategory_id).strip():
+        try:
+            sid = int(subcategory_id)
+            if sid not in sset:
+                return JSONResponse({"error": "Subcategory not in your brand scope"}, status_code=400)
+        except ValueError:
+            return JSONResponse({"error": "Invalid subcategory_id"}, status_code=400)
     return await _svc().get_promo_creator_suggestions(period_start, period_end, user.brand_id, promo_type, discount_depth, category_id, subcategory_id)
 
 
