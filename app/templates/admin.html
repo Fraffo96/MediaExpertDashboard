@@ -128,22 +128,7 @@
         </select>
       </div>
 
-      <div class="admin-form-section">
-        <h4>Categories <span class="admin-hint">(parent categories user can see)</span></h4>
-        <div class="admin-checkbox-grid grid-3" id="nu-categories">
-          {% for c in categories %}
-          <label><input type="checkbox" value="{{ c.category_id }}"> {{ c.category_name }}</label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="admin-form-section">
-        <h4>Subcategories <span class="admin-hint">(optional: leave empty = all in selected categories)</span></h4>
-        <div class="admin-checkbox-grid grid-3" id="nu-subcategories">
-          {% for s in subcategories %}
-          <label data-parent="{{ s.parent_category_id }}"><input type="checkbox" value="{{ s.category_id }}"> {{ s.category_name }}</label>
-          {% endfor %}
-        </div>
-      </div>
+      <p class="admin-hint" style="margin:0 0 0.75rem;">Category scope is set automatically from the selected brand (BigQuery). If no Access checkboxes are selected, the user gets both Sales Intelligence and Marketing Insights.</p>
 
       <div class="admin-form-row" id="row-pw-edit">
         <label for="eu-password">New Password <span class="admin-hint">(leave blank to keep)</span></label>
@@ -335,8 +320,6 @@
     document.getElementById('nu-brand').value = u.brand_id || '';
     document.getElementById('eu-active').value = u.is_active ? 'true' : 'false';
     setChecked('nu-access', u.access_types || []);
-    setChecked('nu-categories', u.allowed_category_ids || []);
-    setChecked('nu-subcategories', u.allowed_subcategory_ids || []);
     document.getElementById('user-save-btn').textContent = 'Save';
     document.getElementById('pw-strength').setAttribute('aria-hidden', 'true');
     openModal('user-modal');
@@ -359,8 +342,6 @@
 
   document.getElementById('btn-new-user').onclick = function() {
     resetUserForm();
-    setChecked('nu-categories', []);
-    setChecked('nu-subcategories', []);
     openModal('user-modal');
   };
 
@@ -376,9 +357,7 @@
       brand_id: parseInt(brandId),
       access_types: getCheckedStr('nu-access'),
       allowed_tabs: [],
-      allowed_filters: [],
-      allowed_category_ids: getChecked('nu-categories'),
-      allowed_subcategory_ids: getChecked('nu-subcategories')
+      allowed_filters: []
     };
     if (!isEdit) {
       body.password = document.getElementById('nu-password').value;

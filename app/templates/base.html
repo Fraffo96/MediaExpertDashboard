@@ -118,6 +118,9 @@
       {% if active in ['market_intelligence', 'brand_comparison', 'promo_creator', 'check_live_promo', 'marketing'] %}
       <a href="/" class="topbar-back" title="Back to Home">← Back</a>
       {% endif %}
+      {% if brand_logo_url %}
+      <span class="topbar-brand-logo-wrap"><img src="{{ brand_logo_url }}" alt="" class="topbar-brand-logo" width="140" height="40" loading="lazy" onerror="this.closest('.topbar-brand-logo-wrap').style.display='none'"></span>
+      {% endif %}
       <h1>{% block page_title %}Dashboard{% endblock %}</h1>
       {% block topbar_actions %}
       {% if user and user.can_recalculate %}

@@ -57,7 +57,11 @@
 .topbar { padding: 0.6rem 1.25rem; display: flex; align-items: center; gap: 0.6rem; border-bottom: 1px solid var(--border); background: var(--bg-sidebar); }
 .topbar-back { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; padding: 0.3rem 0.5rem; border-radius: var(--radius-sm); transition: color 0.2s, background 0.2s; }
 .topbar-back:hover { color: var(--yellow); background: var(--bg-card); }
-.topbar h1 { font-size: 1.15rem; font-weight: 700; color: var(--white); flex: 1; }
+.topbar-brand-logo-wrap { display: flex; align-items: center; flex-shrink: 0; max-width: min(200px, 28vw); max-height: 44px; }
+.topbar-brand-logo { display: block; max-width: 100%; max-height: 44px; width: auto; height: auto; object-fit: contain; object-position: left center; }
+.topbar h1 { font-size: 1.15rem; font-weight: 700; color: var(--white); flex: 1; margin: 0; min-width: 0; }
+.landing-brand-hero { margin-bottom: 1.25rem; max-width: 320px; max-height: 96px; display: flex; align-items: center; }
+.landing-brand-logo { display: block; max-width: 100%; max-height: 96px; width: auto; height: auto; object-fit: contain; object-position: left center; }
 .topbar-btn {
   padding: 0.3rem 0.65rem; background: var(--bg-card); color: var(--text-muted);
   border: 1px solid var(--border); border-radius: var(--radius-sm);

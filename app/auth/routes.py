@@ -9,8 +9,9 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from sqlalchemy.orm import Session
 
+from .brand_scope import full_scope_for_brand
 from .database import SessionLocal
-from .models import User, Ecosystem, EcosystemCategory, EcosystemBrand, UserEcosystem
+from .models import ALL_ACCESS_TYPES, User, Ecosystem, EcosystemCategory, EcosystemBrand, UserEcosystem
 from .security import verify_password, hash_password, create_access_token, require_user, require_admin, get_current_user
 
 logger = logging.getLogger(__name__)
@@ -144,6 +145,10 @@ async def create_user(request: Request, access_token: Optional[str] = Cookie(Non
         if brand_id is None or brand_id == "":
             return JSONResponse({"error": "Brand is required"}, status_code=400)
         brand_id = int(brand_id)
+        access_types = body.get("access_types") or []
+        if not access_types:
+            access_types = list(ALL_ACCESS_TYPES)
+        cat_ids, sub_ids = full_scope_for_brand(brand_id)
         u = User(
             username=body["username"],
             hashed_password=hash_password(body["password"]),
@@ -151,9 +156,9 @@ async def create_user(request: Request, access_token: Optional[str] = Cookie(Non
             role="user",
             is_active=body.get("is_active", True),
             brand_id=brand_id,
-            access_types=json.dumps(body.get("access_types", [])),
-            allowed_category_ids=json.dumps(body.get("allowed_category_ids", [])),
-            allowed_subcategory_ids=json.dumps(body.get("allowed_subcategory_ids", [])),
+            access_types=json.dumps(access_types),
+            allowed_category_ids=json.dumps(cat_ids),
+            allowed_subcategory_ids=json.dumps(sub_ids),
             allowed_filters=json.dumps(body.get("allowed_filters", [])),
             allowed_tabs=json.dumps(body.get("allowed_tabs", ["basic"])),
         )
@@ -186,12 +191,18 @@ async def update_user(user_id: int, request: Request, access_token: Optional[str
             u.hashed_password = hash_password(body["password"])
         if "brand_id" in body:
             u.brand_id = int(body["brand_id"]) if body["brand_id"] else None
+            if u.brand_id:
+                c, s = full_scope_for_brand(u.brand_id)
+                u.allowed_category_ids = json.dumps(c)
+                u.allowed_subcategory_ids = json.dumps(s)
+            else:
+                u.allowed_category_ids = "[]"
+                u.allowed_subcategory_ids = "[]"
         if "access_types" in body:
-            u.access_types = json.dumps(body["access_types"])
-        if "allowed_category_ids" in body:
-            u.allowed_category_ids = json.dumps(body["allowed_category_ids"])
-        if "allowed_subcategory_ids" in body:
-            u.allowed_subcategory_ids = json.dumps(body["allowed_subcategory_ids"])
+            at = body["access_types"] or []
+            if not at:
+                at = list(ALL_ACCESS_TYPES)
+            u.access_types = json.dumps(at)
         if "allowed_filters" in body:
             u.allowed_filters = json.dumps(body["allowed_filters"])
         if "allowed_tabs" in body:

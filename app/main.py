@@ -123,6 +123,13 @@ async def _filters():
         return {"categories": [], "subcategories": [], "segments": [], "brands": [], "promo_types": [], "promos": [], "genders": [], "available_years": []}
 
 
+def _brand_logo_url(user: Optional[User]) -> str | None:
+    """URL statico logo brand: static/img/brands/{brand_id}.png (object-fit nel CSS)."""
+    if not user or user.is_admin or not user.brand_id:
+        return None
+    return f"/static/img/brands/{user.brand_id}.png"
+
+
 def _page_ctx(f: dict, user: Optional[User] = None) -> dict:
     return {
         **f,
@@ -133,6 +140,7 @@ def _page_ctx(f: dict, user: Optional[User] = None) -> dict:
         "user_ecosystems": _user_ecosystems(user),
         "allowed_filters": user.filter_list if user else [],
         "allowed_tabs": user.tab_list if user else ["basic"],
+        "brand_logo_url": _brand_logo_url(user),
     }
 
 
