@@ -30,9 +30,10 @@ steps:
     args:
       - '-ec'
       - |
-        ENV_VARS="GCP_PROJECT_ID=${_PROJECT_ID}"
+        # Usa $MSTR senza ${MSTR}: Cloud Build interpreta ${VAR} come substitution.
+        MSTR="GCP_PROJECT_ID=${_PROJECT_ID}"
         if [ -n "${_EXTRA_ENV_VARS}" ]; then
-          ENV_VARS="${ENV_VARS},${_EXTRA_ENV_VARS}"
+          MSTR="$MSTR,${_EXTRA_ENV_VARS}"
         fi
         DEPLOY=(gcloud run deploy dashboard
           --image="gcr.io/${_PROJECT_ID}/dashboard:${SHORT_SHA}"
@@ -40,7 +41,7 @@ steps:
           --project="${_PROJECT_ID}"
           --platform=managed
           --allow-unauthenticated
-          --set-env-vars="${ENV_VARS}"
+          --set-env-vars="$MSTR"
           --memory=2Gi
           --cpu=2
           --port=8080
