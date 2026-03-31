@@ -121,12 +121,17 @@ async def _filters():
 
 
 def _brand_logo_url(user: Optional[StoredUser]) -> str | None:
-    """Logo brand: BRAND_LOGOS_PUBLIC_BASE + brands/{id}.png (GCS) oppure static locale."""
-    if not user or user.is_admin or not user.brand_id:
+    """Logo brand: BRAND_LOGOS_PUBLIC_BASE + /{id}.png (GCS) oppure static locale.
+    Richiede brand_id: gli admin senza brand (es. expert) non mostrano logo brand."""
+    if not user or not user.brand_id:
         return None
     base = (os.environ.get("BRAND_LOGOS_PUBLIC_BASE") or "").strip().rstrip("/")
     if base:
-        return f"{base}/{user.brand_id}.png"
+        url = f"{base}/{user.brand_id}.png"
+        bust = (os.environ.get("BRAND_LOGOS_CACHE_VERSION") or "").strip()
+        if bust:
+            url = f"{url}?v={bust}"
+        return url
     return f"/static/img/brands/{user.brand_id}.png"
 
 
