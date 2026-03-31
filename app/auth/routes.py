@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Form, Request, Response, Cookie
+from fastapi import APIRouter, BackgroundTasks, Form, Request, Response, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -26,6 +26,16 @@ from .models import ALL_ACCESS_TYPES
 from .security import verify_password, hash_password, create_access_token, require_admin, get_current_user
 
 logger = logging.getLogger(__name__)
+
+
+async def _prewarm_cache_safe():
+    """Dopo CRUD utente/brand: ricalcola cache Redis per tutti i brand con utenti attivi."""
+    try:
+        from app.services.prewarm import prewarm_cache
+
+        await prewarm_cache()
+    except Exception as e:
+        logger.warning("Prewarm dopo modifica utente: %s", e)
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
@@ -114,7 +124,11 @@ async def get_user(user_id: int, access_token: Optional[str] = Cookie(None)):
 
 
 @router.post("/api/admin/users")
-async def create_user(request: Request, access_token: Optional[str] = Cookie(None)):
+async def create_user(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    access_token: Optional[str] = Cookie(None),
+):
     require_admin(access_token)
     try:
         body = await request.json()
@@ -141,6 +155,8 @@ async def create_user(request: Request, access_token: Optional[str] = Cookie(Non
             allowed_filters=body.get("allowed_filters", []),
             allowed_tabs=body.get("allowed_tabs", ["basic"]),
         )
+        if u.is_active and u.brand_id:
+            background_tasks.add_task(_prewarm_cache_safe)
         return u.to_dict()
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=409)
@@ -150,7 +166,12 @@ async def create_user(request: Request, access_token: Optional[str] = Cookie(Non
 
 
 @router.put("/api/admin/users/{user_id}")
-async def update_user(user_id: int, request: Request, access_token: Optional[str] = Cookie(None)):
+async def update_user(
+    user_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    access_token: Optional[str] = Cookie(None),
+):
     require_admin(access_token)
     u = get_user_by_id(user_id)
     if not u:
@@ -185,6 +206,8 @@ async def update_user(user_id: int, request: Request, access_token: Optional[str
     out = update_user_record(user_id, updates)
     if not out:
         return JSONResponse({"error": "User not found"}, status_code=404)
+    if ("brand_id" in body or "is_active" in body) and out.is_active and out.brand_id:
+        background_tasks.add_task(_prewarm_cache_safe)
     return out.to_dict()
 
 
