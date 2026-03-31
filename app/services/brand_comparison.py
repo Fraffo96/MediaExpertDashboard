@@ -47,6 +47,40 @@ from app.db.queries.shared import query_available_years
 from app.services._cache import cache_key, get_cached, set_cached, TTL_LONG
 
 
+def intersect_brand_category_trees(year: int, brand_id: int, competitor_id: int) -> tuple[list[dict], dict[str, list]]:
+    """Macro-categorie e sub dove entrambi i brand hanno vendite (stesso anno, precalc). Ordine parent = come il brand principale (per fatturato)."""
+    cats_a = query_brand_categories_from_precalc(year, brand_id) or []
+    cats_b = query_brand_categories_from_precalc(year, competitor_id) or []
+    ids_b = {c["category_id"] for c in cats_b}
+    brand_cats = [c for c in cats_a if c["category_id"] in ids_b]
+    if not brand_cats:
+        return [], {}
+    parent_ids = [int(c["category_id"]) for c in brand_cats]
+    all_a = query_brand_all_subcategories_from_precalc(year, brand_id, parent_ids) or []
+    all_b = query_brand_all_subcategories_from_precalc(year, competitor_id, parent_ids) or []
+    subs_b_by_parent: dict[int, set[int]] = {}
+    for r in all_b:
+        pid = r.get("parent_category_id")
+        sid = r.get("category_id")
+        if pid is None or sid is None:
+            continue
+        subs_b_by_parent.setdefault(int(pid), set()).add(int(sid))
+    brand_subcats_map = {str(c["category_id"]): [] for c in brand_cats}
+    for r in all_a:
+        pid = r.get("parent_category_id")
+        sid = r.get("category_id")
+        if pid is None or sid is None:
+            continue
+        pid_i, sid_i = int(pid), int(sid)
+        pkey = str(pid_i)
+        if pkey not in brand_subcats_map:
+            continue
+        if sid_i not in subs_b_by_parent.get(pid_i, set()):
+            continue
+        brand_subcats_map[pkey].append({"category_id": sid_i, "category_name": r.get("category_name")})
+    return brand_cats, brand_subcats_map
+
+
 async def get_bc_competitors(ps, pe, brand_id):
     """Solo lista competitor. Leggero, per caricamento iniziale dropdown."""
     if not brand_id or not str(brand_id).strip():
@@ -78,13 +112,21 @@ async def get_bc_competitors(ps, pe, brand_id):
     return copy.deepcopy(out)
 
 
-async def get_bc_base(ps, pe, brand_id):
-    """Metadata per BC: brand_cats, brand_subcats_map, years, channels + competitors. Solo precalc."""
+async def get_bc_base(ps, pe, brand_id, competitor_id=None):
+    """Metadata per BC: brand_cats, brand_subcats_map, years, channels + competitors. Solo precalc.
+    Con competitor_id: solo categorie/sub dove entrambi i brand hanno vendite."""
     if not brand_id or not str(brand_id).strip():
         return {"error": "Brand required"}
     if not is_full_year_period(ps, pe):
         return {"error": PRECALC_ONLY_ERR}
-    key = cache_key("bc_base", ps=ps, pe=pe, brand=brand_id)
+    cid_opt: int | None = None
+    if competitor_id is not None and str(competitor_id).strip():
+        try:
+            cid_opt = int(competitor_id)
+        except (TypeError, ValueError):
+            cid_opt = None
+    comp_key = str(cid_opt) if cid_opt is not None else "none"
+    key = cache_key("bc_base", ps=ps, pe=pe, brand=brand_id, comp=comp_key)
     cached = get_cached(key)
     if cached is not None:
         return copy.deepcopy(cached)
@@ -92,21 +134,26 @@ async def get_bc_base(ps, pe, brand_id):
     year = int(ps[:4])
     bid = int(brand_id) if brand_id else 0
 
-    brand_cats = await asyncio.to_thread(query_brand_categories_from_precalc, year, bid)
-    brand_cats = list(brand_cats) if brand_cats else []
+    if cid_opt is not None:
+        brand_cats, brand_subcats_map = await asyncio.to_thread(intersect_brand_category_trees, year, bid, cid_opt)
+        brand_cats = list(brand_cats) if brand_cats else []
+        brand_subcats_map = dict(brand_subcats_map) if brand_subcats_map else {}
+    else:
+        brand_cats = await asyncio.to_thread(query_brand_categories_from_precalc, year, bid)
+        brand_cats = list(brand_cats) if brand_cats else []
+
+        brand_subcats_map = {str(c["category_id"]): [] for c in brand_cats}
+        if brand_cats:
+            parent_ids = [int(c["category_id"]) for c in brand_cats]
+            all_subs = await asyncio.to_thread(query_brand_all_subcategories_from_precalc, year, bid, parent_ids)
+            for r in all_subs or []:
+                pid = str(r.get("parent_category_id", ""))
+                if pid in brand_subcats_map and r.get("category_id") is not None:
+                    brand_subcats_map[pid].append(
+                        {"category_id": r["category_id"], "category_name": r.get("category_name")}
+                    )
 
     first_cat = brand_cats[0]["category_id"] if brand_cats else None
-
-    brand_subcats_map = {str(c["category_id"]): [] for c in brand_cats}
-    if brand_cats:
-        parent_ids = [int(c["category_id"]) for c in brand_cats]
-        all_subs = await asyncio.to_thread(query_brand_all_subcategories_from_precalc, year, bid, parent_ids)
-        for r in all_subs or []:
-            pid = str(r.get("parent_category_id", ""))
-            if pid in brand_subcats_map and r.get("category_id") is not None:
-                brand_subcats_map[pid].append(
-                    {"category_id": r["category_id"], "category_name": r.get("category_name")}
-                )
 
     sub_ids = []
     for subs in brand_subcats_map.values():
@@ -248,8 +295,19 @@ async def get_bc_promo(ps, pe, brand_id, competitor_id, brand_cats, brand_subcat
     ps_sub_all = list(ps_sub_all) if ps_sub_all else []
     roi_all = list(roi_all) if roi_all else []
 
+    allowed_parents = {c["category_id"] for c in brand_cats} if brand_cats else set()
+
+    def _parent_ok_row(r):
+        if not allowed_parents:
+            return False
+        return r.get("category_id") in allowed_parents
+
     # promo_share_by_category: canale '' (all)
-    promo_share_cat = [_row_to_ps(r) for r in ps_cat_all if (r.get("channel") or "").strip() == ""]
+    promo_share_cat = [
+        _row_to_ps(r)
+        for r in ps_cat_all
+        if (r.get("channel") or "").strip() == "" and _parent_ok_row(r)
+    ]
 
     # promo_share_by_subcategory_map: canale '', raggruppato per parent
     by_parent = {}
@@ -307,7 +365,9 @@ async def get_bc_promo(ps, pe, brand_id, competitor_id, brand_cats, brand_subcat
 
     ps_cat_by_ch = _by_channel(ps_cat_all)
     ps_sub_by_ch = _by_channel(ps_sub_all)
-    promo_share_by_category_channel = {ch: [_row_to_ps(r) for r in ps_cat_by_ch.get(ch, [])] for ch in CHANNELS}
+    promo_share_by_category_channel = {
+        ch: [_row_to_ps(r) for r in ps_cat_by_ch.get(ch, []) if _parent_ok_row(r)] for ch in CHANNELS
+    }
     promo_share_by_subcategory_map_channel = {}
     for ch in CHANNELS:
         sub_rows = ps_sub_by_ch.get(ch, [])
@@ -497,7 +557,7 @@ async def get_bc_all(ps, pe, brand_id, competitor_id, discount_cat=None, discoun
     if not competitor_id:
         return {"error": "Competitor required"}
 
-    base = await get_bc_base(ps, pe, brand_id)
+    base = await get_bc_base(ps, pe, brand_id, competitor_id)
     if base.get("error"):
         return base
 

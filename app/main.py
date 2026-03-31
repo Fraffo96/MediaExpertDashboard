@@ -21,6 +21,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.auth.brand_scope import brand_category_scope_ids, scoped_brands_dropdown, scoped_category_dropdowns
 from app.auth.database import init_db
 from app.auth.firestore_store import StoredUser, get_ecosystem_by_id, list_ecosystems, list_users_active_with_brand
 from app.auth.security import get_current_user
@@ -159,43 +160,93 @@ def _brand_name_for_user(user: Optional[StoredUser], f: dict) -> str:
     return "your brand"
 
 
-def _brand_category_scope_ids(user: StoredUser) -> tuple[list[int], list[int]]:
-    """Parent e subcategory ID per il brand utente, rispettando allowed_* da Firestore."""
-    if not user.brand_id:
-        return [], []
-    from app.auth.brand_scope import full_scope_for_brand
-
-    parent_ids, sub_ids = full_scope_for_brand(int(user.brand_id))
-    if user.category_ids_list:
-        allow = set(user.category_ids_list)
-        parent_ids = [p for p in parent_ids if p in allow]
-    if user.subcategory_ids_list:
-        allow_s = set(user.subcategory_ids_list)
-        sub_ids = [s for s in sub_ids if s in allow_s]
-    return parent_ids, sub_ids
+def _reject_if_category_out_of_scope(user: StoredUser, category_id: str | None):
+    if not category_id or not str(category_id).strip():
+        return None
+    try:
+        cid = int(category_id)
+    except ValueError:
+        return JSONResponse({"error": "Invalid category_id"}, status_code=400)
+    parents, subs = brand_category_scope_ids(user)
+    if cid in set(parents) or cid in set(subs):
+        return None
+    return JSONResponse({"error": "Category not in your brand scope"}, status_code=400)
 
 
-def _scoped_categories_subcategories_for_promo(user: StoredUser, f: dict) -> tuple[list, list]:
-    """Dropdown Promo Creator: solo categorie/sottocategorie dove il brand ha prodotti (dim_product)."""
-    cats_src = f.get("categories") or []
-    subs_src = f.get("subcategories") or []
-    if not user.brand_id:
-        cats = [c for c in cats_src if c.get("level") == 1] or list(ADMIN_CATEGORIES)
-        subs = subs_src or list(ADMIN_SUBCATEGORIES)
-        return cats, subs
-    parent_ids, sub_ids = _brand_category_scope_ids(user)
-    pset, sset = set(parent_ids), set(sub_ids)
-    cats = [
-        c
-        for c in cats_src
-        if c.get("level") == 1 and int(c.get("category_id", -1)) in pset
-    ]
-    subs = [s for s in subs_src if int(s.get("category_id", -1)) in sset]
-    if not cats:
-        cats = [c for c in ADMIN_CATEGORIES if int(c["category_id"]) in pset]
-    if not subs:
-        subs = [s for s in ADMIN_SUBCATEGORIES if int(s["category_id"]) in sset]
-    return cats, subs
+def _reject_if_parent_category_out_of_scope(user: StoredUser, category_id: str | None):
+    """Solo macro-categorie (parent), es. filtro needstates o subcategory_category_id MI."""
+    if not category_id or not str(category_id).strip():
+        return None
+    try:
+        cid = int(category_id)
+    except ValueError:
+        return JSONResponse({"error": "Invalid category_id"}, status_code=400)
+    parents, _ = brand_category_scope_ids(user)
+    if cid in set(parents):
+        return None
+    return JSONResponse({"error": "Category not in your brand scope"}, status_code=400)
+
+
+def _reject_if_cat_sub_out_of_scope(
+    user: StoredUser,
+    category_id: str | None,
+    subcategory_id: str | None,
+) -> JSONResponse | None:
+    parents, subs = brand_category_scope_ids(user)
+    pset, sset = set(parents), set(subs)
+    if category_id and str(category_id).strip():
+        try:
+            cid = int(category_id)
+        except ValueError:
+            return JSONResponse({"error": "Invalid category_id"}, status_code=400)
+        if cid not in pset:
+            return JSONResponse({"error": "Category not in your brand scope"}, status_code=400)
+    if subcategory_id and str(subcategory_id).strip():
+        try:
+            sid = int(subcategory_id)
+        except ValueError:
+            return JSONResponse({"error": "Invalid subcategory_id"}, status_code=400)
+        if sid not in sset:
+            return JSONResponse({"error": "Subcategory not in your brand scope"}, status_code=400)
+    return None
+
+
+def _reject_if_cat_sub_id_lists_out_of_scope(
+    user: StoredUser, cat_ids_csv: str, sub_ids_csv: str
+) -> JSONResponse | None:
+    cat_list = [x.strip() for x in cat_ids_csv.split(",") if x.strip()] if cat_ids_csv else []
+    sub_list = [x.strip() for x in sub_ids_csv.split(",") if x.strip()] if sub_ids_csv else []
+    parents, subs = brand_category_scope_ids(user)
+    pset, sset = set(parents), set(subs)
+    for x in cat_list:
+        try:
+            cid = int(x)
+        except ValueError:
+            return JSONResponse({"error": "Invalid category id in cat_ids"}, status_code=400)
+        if cid not in pset:
+            return JSONResponse({"error": "Category not in your brand scope"}, status_code=400)
+    for x in sub_list:
+        try:
+            sid = int(x)
+        except ValueError:
+            return JSONResponse({"error": "Invalid subcategory id in sub_ids"}, status_code=400)
+        if sid not in sset:
+            return JSONResponse({"error": "Subcategory not in your brand scope"}, status_code=400)
+    return None
+
+
+def _reject_if_brand_param_not_allowed(user: StoredUser, brand_id: str | None) -> JSONResponse | None:
+    if not brand_id or not str(brand_id).strip():
+        return None
+    try:
+        bid = int(brand_id)
+    except ValueError:
+        return JSONResponse({"error": "Invalid brand_id"}, status_code=400)
+    if user.is_admin:
+        return None
+    if not user.brand_id or bid != int(user.brand_id):
+        return JSONResponse({"error": "Brand not allowed"}, status_code=403)
+    return None
 
 
 def _require_login(access_token: Optional[str]):
@@ -268,10 +319,7 @@ async def page_market_intelligence(request: Request, access_token: Optional[str]
     ctx = _page_ctx(f, user)
     ctx["brand_name"] = _brand_name_for_user(user, f)
     ctx["brand_id"] = user.brand_id
-    cats = f.get("categories") or []
-    subcats = f.get("subcategories") or []
-    ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
-    ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
+    ctx["categories"], ctx["subcategories"] = scoped_category_dropdowns(user, f)
     return templates.TemplateResponse(request, "market_intelligence.html", {**ctx, "active": "market_intelligence"})
 
 
@@ -288,10 +336,7 @@ async def page_brand_comparison(request: Request, access_token: Optional[str] = 
     ctx["brand_name"] = _brand_name_for_user(user, f)
     ctx["brand_id"] = user.brand_id
     ctx["available_years"] = f.get("available_years") or []
-    cats = f.get("categories") or []
-    subcats = f.get("subcategories") or []
-    ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
-    ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
+    ctx["categories"], ctx["subcategories"] = scoped_category_dropdowns(user, f)
     return templates.TemplateResponse(request, "brand_comparison.html", {**ctx, "active": "brand_comparison"})
 
 
@@ -305,9 +350,7 @@ async def page_promo_creator(request: Request, access_token: Optional[str] = Coo
         return tab_redirect
     f = await _filters()
     ctx = _page_ctx(f, user)
-    pc_cats, pc_subs = _scoped_categories_subcategories_for_promo(user, f)
-    ctx["categories"] = pc_cats
-    ctx["subcategories"] = pc_subs
+    ctx["categories"], ctx["subcategories"] = scoped_category_dropdowns(user, f)
     ctx["promo_types"] = f.get("promo_types") or []
     return templates.TemplateResponse(request, "promo_creator.html", {**ctx, "active": "promo_creator"})
 
@@ -324,10 +367,7 @@ async def page_check_live_promo(request: Request, access_token: Optional[str] = 
     ctx = _page_ctx(f, user)
     ctx["brand_name"] = _brand_name_for_user(user, f)
     ctx["brand_id"] = user.brand_id
-    cats = f.get("categories") or []
-    subcats = f.get("subcategories") or []
-    ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
-    ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
+    ctx["categories"], ctx["subcategories"] = scoped_category_dropdowns(user, f)
     ds, de = _default_check_live_dates()
     ctx["date_start_default"] = ds
     ctx["date_end_default"] = de
@@ -357,14 +397,7 @@ async def page_marketing_overview(request: Request, access_token: Optional[str] 
     f = await _filters()
     ctx = _page_ctx(f, user)
     default_brand_id = user.brand_id if user and user.brand_id else None
-    cats = f.get("categories") or []
-    if default_brand_id:
-        from app.db.queries import shared
-        ctx["categories"] = await asyncio.to_thread(shared.query_categories_by_brand, default_brand_id) or []
-        ctx["subcategories"] = await asyncio.to_thread(shared.query_subcategories_by_brand, default_brand_id) or []
-    else:
-        ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
-        ctx["subcategories"] = f.get("subcategories") or ADMIN_SUBCATEGORIES
+    ctx["categories"], ctx["subcategories"] = scoped_category_dropdowns(user, f)
     ctx["brand_name"] = _brand_name_for_user(user, f)
     ctx["brand_id"] = default_brand_id
     ctx["available_years"] = f.get("available_years") or [2024, 2025]
@@ -381,22 +414,17 @@ async def page_marketing_segments(request: Request, access_token: Optional[str] 
         return tab_redirect
     f = await _filters()
     ctx = _page_ctx(f, user)
-    cats = f.get("categories") or []
-    subcats = f.get("subcategories") or []
     ctx["segments"] = f.get("segments") or [{"segment_id": i, "segment_name": n} for i, n in [(1,"Liberals"),(2,"Optimistic Doers"),(3,"Go-Getters"),(4,"Outcasts"),(5,"Contributors"),(6,"Floaters")]]
     default_brand_id = user.brand_id if user and user.brand_id else None
     ctx["default_brand_id"] = default_brand_id
+    ctx["categories"], ctx["subcategories"] = scoped_category_dropdowns(user, f)
     if default_brand_id:
-        from app.db.queries import shared
         from app.db.queries.precalc.base import query_competitors_in_scope_from_precalc
-        ctx["categories"] = await asyncio.to_thread(shared.query_categories_by_brand, default_brand_id) or []
-        ctx["subcategories"] = await asyncio.to_thread(shared.query_subcategories_by_brand, default_brand_id) or []
+
         year = 2024
         ctx["brands"] = await asyncio.to_thread(query_competitors_in_scope_from_precalc, year, default_brand_id) or []
     else:
         ctx["brands"] = f.get("brands") or []
-        ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
-        ctx["subcategories"] = subcats or ADMIN_SUBCATEGORIES
     return templates.TemplateResponse(request, "marketing/segments.html", {**ctx, "active": "marketing"})
 
 
@@ -409,14 +437,9 @@ async def page_marketing_needstates(request: Request, access_token: Optional[str
     if tab_redirect:
         return tab_redirect
     f = await _filters()
-    cats = f.get("categories") or []
     ctx = _page_ctx(f, user)
     default_brand_id = user.brand_id if user and user.brand_id else None
-    if default_brand_id:
-        from app.db.queries import shared
-        ctx["categories"] = await asyncio.to_thread(shared.query_categories_by_brand, default_brand_id) or []
-    else:
-        ctx["categories"] = [c for c in cats if c.get("level") == 1] or ADMIN_CATEGORIES
+    ctx["categories"], _ = scoped_category_dropdowns(user, f)
     segs = f.get("segments") or []
     if not segs:
         segs = [{"segment_id": i, "segment_name": n} for i, n in [(1,"Liberals"),(2,"Optimistic Doers"),(3,"Go-Getters"),(4,"Outcasts"),(5,"Contributors"),(6,"Floaters")]]
@@ -543,6 +566,7 @@ async def page_ecosystem(eco_id: int, request: Request, access_token: Optional[s
     ctx["ecosystem"] = eco_dict
     ctx["ecosystem_category_ids"] = cat_ids
     ctx["ecosystem_brand_ids"] = brand_ids
+    ctx["brands"] = scoped_brands_dropdown(user, f, brand_ids)
     return templates.TemplateResponse(request, "ecosystem.html", {**ctx, "active": f"eco_{eco_id}"})
 
 
@@ -686,6 +710,9 @@ async def api_market_intelligence_all_years(
     user, err = _require_mi_user(access_token)
     if err:
         return err
+    bad = _reject_if_cat_sub_out_of_scope(user, discount_category_id, discount_subcategory_id)
+    if bad:
+        return bad
     return await _svc().get_mi_all_years(
         user.brand_id,
         discount_cat=discount_category_id,
@@ -728,6 +755,12 @@ async def api_market_intelligence_sales(
     user, err = _require_mi_user(access_token)
     if err:
         return err
+    bad = _reject_if_cat_sub_id_lists_out_of_scope(user, cat_ids, sub_ids)
+    if bad:
+        return bad
+    badp = _reject_if_parent_category_out_of_scope(user, subcategory_category_id)
+    if badp:
+        return badp
     cat_list = [x.strip() for x in cat_ids.split(",") if x.strip()] if cat_ids else []
     sub_list = [x.strip() for x in sub_ids.split(",") if x.strip()] if sub_ids else []
     sub_cat_id = subcategory_category_id or (cat_list[0] if cat_list else None)
@@ -784,6 +817,9 @@ async def api_market_intelligence_discount(
     user, err = _require_mi_user(access_token)
     if err:
         return err
+    bad = _reject_if_cat_sub_out_of_scope(user, discount_category_id, discount_subcategory_id)
+    if bad:
+        return bad
     base = await _svc().get_mi_base(period_start, period_end, user.brand_id)
     if base.get("error"):
         return base
@@ -808,6 +844,9 @@ async def api_market_intelligence_top_products(
     user, err = _require_mi_user(access_token)
     if err:
         return err
+    bad = _reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
+    if bad:
+        return bad
     y = year or str(DP[0][:4])
     return await _svc().get_mi_top_products(
         y, user.brand_id, category_id, subcategory_id, channel
@@ -828,6 +867,9 @@ async def api_market_intelligence_segment_by_sku(
         return err
     if not product_id:
         return JSONResponse({"error": "Product ID required"}, status_code=400)
+    bad = _reject_if_category_out_of_scope(user, category_id)
+    if bad:
+        return bad
     y = year or str(DP[0][:4])
     return await _svc().get_mi_segment_by_sku(
         int(product_id), user.brand_id, y, category_id, channel
@@ -873,6 +915,12 @@ async def api_marketing_segments(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.can_access_tab("marketing"):
         return JSONResponse({"error": "Access denied"}, status_code=403)
+    badb = _reject_if_brand_param_not_allowed(user, brand_id)
+    if badb:
+        return badb
+    badc = _reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
+    if badc:
+        return badc
     seg_id = int(segment_id) if segment_id and str(segment_id).strip() else None
     cat_id = int(category_id) if category_id and str(category_id).strip() else None
     sub_id = int(subcategory_id) if subcategory_id and str(subcategory_id).strip() else None
@@ -894,6 +942,9 @@ async def api_marketing_segment_by_category(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.can_access_tab("marketing"):
         return JSONResponse({"error": "Access denied"}, status_code=403)
+    badc = _reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
+    if badc:
+        return badc
     bid = user.brand_id if user.brand_id else None
     try:
         y = int(year) if year and str(year).strip() else int(str(DP[0])[:4])
@@ -923,11 +974,17 @@ async def api_marketing_needstates(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.can_access_tab("marketing"):
         return JSONResponse({"error": "Access denied"}, status_code=403)
+    pset = set(brand_category_scope_ids(user)[0])
     try:
-        cat_id = int(category_id) if category_id and str(category_id).strip() else 1
+        if category_id and str(category_id).strip():
+            cat_id = int(category_id)
+        else:
+            cat_id = min(pset) if pset else 1
         seg_id = int(segment_id) if segment_id and str(segment_id).strip() else 1
     except (ValueError, TypeError):
-        cat_id, seg_id = 1, 1
+        cat_id, seg_id = (min(pset) if pset else 1), 1
+    if cat_id not in pset:
+        return JSONResponse({"error": "Category not in your brand scope"}, status_code=400)
     try:
         return await asyncio.to_thread(_svc().get_needstates_spider, cat_id, seg_id)
     except Exception as e:
@@ -986,6 +1043,9 @@ async def api_brand_comparison(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.brand_id:
         return JSONResponse({"error": "Brand required for Brand Comparison"}, status_code=400)
+    bad = _reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
+    if bad:
+        return bad
     return await _svc().get_brand_comparison(period_start, period_end, user.brand_id, competitor_id, category_id, subcategory_id)
 
 
@@ -1078,6 +1138,9 @@ async def api_check_live_promo_active(
     user = _get_user(access_token)
     if not user or not user.brand_id:
         return JSONResponse({"error": "Brand required for active promos"}, status_code=400)
+    bad = _reject_if_category_out_of_scope(user, category_id)
+    if bad:
+        return bad
     ds, de = _default_check_live_dates()
     date_start = date_start or ds
     date_end = date_end or de
@@ -1101,6 +1164,9 @@ async def api_check_live_promo_sku(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.brand_id:
         return JSONResponse({"error": "Brand required for Check Live Promo"}, status_code=400)
+    bad = _reject_if_category_out_of_scope(user, category_id)
+    if bad:
+        return bad
     ds, de = _default_check_live_dates()
     date_start = date_start or ds
     date_end = date_end or de
@@ -1121,6 +1187,9 @@ async def api_check_live_promo_segment(
     user = _get_user(access_token)
     if not user or not user.brand_id:
         return JSONResponse({"error": "Brand required"}, status_code=400)
+    bad = _reject_if_category_out_of_scope(user, category_id)
+    if bad:
+        return bad
     ds, de = _default_check_live_dates()
     date_start = date_start or ds
     date_end = date_end or de
@@ -1148,22 +1217,9 @@ async def api_promo_creator(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.brand_id:
         return JSONResponse({"error": "Brand required for Promo Simulator"}, status_code=400)
-    _pc_p, _pc_s = _brand_category_scope_ids(user)
-    pset, sset = set(_pc_p), set(_pc_s)
-    if category_id and str(category_id).strip():
-        try:
-            cid = int(category_id)
-            if cid not in pset:
-                return JSONResponse({"error": "Category not in your brand scope"}, status_code=400)
-        except ValueError:
-            return JSONResponse({"error": "Invalid category_id"}, status_code=400)
-    if subcategory_id and str(subcategory_id).strip():
-        try:
-            sid = int(subcategory_id)
-            if sid not in sset:
-                return JSONResponse({"error": "Subcategory not in your brand scope"}, status_code=400)
-        except ValueError:
-            return JSONResponse({"error": "Invalid subcategory_id"}, status_code=400)
+    bad = _reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
+    if bad:
+        return bad
     return await _svc().get_promo_creator_suggestions(period_start, period_end, user.brand_id, promo_type, discount_depth, category_id, subcategory_id)
 
 
