@@ -10,10 +10,10 @@
 | Database | BigQuery (dataset `mart`) | `bigquery/schema_and_seed.sql` |
 | Query | `app/db/client.py` → `app/db/queries/*.py` | `precalc/` (package), `market_intelligence/`, `brand_comparison.py`, `basic.py`, ecc. |
 | Frontend | Jinja2 + Chart.js 4.x | `app/templates/`, `app/static/js/` |
-| Auth | SQLite (`app_data.db`) + JWT | `app/auth/` |
+| Auth | Firestore (`dashboard_users`, `dashboard_ecosystems`) + JWT | `app/auth/firestore_store.py`, `app/auth/routes.py` |
 | Deploy | Cloud Run via Cloud Build | `cloudbuild.yaml`, `Dockerfile` |
 
-**Non usato:** PostgreSQL (rimosso). L'app usa **solo BigQuery**.
+**Non usato:** PostgreSQL (rimosso). L'app usa **solo BigQuery** per analytics; **Firestore** per account e permessi. I loghi brand in cloud usano **URL pubblici GCS** (`BRAND_LOGOS_PUBLIC_BASE` + `/{brand_id}.png`), con fallback a `/static/img/brands/` in locale.
 
 ---
 
@@ -46,7 +46,7 @@ app/db/queries/*.py  →  app/services/*.py (market_intelligence, brand_comparis
 | **Query precalc** | `app/db/queries/precalc/` | Package: `base`, `sales`, `promo`, `peak`, `discount`, `prev_year`, `misc` |
 | **Costanti admin** | `app/constants.py` | `DP`, `ADMIN_CATEGORIES`, `ADMIN_SUBCATEGORIES`, `ADMIN_BRANDS` |
 | **Stile / tema** | `app/static/css/style.css` | Dark theme, variabili CSS |
-| **User model / permessi** | `app/auth/models.py`, `app/auth/routes.py` | `allowed_category_ids`, `allowed_subcategory_ids`, `access_types` |
+| **User model / permessi** | `app/auth/models.py` (costanti), `app/auth/firestore_store.py`, `app/auth/routes.py` | `StoredUser`, `allowed_*`, `access_types`; doc utente = `username` |
 
 ---
 
@@ -86,6 +86,14 @@ Vedi `docs/PRECALC_TABLES.md` per mappatura dashboard → tabelle e come aggiung
 # Avvio locale
 pip install -r app/requirements.txt
 uvicorn app.main:app --reload
+
+# Firestore in locale: emulatore (altrimenti usa progetto GCP reale — attenzione ai dati)
+# gcloud beta emulators firestore start --host-port=127.0.0.1:8080
+# $env:FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"; $env:GCP_PROJECT_ID="demo-local"
+
+# Provisioning GCP (una tantum): API + bucket loghi + IAM
+# .\scripts\provision-firestore-and-brand-logos.ps1 -ProjectId mediaexpertdashboard
+# .\scripts\sync-brand-logos-to-gcs.ps1 -BucketName mediaexpertdashboard-brand-logos
 
 # Rieseguire seed BigQuery (dopo modifiche a schema_and_seed.sql)
 gcloud auth application-default login

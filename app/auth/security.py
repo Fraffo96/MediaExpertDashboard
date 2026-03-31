@@ -6,11 +6,9 @@ from typing import Optional
 from fastapi import Cookie, HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
 
-from .models import User
+from app.auth.firestore_store import StoredUser, get_user_by_username
 
-# In produzione (Cloud Run, ecc.) impostare JWT_SECRET_KEY in .env
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "mediaexpert-dashboard-secret-change-in-prod")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_MINUTES = int(os.environ.get("TOKEN_EXPIRE_MINUTES", "480"))
@@ -40,7 +38,7 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
-def get_current_user(db: Session, access_token: Optional[str] = None) -> Optional[User]:
+def get_current_user(access_token: Optional[str] = None) -> Optional[StoredUser]:
     """Resolve user from JWT cookie. Returns None if invalid."""
     if not access_token:
         return None
@@ -50,25 +48,25 @@ def get_current_user(db: Session, access_token: Optional[str] = None) -> Optiona
     username: str = payload.get("sub", "")
     if not username:
         return None
-    user = db.query(User).filter(User.username == username, User.is_active == True).first()
+    user = get_user_by_username(username)
+    if not user or not user.is_active:
+        return None
     return user
 
 
-def require_user(db: Session, access_token: Optional[str] = None) -> User:
-    """Like get_current_user but raises 401 if not authenticated."""
-    user = get_current_user(db, access_token)
+def require_user(access_token: Optional[str] = None) -> StoredUser:
+    user = get_current_user(access_token)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
 
 
-def require_admin(db: Session, access_token: Optional[str] = None) -> User:
-    """Raises 401/403 if not admin."""
-    user = require_user(db, access_token)
+def require_admin(access_token: Optional[str] = None) -> StoredUser:
+    user = require_user(access_token)
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user
 
 
-def get_admin_user(db: Session, access_token: Optional[str] = None) -> User:
-    return require_admin(db, access_token)
+def get_admin_user(access_token: Optional[str] = None) -> StoredUser:
+    return require_admin(access_token)

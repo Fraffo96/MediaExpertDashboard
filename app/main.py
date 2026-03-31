@@ -21,8 +21,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.auth.database import init_db, get_db, SessionLocal
-from app.auth.models import User, Ecosystem, UserEcosystem, EcosystemCategory, EcosystemBrand
+from app.auth.database import init_db
+from app.auth.firestore_store import StoredUser, get_ecosystem_by_id, list_ecosystems, list_users_active_with_brand
 from app.auth.security import get_current_user
 from app.auth.routes import router as auth_router
 from app.constants import (
@@ -90,29 +90,26 @@ def _load_glossary() -> dict:
     return _GLOSSARY
 
 
-def _get_user(access_token: Optional[str] = None) -> Optional[User]:
+def _get_user(access_token: Optional[str] = None) -> Optional[StoredUser]:
     if not access_token:
         return None
-    db = SessionLocal()
-    try:
-        return get_current_user(db, access_token)
-    finally:
-        db.close()
+    return get_current_user(access_token)
 
 
-def _user_ecosystems(user: Optional[User]) -> list[dict]:
+def _user_ecosystems(user: Optional[StoredUser]) -> list[dict]:
     if not user:
         return []
-    db = SessionLocal()
-    try:
-        if user.is_admin:
-            return [e.to_dict() for e in db.query(Ecosystem).filter(Ecosystem.is_active == True).order_by(Ecosystem.name).all()]
-        eco_ids = [ue.ecosystem_id for ue in db.query(UserEcosystem).filter(UserEcosystem.user_id == user.id).all()]
-        if not eco_ids:
-            return []
-        return [e.to_dict() for e in db.query(Ecosystem).filter(Ecosystem.id.in_(eco_ids), Ecosystem.is_active == True).order_by(Ecosystem.name).all()]
-    finally:
-        db.close()
+    if user.is_admin:
+        active = [e.to_dict() for e in list_ecosystems() if e.is_active]
+        active.sort(key=lambda x: (x.get("name") or "").lower())
+        return active
+    out: list[dict] = []
+    for eid in user.ecosystem_ids:
+        e = get_ecosystem_by_id(eid)
+        if e and e.is_active:
+            out.append(e.to_dict())
+    out.sort(key=lambda x: (x.get("name") or "").lower())
+    return out
 
 
 async def _filters():
@@ -123,14 +120,17 @@ async def _filters():
         return {"categories": [], "subcategories": [], "segments": [], "brands": [], "promo_types": [], "promos": [], "genders": [], "available_years": []}
 
 
-def _brand_logo_url(user: Optional[User]) -> str | None:
-    """URL statico logo brand: static/img/brands/{brand_id}.png (object-fit nel CSS)."""
+def _brand_logo_url(user: Optional[StoredUser]) -> str | None:
+    """Logo brand: BRAND_LOGOS_PUBLIC_BASE + brands/{id}.png (GCS) oppure static locale."""
     if not user or user.is_admin or not user.brand_id:
         return None
+    base = (os.environ.get("BRAND_LOGOS_PUBLIC_BASE") or "").strip().rstrip("/")
+    if base:
+        return f"{base}/{user.brand_id}.png"
     return f"/static/img/brands/{user.brand_id}.png"
 
 
-def _page_ctx(f: dict, user: Optional[User] = None) -> dict:
+def _page_ctx(f: dict, user: Optional[StoredUser] = None) -> dict:
     return {
         **f,
         "period_start": DP[0],
@@ -144,7 +144,7 @@ def _page_ctx(f: dict, user: Optional[User] = None) -> dict:
     }
 
 
-def _brand_name_for_user(user: Optional[User], f: dict) -> str:
+def _brand_name_for_user(user: Optional[StoredUser], f: dict) -> str:
     """Resolve brand name for greeting on landing page."""
     if not user or not user.brand_id:
         return "your brand"
@@ -161,7 +161,7 @@ def _require_login(access_token: Optional[str]):
     return user, None
 
 
-def _check_tab(user: User, tab: str):
+def _check_tab(user: StoredUser, tab: str):
     """Return redirect if user can't access this tab."""
     if not user.can_access_tab(tab):
         tabs = user.tab_list
@@ -486,20 +486,15 @@ async def page_ecosystem(eco_id: int, request: Request, access_token: Optional[s
     user, redirect = _require_login(access_token)
     if redirect:
         return redirect
-    db = SessionLocal()
-    try:
-        eco = db.query(Ecosystem).get(eco_id)
-        if not eco:
+    eco = get_ecosystem_by_id(eco_id)
+    if not eco:
+        return RedirectResponse("/", status_code=302)
+    if not user.is_admin:
+        if eco_id not in user.ecosystem_ids:
             return RedirectResponse("/", status_code=302)
-        if not user.is_admin:
-            allowed = [ue.ecosystem_id for ue in db.query(UserEcosystem).filter(UserEcosystem.user_id == user.id).all()]
-            if eco_id not in allowed:
-                return RedirectResponse("/", status_code=302)
-        cat_ids = [ec.category_id for ec in db.query(EcosystemCategory).filter(EcosystemCategory.ecosystem_id == eco_id).all()]
-        brand_ids = [eb.brand_id for eb in db.query(EcosystemBrand).filter(EcosystemBrand.ecosystem_id == eco_id).all()]
-        eco_dict = eco.to_dict()
-    finally:
-        db.close()
+    eco_dict = eco.to_dict()
+    cat_ids = list(eco.category_ids)
+    brand_ids = list(eco.brand_ids)
     f = await _filters()
     ctx = _page_ctx(f, user)
     ctx["ecosystem"] = eco_dict
