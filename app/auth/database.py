@@ -10,7 +10,9 @@ from .security import hash_password
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///app_data.db")
+# Cloud Run: cwd scrivibile; /tmp evita edge case su filesystem di sola lettura in altri ambienti
+_default_sqlite = "sqlite:////tmp/app_data.db" if os.environ.get("K_SERVICE") else "sqlite:///app_data.db"
+DATABASE_URL = os.environ.get("DATABASE_URL", _default_sqlite)
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}, echo=False)
