@@ -580,6 +580,10 @@ GROUP BY 1, 2, 3, 4, 6
     if not run_query(client, sql_mi_seg_by_prod, "precalc_mi_segment_by_product"):
         sys.exit(1)
 
+    # 14–15: BQ non consente OR REPLACE se cambia CLUSTER; drop esplicito quando si aggiunge parent_category_id
+    for _tbl in ("precalc_mkt_purchasing_channel", "precalc_mkt_purchasing_peak"):
+        run_query(client, f"DROP TABLE IF EXISTS `{PROJECT_ID}.{DATASET}.{_tbl}`", f"drop {_tbl} (recreate clustering)")
+
     # 14. precalc_mkt_purchasing_channel: Marketing purchasing – channel mix (NULL parent = tutte le macro)
     sql_mkt_ch = f"""
 CREATE OR REPLACE TABLE {DATASET}.precalc_mkt_purchasing_channel
