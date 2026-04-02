@@ -31,7 +31,7 @@ _NEEDSTATES_SPIDER_PRECALC: dict[str, dict] | None = None
 def _spider_payload_from_hcg(
     cat_id: int, seg_id: int, segments_map: dict, needstates: list,
 ) -> dict:
-    """Spider payload: JSON scores are weights per segment×needstate; API scores = % mix (sum 100 per segment)."""
+    """Spider payload: JSON scores are affinità 0–100 per asse (indipendenti, non sommano a 100)."""
     seg_name = segments_map.get(str(seg_id), f"Segment {seg_id}")
     if not needstates:
         return {
@@ -47,38 +47,22 @@ def _spider_payload_from_hcg(
     seg_idx = max(0, min(5, seg_id - 1))
     dimensions = [n["label"] for n in needstates]
     scores_raw = [int(n["scores"][seg_idx]) for n in needstates]
-
-    def segment_distribution(s: int) -> list[float]:
-        w = [float(n["scores"][s]) for n in needstates]
-        t = sum(w)
-        if t <= 0:
-            return [0.0] * len(w)
-        return [100.0 * x / t for x in w]
-
-    seg_pcts = [segment_distribution(s) for s in range(6)]
     n_dim = len(dimensions)
+    segment_scores = [round(float(needstates[i]["scores"][seg_idx]), 1) for i in range(n_dim)]
     category_avg: list[float] = []
     for i in range(n_dim):
-        col = [seg_pcts[s][i] for s in range(6)]
+        col = [float(needstates[i]["scores"][s]) for s in range(6)]
         category_avg.append(round(sum(col) / 6.0, 1))
-
-    selected = seg_pcts[seg_idx]
-    segment_pct = [round(x, 1) for x in selected]
-
-    category_avg_raw: list[float] = []
-    for i in range(n_dim):
-        col_raw = [float(needstates[i]["scores"][s]) for s in range(6)]
-        category_avg_raw.append(round(sum(col_raw) / 6.0, 1))
 
     return {
         "category_id": cat_id,
         "segment_id": seg_id,
         "segment_name": seg_name,
         "dimensions": dimensions,
-        "scores": segment_pct,
+        "scores": segment_scores,
         "scores_category_avg": category_avg,
         "scores_raw": scores_raw,
-        "scores_category_avg_raw": category_avg_raw,
+        "scores_category_avg_raw": list(category_avg),
     }
 
 
@@ -302,7 +286,7 @@ def get_segment_summary(
 
 
 def get_needstates_spider(category_id: int | None = None, segment_id: int | None = None) -> dict:
-    """Spider chart: 7 needstates per category. Tutto da tabella precalcolata in RAM (JSON HCG)."""
+    """Spider chart: 7 needstates per category. scores = affinità 0–100 per asse (non un mix che somma 100)."""
     cat_id = category_id or 1
     seg_id = segment_id or 1
     row = _ensure_needstates_spider_precalc().get(f"{cat_id}:{seg_id}")

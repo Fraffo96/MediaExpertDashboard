@@ -1,6 +1,6 @@
 /**
  * Marketing – Needstates by Category: spider/radar chart.
- * Select category + segment to see needstate profile (invented from segment descriptions).
+ * API scores: affinità 0–100 per needstate (assi indipendenti, non sommano a 100).
  */
 (function() {
   var spiderChart = null;
