@@ -31,7 +31,7 @@ _NEEDSTATES_SPIDER_PRECALC: dict[str, dict] | None = None
 def _spider_payload_from_hcg(
     cat_id: int, seg_id: int, segments_map: dict, needstates: list,
 ) -> dict:
-    """Spider payload from HCG JSON (scores_raw 0–100 per axis for radar; scores = mix shares legacy)."""
+    """Spider payload: JSON scores are weights per segment×needstate; API scores = % mix (sum 100 per segment)."""
     seg_name = segments_map.get(str(seg_id), f"Segment {seg_id}")
     if not needstates:
         return {

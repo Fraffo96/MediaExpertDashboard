@@ -9,94 +9,94 @@
   },
   "categories": {
     "1": [
-      {"label": "Premium cinema at home", "scores": [48, 64, 62, 40, 44, 36]},
-      {"label": "Family viewing & shared moments", "scores": [50, 48, 46, 38, 64, 56]},
-      {"label": "Gaming immersion & big-screen fun", "scores": [38, 44, 56, 66, 36, 32]},
-      {"label": "Smart living-room hub", "scores": [60, 50, 54, 36, 42, 34]},
-      {"label": "Reliable replacement TV", "scores": [40, 36, 34, 32, 58, 64]},
-      {"label": "Best value for screen size", "scores": [42, 44, 48, 56, 52, 58]},
-      {"label": "Design, prestige & statement living room", "scores": [50, 64, 60, 38, 32, 30]}
+      {"label": "Premium cinema at home", "scores": [52, 90, 88, 28, 36, 18]},
+      {"label": "Family viewing & shared moments", "scores": [44, 40, 36, 24, 92, 74]},
+      {"label": "Gaming immersion & big-screen fun", "scores": [22, 38, 68, 96, 20, 14]},
+      {"label": "Smart living-room hub", "scores": [88, 52, 64, 18, 40, 22]},
+      {"label": "Reliable replacement TV", "scores": [32, 26, 22, 14, 76, 94]},
+      {"label": "Best value for screen size", "scores": [34, 40, 48, 82, 62, 88]},
+      {"label": "Design, prestige & statement living room", "scores": [48, 92, 86, 20, 18, 12]}
     ],
     "2": [
-      {"label": "Flagship status & prestige", "scores": [44, 64, 62, 40, 36, 32]},
-      {"label": "Everyday reliability & battery life", "scores": [54, 50, 48, 42, 56, 60]},
-      {"label": "Best deal for the money", "scores": [40, 44, 42, 58, 50, 56]},
-      {"label": "Productivity on the go", "scores": [48, 54, 66, 38, 40, 32]},
-      {"label": "Photo, social and self-expression", "scores": [48, 60, 52, 56, 38, 36]},
-      {"label": "Wearable ecosystem & smart routines", "scores": [56, 54, 58, 36, 38, 32]},
-      {"label": "Simple replacement phone", "scores": [34, 32, 30, 42, 48, 62]}
+      {"label": "Flagship status & prestige", "scores": [38, 94, 92, 26, 22, 14]},
+      {"label": "Everyday reliability & battery life", "scores": [72, 58, 54, 42, 78, 90]},
+      {"label": "Best deal for the money", "scores": [32, 44, 38, 88, 58, 86]},
+      {"label": "Productivity on the go", "scores": [46, 62, 94, 26, 32, 18]},
+      {"label": "Photo, social and self-expression", "scores": [42, 84, 70, 72, 34, 22]},
+      {"label": "Wearable ecosystem & smart routines", "scores": [82, 74, 86, 22, 30, 14]},
+      {"label": "Simple replacement phone", "scores": [24, 20, 16, 38, 52, 96]}
     ],
     "3": [
-      {"label": "Work performance & speed", "scores": [50, 52, 64, 40, 44, 32]},
-      {"label": "Study, learning & staying informed", "scores": [60, 48, 54, 38, 46, 34]},
-      {"label": "Gaming setup & power", "scores": [32, 38, 56, 64, 30, 28]},
-      {"label": "Home office balance & convenience", "scores": [56, 62, 52, 34, 46, 32]},
-      {"label": "Best value practical laptop", "scores": [44, 46, 44, 52, 54, 58]},
-      {"label": "Creator / premium setup", "scores": [46, 58, 62, 36, 30, 28]},
-      {"label": "Connectivity & family utility", "scores": [48, 44, 42, 34, 58, 54]}
+      {"label": "Work performance & speed", "scores": [48, 56, 94, 32, 38, 18]},
+      {"label": "Study, learning & staying informed", "scores": [90, 48, 66, 28, 52, 24]},
+      {"label": "Gaming setup & power", "scores": [18, 32, 72, 94, 14, 10]},
+      {"label": "Home office balance & convenience", "scores": [70, 90, 62, 18, 44, 20]},
+      {"label": "Best value practical laptop", "scores": [36, 42, 40, 68, 74, 90]},
+      {"label": "Creator / premium setup", "scores": [42, 80, 92, 24, 16, 12]},
+      {"label": "Connectivity & family utility", "scores": [44, 38, 36, 22, 84, 72]}
     ],
     "4": [
-      {"label": "Competitive performance", "scores": [34, 38, 58, 62, 30, 28]},
-      {"label": "Fun escape & entertainment", "scores": [38, 42, 48, 60, 32, 30]},
-      {"label": "Social gaming with friends", "scores": [36, 44, 48, 58, 56, 38]},
-      {"label": "Premium gamer identity", "scores": [30, 52, 58, 60, 28, 28]},
-      {"label": "Family-friendly console fun", "scores": [38, 40, 36, 48, 60, 42]},
-      {"label": "Budget gaming setup", "scores": [32, 34, 38, 58, 34, 42]},
-      {"label": "Accessory upgrade / refresh", "scores": [30, 36, 54, 56, 30, 30]}
+      {"label": "Competitive performance", "scores": [18, 28, 76, 96, 12, 8]},
+      {"label": "Fun escape & entertainment", "scores": [26, 36, 52, 94, 18, 12]},
+      {"label": "Social gaming with friends", "scores": [22, 40, 46, 90, 82, 28]},
+      {"label": "Premium gamer identity", "scores": [12, 54, 88, 92, 8, 6]},
+      {"label": "Family-friendly console fun", "scores": [28, 32, 26, 48, 90, 38]},
+      {"label": "Budget gaming setup", "scores": [16, 22, 32, 92, 22, 42]},
+      {"label": "Accessory upgrade / refresh", "scores": [12, 26, 66, 88, 10, 10]}
     ],
     "5": [
-      {"label": "Reliable replacement after breakdown", "scores": [40, 34, 32, 30, 56, 62]},
-      {"label": "Energy efficiency & lower bills", "scores": [62, 48, 46, 32, 52, 50]},
-      {"label": "Family practicality & household flow", "scores": [48, 46, 38, 30, 62, 54]},
-      {"label": "Premium kitchen / home upgrade", "scores": [44, 56, 54, 28, 32, 30]},
-      {"label": "Smart connected home appliances", "scores": [56, 50, 48, 30, 30, 28]},
-      {"label": "Best long-term value", "scores": [50, 48, 42, 34, 56, 58]},
-      {"label": "Space-saving / practical fit", "scores": [42, 40, 34, 30, 54, 56]}
+      {"label": "Reliable replacement after breakdown", "scores": [32, 26, 20, 12, 82, 96]},
+      {"label": "Energy efficiency & lower bills", "scores": [94, 50, 44, 14, 66, 58]},
+      {"label": "Family practicality & household flow", "scores": [46, 40, 32, 10, 96, 78]},
+      {"label": "Premium kitchen / home upgrade", "scores": [40, 76, 72, 8, 26, 14]},
+      {"label": "Smart connected home appliances", "scores": [78, 58, 56, 8, 20, 12]},
+      {"label": "Best long-term value", "scores": [54, 46, 38, 18, 82, 90]},
+      {"label": "Space-saving / practical fit", "scores": [38, 34, 26, 8, 74, 88]}
     ],
     "6": [
-      {"label": "Quick everyday convenience", "scores": [50, 52, 48, 34, 56, 54]},
-      {"label": "Family care & meal preparation", "scores": [44, 40, 34, 30, 62, 52]},
-      {"label": "Coffee ritual & lifestyle indulgence", "scores": [48, 56, 52, 32, 42, 30]},
-      {"label": "Healthy cooking & wellness", "scores": [60, 48, 42, 32, 52, 36]},
-      {"label": "Premium design countertop appliance", "scores": [40, 58, 52, 30, 32, 28]},
-      {"label": "Cleaning efficiency & time saving", "scores": [52, 48, 44, 30, 56, 52]},
-      {"label": "Best promo deal for useful household items", "scores": [34, 38, 32, 48, 54, 58]}
+      {"label": "Quick everyday convenience", "scores": [56, 60, 52, 20, 88, 80]},
+      {"label": "Family care & meal preparation", "scores": [42, 36, 28, 12, 96, 72]},
+      {"label": "Coffee ritual & lifestyle indulgence", "scores": [50, 82, 70, 18, 38, 16]},
+      {"label": "Healthy cooking & wellness", "scores": [92, 54, 40, 14, 74, 30]},
+      {"label": "Premium design countertop appliance", "scores": [36, 88, 76, 10, 22, 12]},
+      {"label": "Cleaning efficiency & time saving", "scores": [64, 52, 46, 14, 84, 68]},
+      {"label": "Best promo deal for useful household items", "scores": [28, 36, 24, 58, 78, 94]}
     ],
     "7": [
-      {"label": "Premium sound quality", "scores": [54, 58, 56, 40, 36, 32]},
-      {"label": "Noise-cancelling for focus / travel", "scores": [56, 52, 60, 34, 32, 30]},
-      {"label": "Style & wearable identity", "scores": [38, 60, 52, 48, 30, 28]},
-      {"label": "Portable music & social moments", "scores": [42, 50, 46, 56, 34, 30]},
-      {"label": "Gaming / immersive audio", "scores": [32, 36, 48, 60, 30, 28]},
-      {"label": "Simple everyday listening", "scores": [44, 46, 40, 44, 50, 54]},
-      {"label": "Best value audio upgrade", "scores": [34, 40, 36, 54, 44, 52]}
+      {"label": "Premium sound quality", "scores": [78, 70, 76, 28, 36, 22]},
+      {"label": "Noise-cancelling for focus / travel", "scores": [90, 70, 92, 22, 28, 16]},
+      {"label": "Style & wearable identity", "scores": [32, 94, 54, 66, 14, 10]},
+      {"label": "Portable music & social moments", "scores": [38, 56, 50, 88, 28, 18]},
+      {"label": "Gaming / immersive audio", "scores": [20, 30, 58, 94, 10, 8]},
+      {"label": "Simple everyday listening", "scores": [44, 46, 38, 50, 68, 86]},
+      {"label": "Best value audio upgrade", "scores": [26, 38, 32, 82, 48, 92]}
     ],
     "8": [
-      {"label": "Home automation & convenience", "scores": [58, 50, 52, 32, 38, 30]},
-      {"label": "Security & peace of mind", "scores": [50, 46, 44, 32, 52, 50]},
-      {"label": "Energy control & efficiency", "scores": [60, 46, 44, 30, 42, 36]},
-      {"label": "Tech-forward identity / modern home", "scores": [48, 56, 58, 32, 32, 28]},
-      {"label": "Easy starter smart setup", "scores": [50, 48, 42, 34, 40, 40]},
-      {"label": "Comfort routines & ambient living", "scores": [58, 50, 46, 30, 46, 30]},
-      {"label": "Practical low-cost add-ons", "scores": [38, 40, 34, 48, 44, 52]}
+      {"label": "Home automation & convenience", "scores": [94, 62, 70, 14, 32, 10]},
+      {"label": "Security & peace of mind", "scores": [64, 50, 46, 16, 66, 60]},
+      {"label": "Energy control & efficiency", "scores": [96, 44, 40, 10, 42, 34]},
+      {"label": "Tech-forward identity / modern home", "scores": [54, 86, 90, 14, 18, 8]},
+      {"label": "Easy starter smart setup", "scores": [58, 48, 40, 20, 38, 40]},
+      {"label": "Comfort routines & ambient living", "scores": [88, 58, 50, 12, 44, 12]},
+      {"label": "Practical low-cost add-ons", "scores": [32, 36, 24, 56, 42, 70]}
     ],
     "9": [
-      {"label": "Personal wellness & self-care", "scores": [60, 50, 42, 32, 48, 34]},
-      {"label": "Premium beauty routine", "scores": [42, 58, 48, 32, 38, 30]},
-      {"label": "Family hygiene & daily care", "scores": [38, 34, 30, 28, 58, 52]},
-      {"label": "Performance grooming / polished image", "scores": [34, 52, 54, 32, 30, 30]},
-      {"label": "Health tracking & body awareness", "scores": [56, 48, 50, 30, 42, 34]},
-      {"label": "Reliable replacement personal-care device", "scores": [36, 32, 30, 30, 52, 58]},
-      {"label": "Affordable self-care value", "scores": [32, 34, 30, 40, 52, 54]}
+      {"label": "Personal wellness & self-care", "scores": [96, 66, 44, 12, 54, 22]},
+      {"label": "Premium beauty routine", "scores": [38, 90, 58, 18, 34, 12]},
+      {"label": "Family hygiene & daily care", "scores": [32, 28, 18, 8, 94, 72]},
+      {"label": "Performance grooming / polished image", "scores": [28, 68, 82, 20, 16, 12]},
+      {"label": "Health tracking & body awareness", "scores": [90, 54, 60, 12, 40, 18]},
+      {"label": "Reliable replacement personal-care device", "scores": [30, 24, 16, 10, 60, 92]},
+      {"label": "Affordable self-care value", "scores": [24, 32, 20, 44, 78, 90]}
     ],
     "10": [
-      {"label": "Content creation & creator ambition", "scores": [48, 54, 60, 48, 32, 28]},
-      {"label": "Travel memories & exploration", "scores": [58, 48, 50, 36, 38, 32]},
-      {"label": "Action, adventure & outdoor capture", "scores": [46, 48, 54, 52, 30, 28]},
-      {"label": "Professional quality & gear mastery", "scores": [44, 50, 62, 34, 30, 28]},
-      {"label": "Family moments & easy capture", "scores": [38, 40, 34, 30, 56, 44]},
-      {"label": "Status / premium camera ownership", "scores": [32, 54, 56, 30, 28, 26]},
-      {"label": "Simple practical camera purchase", "scores": [30, 30, 28, 28, 42, 54]}
+      {"label": "Content creation & creator ambition", "scores": [48, 74, 94, 52, 20, 10]},
+      {"label": "Travel memories & exploration", "scores": [92, 48, 58, 26, 34, 16]},
+      {"label": "Action, adventure & outdoor capture", "scores": [46, 54, 78, 68, 12, 8]},
+      {"label": "Professional quality & gear mastery", "scores": [42, 60, 96, 16, 10, 6]},
+      {"label": "Family moments & easy capture", "scores": [34, 38, 26, 14, 90, 46]},
+      {"label": "Status / premium camera ownership", "scores": [22, 82, 90, 12, 8, 4]},
+      {"label": "Simple practical camera purchase", "scores": [20, 18, 14, 10, 38, 72]}
     ]
   }
 }

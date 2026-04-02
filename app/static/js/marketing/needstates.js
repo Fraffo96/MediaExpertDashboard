@@ -52,19 +52,14 @@
     var noData = document.getElementById('mkt-needstates-no-data');
     try {
     var dimensions = data.dimensions || [];
-    var scoresMix = data.scores || [];
-    var scoresRaw = data.scores_raw;
-    if (!scoresRaw || !scoresRaw.length) scoresRaw = [];
-    var chartSegment = scoresRaw.length === dimensions.length ? scoresRaw : scoresMix;
-    var categoryAvgRaw = data.scores_category_avg_raw;
-    if (!categoryAvgRaw || !categoryAvgRaw.length) {
-      categoryAvgRaw = dimensions.map(function() { return 0; });
+    var scoresPct = data.scores || [];
+    if (!scoresPct || !scoresPct.length) scoresPct = [];
+    var chartSegment = scoresPct;
+    var categoryAvgPct = data.scores_category_avg;
+    if (!categoryAvgPct || !categoryAvgPct.length) {
+      categoryAvgPct = dimensions.map(function() { return 0; });
     }
-    var categoryAvgMix = data.scores_category_avg;
-    if (!categoryAvgMix || !categoryAvgMix.length) {
-      categoryAvgMix = dimensions.map(function() { return 0; });
-    }
-    var chartCategoryAvg = categoryAvgRaw.length === dimensions.length ? categoryAvgRaw : categoryAvgMix;
+    var chartCategoryAvg = categoryAvgPct;
     var segmentName = data.segment_name || 'Segment';
 
     if (!dimensions.length || !chartSegment.length) {
@@ -107,7 +102,7 @@
               callback: function(value) {
                 var n = typeof value === 'number' ? value : parseFloat(value);
                 if (!isFinite(n)) return '';
-                return Math.round(n);
+                return Math.round(n) + '%';
               }
             },
             grid: { color: 'rgba(255,255,255,0.1)' },
@@ -135,7 +130,7 @@
               label: function(ctx) {
                 var v = ctx.raw;
                 var num = typeof v === 'number' ? Math.round(v * 10) / 10 : v;
-                return (ctx.dataset.label || '') + ': ' + num;
+                return (ctx.dataset.label || '') + ': ' + num + '%';
               }
             }
           })
@@ -182,8 +177,7 @@
 
     var takeoutsEl = document.getElementById('mkt-needstates-takeouts');
     if (takeoutsEl) {
-      var takeScores = scoresRaw.length === dimensions.length ? scoresRaw : scoresMix;
-      var pairs = dimensions.map(function(d, i) { return { label: d, score: takeScores[i] || 0 }; });
+      var pairs = dimensions.map(function(d, i) { return { label: d, score: scoresPct[i] || 0 }; });
       pairs.sort(function(a, b) { return b.score - a.score; });
       var top3 = pairs.slice(0, 3);
       var rows = top3.map(function(p, i) {
@@ -194,7 +188,7 @@
               '<span class="mkt-takeout-rank">' + (i + 1) + '</span>' +
               '<span class="mkt-takeout-label">' + p.label + '</span>' +
             '</div>' +
-            '<span class="mkt-takeout-score">' + ix + '</span>' +
+            '<span class="mkt-takeout-score">' + ix + '%</span>' +
           '</div>'
         );
       }).join('');
@@ -222,8 +216,7 @@
     var noData = document.getElementById('mkt-needstates-no-data');
 
     var inlined = readPrecalcPayload();
-    if (inlined && inlined.dimensions && inlined.dimensions.length &&
-        ((inlined.scores_raw && inlined.scores_raw.length) || (inlined.scores && inlined.scores.length))) {
+    if (inlined && inlined.dimensions && inlined.dimensions.length && inlined.scores && inlined.scores.length) {
       renderSpider(inlined);
       return;
     }
@@ -247,7 +240,7 @@
         data = { error: r.status === 401 ? 'Please sign in' : r.status === 403 ? 'Access denied' : 'Server error (' + r.status + ')' };
       }
       if (r.ok) {
-        var hasScores = (data.scores && data.scores.length) || (data.scores_raw && data.scores_raw.length);
+        var hasScores = data.scores && data.scores.length;
         if (!data.dimensions || !data.dimensions.length || !hasScores) {
           loading.classList.add('hidden');
           noData.style.display = 'block';
