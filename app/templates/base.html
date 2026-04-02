@@ -29,7 +29,7 @@
 
       {% if user and not user.is_admin %}
       <a href="/" class="{% if active == 'landing' %}active{% endif %}">
-        <span class="nav-dot"></span> Home
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Home</span>
       </a>
       {% endif %}
 
@@ -40,22 +40,22 @@
       {% endif %}
       {% if 'market_intelligence' in visible_tabs %}
       <a href="/market-intelligence" class="{% if active == 'market_intelligence' %}active{% endif %}">
-        <span class="nav-dot"></span> Market Intelligence
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Market Intelligence</span>
       </a>
       {% endif %}
       {% if 'brand_comparison' in visible_tabs %}
       <a href="/brand-comparison" class="{% if active == 'brand_comparison' %}active{% endif %}">
-        <span class="nav-dot"></span> Brand Comparison
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Brand Comparison</span>
       </a>
       {% endif %}
       {% if 'promo_creator' in visible_tabs %}
       <a href="/promo-creator" class="{% if active == 'promo_creator' %}active{% endif %}">
-        <span class="nav-dot"></span> Promo Simulator
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Promo Simulator</span>
       </a>
       {% endif %}
       {% if 'check_live_promo' in visible_tabs %}
       <a href="/check-live-promo" class="{% if active == 'check_live_promo' %}active{% endif %}">
-        <span class="nav-dot"></span> Check Live Promo
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Check Live Promo</span>
       </a>
       {% endif %}
 
@@ -63,19 +63,19 @@
       <div class="sidebar-divider"></div>
       <div class="sidebar-section-label">Marketing Access</div>
       <a href="/marketing/overview" class="{% if active == 'marketing' and request.url.path and '/marketing/overview' in request.url.path %}active{% endif %}">
-        <span class="nav-dot"></span> Segment split by category
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Segment split by category</span>
       </a>
       <a href="/marketing/segments" class="{% if active == 'marketing' and request.url.path and '/marketing/segments' in request.url.path %}active{% endif %}">
-        <span class="nav-dot"></span> Segment Summary
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Segment Summary</span>
       </a>
       <a href="/marketing/needstates" class="{% if active == 'marketing' and request.url.path and '/needstates' in request.url.path %}active{% endif %}">
-        <span class="nav-dot"></span> Needstates by Category
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Needstates by Category</span>
       </a>
       <a href="/marketing/purchasing" class="{% if active == 'marketing' and request.url.path and '/purchasing' in request.url.path %}active{% endif %}">
-        <span class="nav-dot"></span> Purchasing Process
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Purchasing Process</span>
       </a>
       <a href="/marketing/media-preferences" class="{% if active == 'marketing' and request.url.path and '/media-preferences' in request.url.path %}active{% endif %}">
-        <span class="nav-dot"></span> Media Preferences
+        <span class="nav-dot"></span><span class="sidebar-nav-label">Media Preferences</span>
       </a>
       {% endif %}
 
@@ -84,7 +84,7 @@
       <div class="sidebar-section-label">Ecosystems</div>
       {% for eco in user_ecosystems %}
       <a href="/ecosystem/{{ eco.id }}" class="{% if active == 'eco_' ~ eco.id|string %}active{% endif %}">
-        <span class="nav-dot eco"></span> {{ eco.name }}
+        <span class="nav-dot eco"></span><span class="sidebar-nav-label">{{ eco.name }}</span>
       </a>
       {% endfor %}
       {% endif %}
@@ -92,7 +92,7 @@
       {% if user and user.is_admin %}
       <div class="sidebar-divider"></div>
       <a href="/admin" class="{% if active == 'admin' %}active{% endif %}">
-        <span class="nav-dot admin"></span> Admin
+        <span class="nav-dot admin"></span><span class="sidebar-nav-label">Admin</span>
       </a>
       {% endif %}
     </div>
