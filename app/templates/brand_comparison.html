@@ -6,8 +6,6 @@
 {% block content %}
 <p class="dashboard-intro">Compare your brand to a competitor. Same charts as Market Intelligence, but Brand vs Competitor instead of Brand vs Category Avg.</p>
 
-{% include "market_intelligence/_period_toolbar.html" %}
-
 <div id="mi-summary-row" class="mi-summary-row">
   <div class="mi-summary-competitor">
     <label>Competitor: <div id="bc-competitor-dropdown" class="mi-dropdown-container"></div></label>
@@ -48,5 +46,4 @@
 <script src="/static/js/market_intelligence/charts/promo.js"></script>
 <script src="/static/js/market_intelligence/charts/peak.js"></script>
 <script src="/static/js/brand_comparison/dashboard.js"></script>
-<script src="/static/js/market_intelligence/period_toolbar.js"></script>
 {% endblock %}

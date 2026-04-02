@@ -31,6 +31,12 @@
   function hideChartLoadings() {
     document.querySelectorAll('.chart-loading').forEach(function(el) { el.classList.add('hidden'); });
   }
+  function showChartLoading(scope) {
+    document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.remove('hidden'); });
+  }
+  function hideChartLoading(scope) {
+    document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.add('hidden'); });
+  }
 
   function updateCharts(d, scope) {
     scope = scope || 'all';
@@ -71,19 +77,30 @@
     }
   }
 
+  function mergeLivePatch(fullRow, liveEntry) {
+    if (!liveEntry || !liveEntry.patch) return fullRow;
+    return Object.assign({}, fullRow, liveEntry.patch);
+  }
+
   function buildCompositeFullData() {
     var byYear = window._miDataByYear || {};
-    var catData = byYear[_scopeState.year_category_pie] || {};
-    var subData = byYear[_scopeState.year_subcategory_pie] || {};
-    var psData = byYear[_scopeState.year_promo_share] || {};
-    var roiData = byYear[_scopeState.year_promo_roi] || {};
-    var peakData = byYear[_scopeState.year_peak] || {};
+    var live = window._miLiveOverrides || {};
+    var catFull = byYear[_scopeState.year_category_pie] || {};
+    var subFull = byYear[_scopeState.year_subcategory_pie] || {};
+    var psFull = byYear[_scopeState.year_promo_share] || {};
+    var roiFull = byYear[_scopeState.year_promo_roi] || {};
+    var peakFull = byYear[_scopeState.year_peak] || {};
+    var catData = mergeLivePatch(catFull, live.category_pie);
+    var subData = mergeLivePatch(subFull, live.subcategory_pie);
+    var psData = mergeLivePatch(psFull, live.promo_share);
+    var roiData = mergeLivePatch(roiFull, live.promo_roi);
+    var peakData = mergeLivePatch(peakFull, live.peak);
     var composite = Object.assign({}, catData);
     composite.category_pie_brands_map_channel = catData.category_pie_brands_map_channel;
     composite.category_pie_brands_prev_map_channel = catData.category_pie_brands_prev_map_channel;
     composite.subcategory_pie_brands_map_channel = subData.subcategory_pie_brands_map_channel;
     composite.subcategory_pie_brands_prev_map_channel = subData.subcategory_pie_brands_prev_map_channel;
-    composite.sales_value = catData.sales_value;
+    composite.sales_value = catFull.sales_value;
     composite.promo_share_by_category = psData.promo_share_by_category;
     composite.promo_share_by_category_channel = psData.promo_share_by_category_channel;
     composite.promo_share_by_subcategory_map = psData.promo_share_by_subcategory_map;
@@ -93,8 +110,8 @@
     composite.peak_events = peakData.peak_events || [];
     composite.peak_events_map = peakData.peak_events_map;
     composite.peak_events_map_channel = peakData.peak_events_map_channel;
-    composite.discount_depth_selected_map = catData.discount_depth_selected_map;
-    composite.competitor_name = catData.competitor_name || subData.competitor_name || psData.competitor_name || roiData.competitor_name || peakData.competitor_name || '';
+    composite.discount_depth_selected_map = catFull.discount_depth_selected_map;
+    composite.competitor_name = catFull.competitor_name || subFull.competitor_name || psFull.competitor_name || roiFull.competitor_name || peakFull.competitor_name || '';
     return composite;
   }
 
@@ -182,8 +199,21 @@
     }
   }
 
+  window._miLiveOverrides = window._miLiveOverrides || {
+    category_pie: null,
+    subcategory_pie: null,
+    promo_share: null,
+    promo_roi: null,
+    peak: null
+  };
+
   var _scopeState = {
     year_category_pie: '', year_subcategory_pie: '', year_promo_share: '', year_promo_roi: '', year_peak: '',
+    period_mode_category_pie: 'year',
+    period_mode_subcategory_pie: 'year',
+    period_mode_promo_share: 'year',
+    period_mode_promo_roi: 'year',
+    period_mode_peak: 'year',
     roi_cat: '', roi_sub: '', disc_cat: '', disc_sub: '', peak_cat: '', peak_sub: '',
     metric_cat: 'value', metric_sub: 'value',
     category_pie_id: '', subcategory_pie_id: '', subcategory_category_id: '',
@@ -191,7 +221,88 @@
     channel_category_pie: '', channel_subcategory_pie: '', channel_promo_share: '', channel_promo_roi: '', channel_peak: ''
   };
 
+  var _bcPeriodWidgetDefs = [
+    { scope: 'category_pie', suffix: 'category', modeKey: 'period_mode_category_pie' },
+    { scope: 'subcategory_pie', suffix: 'subcategory', modeKey: 'period_mode_subcategory_pie' },
+    { scope: 'promo_share', suffix: 'promo-share', modeKey: 'period_mode_promo_share' },
+    { scope: 'promo_roi', suffix: 'promo-roi', modeKey: 'period_mode_promo_roi' },
+    { scope: 'peak', suffix: 'peak', modeKey: 'period_mode_peak' }
+  ];
+
+  async function fetchBcSliceForScope(scope, ps, pe) {
+    var compId = _scopeState.competitor_id;
+    if (!compId) return;
+    showChartLoading(scope);
+    try {
+      var url = core.buildAllUrl(ps, pe, compId, _scopeState.disc_cat, _scopeState.disc_sub);
+      var r = await fetch(url, { credentials: 'include' });
+      var j = await r.json();
+      if (j.error) {
+        if (typeof showError === 'function') showError(j.error || j.detail || 'Request failed');
+        return;
+      }
+      if (typeof showError === 'function') showError('');
+      if (scope === 'category_pie') {
+        window._miLiveOverrides.category_pie = {
+          ps: ps,
+          pe: pe,
+          patch: {
+            category_pie_brands_map_channel: j.category_pie_brands_map_channel,
+            category_pie_brands_prev_map_channel: j.category_pie_brands_prev_map_channel
+          }
+        };
+      } else if (scope === 'subcategory_pie') {
+        window._miLiveOverrides.subcategory_pie = {
+          ps: ps,
+          pe: pe,
+          patch: {
+            subcategory_pie_brands_map_channel: j.subcategory_pie_brands_map_channel,
+            subcategory_pie_brands_prev_map_channel: j.subcategory_pie_brands_prev_map_channel
+          }
+        };
+      } else if (scope === 'promo_share') {
+        window._miLiveOverrides.promo_share = {
+          ps: ps,
+          pe: pe,
+          patch: {
+            promo_share_by_category: j.promo_share_by_category,
+            promo_share_by_category_channel: j.promo_share_by_category_channel,
+            promo_share_by_subcategory_map: j.promo_share_by_subcategory_map,
+            promo_share_by_subcategory_map_channel: j.promo_share_by_subcategory_map_channel
+          }
+        };
+      } else if (scope === 'promo_roi') {
+        window._miLiveOverrides.promo_roi = {
+          ps: ps,
+          pe: pe,
+          patch: {
+            promo_roi: j.promo_roi,
+            promo_roi_map: j.promo_roi_map
+          }
+        };
+      } else if (scope === 'peak') {
+        window._miLiveOverrides.peak = {
+          ps: ps,
+          pe: pe,
+          patch: {
+            peak_events: j.peak_events,
+            peak_events_map: j.peak_events_map,
+            peak_events_map_channel: j.peak_events_map_channel
+          }
+        };
+      }
+      applyViewFromState(scope);
+    } catch (e) {
+      if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
+    } finally {
+      hideChartLoading(scope);
+    }
+  }
+
   function onYearChange(scope, year) {
+    if (window.MIPeriodWidgets && typeof window.MIPeriodWidgets.forceYearMode === 'function') {
+      window.MIPeriodWidgets.forceYearMode(scope);
+    }
     var y = String(year || '');
     var byYear = window._miDataByYear || {};
     var compId = _scopeState.competitor_id;
@@ -278,6 +389,12 @@
       var slot = 'custom';
       window._miPeriodYearLabelMap = {};
       window._miPeriodYearLabelMap[slot] = labelHint || (ps + ' → ' + pe);
+      ['category_pie', 'subcategory_pie', 'promo_share', 'promo_roi', 'peak'].forEach(function(k) {
+        window._miLiveOverrides[k] = null;
+      });
+      if (window.MIPeriodWidgets && window._bcPeriodWidgetsInited) {
+        window.MIPeriodWidgets.resetAllToYear(_scopeState, window._miLiveOverrides);
+      }
       window._miDataByYear = {};
       window._miDataByYear[slot] = resp;
       _scopeState.year_category_pie = slot;
@@ -315,6 +432,9 @@
       window._bcCustomPeriod = false;
       window._miPeriodYearLabelMap = null;
       document.body.classList.remove('mi-custom-period');
+      if (window.MIPeriodWidgets && window._bcPeriodWidgetsInited) {
+        window.MIPeriodWidgets.resetAllToYear(_scopeState, window._miLiveOverrides);
+      }
       loadData();
       return;
     }
@@ -398,6 +518,12 @@
       _scopeState.year_peak = defY;
       window._miDataByYear = byYear;
       window._miLastData = null;
+      ['category_pie', 'subcategory_pie', 'promo_share', 'promo_roi', 'peak'].forEach(function(k) {
+        window._miLiveOverrides[k] = null;
+      });
+      if (window.MIPeriodWidgets && window._bcPeriodWidgetsInited) {
+        window.MIPeriodWidgets.resetAllToYear(_scopeState, window._miLiveOverrides);
+      }
       var fullData = byYear[defY] || byYear[Object.keys(byYear)[0]] || {};
       _scopeState.category_pie_id = fullData.category_pie_id || _scopeState.category_pie_id;
       _scopeState.subcategory_pie_id = fullData.subcategory_pie_id || _scopeState.subcategory_pie_id;
@@ -408,6 +534,19 @@
         competitors: window._bcBase ? (window._bcBase.competitors || []) : (fullData.competitors || [])
       });
       if (window.BCDropdowns) window.BCDropdowns.populate(metaForDropdowns, _scopeState, { applyViewFromState: applyViewFromState, loadData: loadData, onYearChange: onYearChange });
+
+      var defYNum = parseInt(String(defY), 10) || new Date().getFullYear();
+      if (window.MIPeriodWidgets && !window._bcPeriodWidgetsInited) {
+        window.MIPeriodWidgets.init({
+          state: _scopeState,
+          liveOverrides: window._miLiveOverrides,
+          widgets: _bcPeriodWidgetDefs,
+          defaultCalendarYear: defYNum,
+          fetchSlice: fetchBcSliceForScope,
+          applyViewFromState: applyViewFromState
+        });
+        window._bcPeriodWidgetsInited = true;
+      }
 
       applyViewFromState('all');
       updateSummaryRow(buildCompositeFullData());

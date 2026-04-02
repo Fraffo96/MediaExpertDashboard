@@ -67,7 +67,12 @@
               color: '#e8e8e8',
               font: { size: 13, weight: '500' },
               backdropColor: 'rgba(26,26,26,0.92)',
-              backdropPadding: 4
+              backdropPadding: 4,
+              callback: function(value) {
+                var n = typeof value === 'number' ? value : parseFloat(value);
+                if (!isFinite(n)) return '';
+                return Math.round(n) + '%';
+              }
             },
             grid: { color: 'rgba(255,255,255,0.1)' },
             pointLabels: {

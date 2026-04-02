@@ -2,7 +2,18 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">5. Past Events Dependence (% of annual)</h3>
     <div class="mi-peak-controls">
-      <label>Year: <div id="mi-year-peak" class="mi-dropdown-container"></div></label>
+      <label>Periodo: <div id="mi-period-gran-peak" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-peak" style="display:none;">Mese:
+        <input type="month" id="mi-period-month-peak" class="mi-period-bound-input" autocomplete="off" />
+      </label>
+      <label class="mi-period-bound-row mi-period-row-week-peak" style="display:none;">
+        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inputs">
+          <input type="number" id="mi-period-iso-y-peak" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
+          <input type="number" id="mi-period-iso-w-peak" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />
+        </span>
+      </label>
+      <label class="mi-period-row-year-peak">Year: <div id="mi-year-peak" class="mi-dropdown-container"></div></label>
       <label>Channel: <div id="mi-channel-peak" class="mi-dropdown-container"></div></label>
       <label>Deep dive: <div id="mi-peak-scope-select" class="mi-dropdown-container"></div></label>
     </div>

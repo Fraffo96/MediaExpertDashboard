@@ -12,7 +12,6 @@ from app.auth.brand_scope import brand_category_scope_ids
 from app.constants import DP, MKT_DEFAULT_PERIOD
 from app.web.context import _svc, get_user
 from app.web.scope import (
-    reject_if_brand_param_not_allowed,
     reject_if_cat_sub_out_of_scope,
     reject_if_parent_category_out_of_scope,
 )
@@ -62,9 +61,7 @@ async def api_marketing_segments(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.can_access_tab("marketing"):
         return JSONResponse({"error": "Access denied"}, status_code=403)
-    badb = reject_if_brand_param_not_allowed(user, brand_id)
-    if badb:
-        return badb
+    # brand_id può essere un competitor (lista da query_competitors_in_scope); categoria/sottocategoria restano scoped.
     badc = reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
     if badc:
         return badc

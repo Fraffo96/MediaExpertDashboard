@@ -29,6 +29,9 @@
   function hideChartLoadings() {
     document.querySelectorAll('.chart-loading').forEach(function(el) { el.classList.add('hidden'); });
   }
+  function showChartLoading(scope) {
+    document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.remove('hidden'); });
+  }
   function hideChartLoading(scope) {
     document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.add('hidden'); });
   }
@@ -77,19 +80,30 @@
     }
   }
 
+  function mergeLivePatch(fullRow, liveEntry) {
+    if (!liveEntry || !liveEntry.patch) return fullRow;
+    return Object.assign({}, fullRow, liveEntry.patch);
+  }
+
   function buildCompositeFullData() {
     var byYear = window._miDataByYear || {};
-    var catData = byYear[_scopeState.year_category_pie] || {};
-    var subData = byYear[_scopeState.year_subcategory_pie] || {};
-    var psData = byYear[_scopeState.year_promo_share] || {};
-    var roiData = byYear[_scopeState.year_promo_roi] || {};
-    var peakData = byYear[_scopeState.year_peak] || {};
+    var live = window._miLiveOverrides || {};
+    var catFull = byYear[_scopeState.year_category_pie] || {};
+    var subFull = byYear[_scopeState.year_subcategory_pie] || {};
+    var psFull = byYear[_scopeState.year_promo_share] || {};
+    var roiFull = byYear[_scopeState.year_promo_roi] || {};
+    var peakFull = byYear[_scopeState.year_peak] || {};
+    var catData = mergeLivePatch(catFull, live.category_pie);
+    var subData = mergeLivePatch(subFull, live.subcategory_pie);
+    var psData = mergeLivePatch(psFull, live.promo_share);
+    var roiData = mergeLivePatch(roiFull, live.promo_roi);
+    var peakData = mergeLivePatch(peakFull, live.peak);
     var composite = Object.assign({}, catData);
     composite.category_pie_brands_map_channel = catData.category_pie_brands_map_channel;
     composite.category_pie_brands_prev_map_channel = catData.category_pie_brands_prev_map_channel;
     composite.subcategory_pie_brands_map_channel = subData.subcategory_pie_brands_map_channel;
     composite.subcategory_pie_brands_prev_map_channel = subData.subcategory_pie_brands_prev_map_channel;
-    composite.sales_value = catData.sales_value;
+    composite.sales_value = catFull.sales_value;
     composite.promo_share_by_category = psData.promo_share_by_category;
     composite.promo_share_by_category_channel = psData.promo_share_by_category_channel;
     composite.promo_share_by_subcategory_map = psData.promo_share_by_subcategory_map;
@@ -99,7 +113,7 @@
     composite.peak_events = peakData.peak_events || [];
     composite.peak_events_map = peakData.peak_events_map;
     composite.peak_events_map_channel = peakData.peak_events_map_channel;
-    composite.discount_depth_selected_map = catData.discount_depth_selected_map;
+    composite.discount_depth_selected_map = catFull.discount_depth_selected_map;
     composite.incremental_yoy_map = window._miIncrementalYoY || {};
     composite.incremental_yoy_map_channel = window._miIncrementalYoYChannel || {};
     return composite;
@@ -203,8 +217,21 @@
     }
   }
 
+  window._miLiveOverrides = window._miLiveOverrides || {
+    category_pie: null,
+    subcategory_pie: null,
+    promo_share: null,
+    promo_roi: null,
+    peak: null
+  };
+
   var _scopeState = {
     year_category_pie: '', year_subcategory_pie: '', year_promo_share: '', year_promo_roi: '', year_peak: '',
+    period_mode_category_pie: 'year',
+    period_mode_subcategory_pie: 'year',
+    period_mode_promo_share: 'year',
+    period_mode_promo_roi: 'year',
+    period_mode_peak: 'year',
     roi_cat: '', roi_sub: '', disc_cat: '', disc_sub: '', peak_cat: '', peak_sub: '',
     incr_yoy_cat: '', incr_yoy_sub: '',
     metric_cat: 'value', metric_sub: 'value',
@@ -212,6 +239,111 @@
     promo_share_category_id: '',
     channel_category_pie: '', channel_subcategory_pie: '', channel_promo_share: '', channel_promo_roi: '', channel_peak: '', channel_incremental_yoy: ''
   };
+
+  var _miPeriodWidgetDefs = [
+    { scope: 'category_pie', suffix: 'category', modeKey: 'period_mode_category_pie' },
+    { scope: 'subcategory_pie', suffix: 'subcategory', modeKey: 'period_mode_subcategory_pie' },
+    { scope: 'promo_share', suffix: 'promo-share', modeKey: 'period_mode_promo_share' },
+    { scope: 'promo_roi', suffix: 'promo-roi', modeKey: 'period_mode_promo_roi' },
+    { scope: 'peak', suffix: 'peak', modeKey: 'period_mode_peak' }
+  ];
+
+  function getSalesMetaForFetch() {
+    var yk = _scopeState.year_category_pie;
+    var byYear = window._miDataByYear || {};
+    var base = byYear[yk] || {};
+    var fk = Object.keys(byYear)[0];
+    if ((!base.cat_ids || !base.cat_ids.length) && fk) base = byYear[fk] || {};
+    return {
+      cat_ids: base.cat_ids || [],
+      sub_ids: base.sub_ids || [],
+      subcategory_category_id: _scopeState.subcategory_category_id || base.subcategory_category_id
+    };
+  }
+
+  async function fetchSliceForScope(scope, ps, pe) {
+    showChartLoading(scope);
+    try {
+      if (scope === 'category_pie' || scope === 'subcategory_pie') {
+        var meta = getSalesMetaForFetch();
+        var url = buildSalesUrl(ps, pe, meta.cat_ids, meta.sub_ids, meta.subcategory_category_id);
+        var j = await fetchJson(url);
+        if (j.error) {
+          if (typeof showError === 'function') showError(j.error || j.detail || 'Request failed');
+          return;
+        }
+        if (typeof showError === 'function') showError('');
+        if (scope === 'category_pie') {
+          window._miLiveOverrides.category_pie = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              category_pie_brands_map_channel: j.category_pie_brands_map_channel,
+              category_pie_brands_prev_map_channel: j.category_pie_brands_prev_map_channel
+            }
+          };
+        } else {
+          window._miLiveOverrides.subcategory_pie = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              subcategory_pie_brands_map_channel: j.subcategory_pie_brands_map_channel,
+              subcategory_pie_brands_prev_map_channel: j.subcategory_pie_brands_prev_map_channel
+            }
+          };
+        }
+      } else if (scope === 'promo_share' || scope === 'promo_roi') {
+        var pj = await fetchJson(buildPromoUrl(ps, pe));
+        if (pj.error) {
+          if (typeof showError === 'function') showError(pj.error || pj.detail || 'Request failed');
+          return;
+        }
+        if (typeof showError === 'function') showError('');
+        if (scope === 'promo_share') {
+          window._miLiveOverrides.promo_share = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              promo_share_by_category: pj.promo_share_by_category,
+              promo_share_by_category_channel: pj.promo_share_by_category_channel,
+              promo_share_by_subcategory_map: pj.promo_share_by_subcategory_map,
+              promo_share_by_subcategory_map_channel: pj.promo_share_by_subcategory_map_channel
+            }
+          };
+        } else {
+          window._miLiveOverrides.promo_roi = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              promo_roi: pj.promo_roi,
+              promo_roi_map: pj.promo_roi_map
+            }
+          };
+        }
+      } else if (scope === 'peak') {
+        var kj = await fetchJson(buildPeakUrl(ps, pe));
+        if (kj.error) {
+          if (typeof showError === 'function') showError(kj.error || kj.detail || 'Request failed');
+          return;
+        }
+        if (typeof showError === 'function') showError('');
+        window._miLiveOverrides.peak = {
+          ps: ps,
+          pe: pe,
+          patch: {
+            peak_events: kj.peak_events,
+            peak_events_map: kj.peak_events_map,
+            peak_events_map_channel: kj.peak_events_map_channel
+          }
+        };
+      }
+      applyViewFromState(scope);
+    } catch (e) {
+      if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
+    } finally {
+      hideChartLoading(scope);
+    }
+  }
 
   function buildBaseUrl(ps, pe) {
     return '/api/market-intelligence/base?period_start=' + encodeURIComponent(ps) + '&period_end=' + encodeURIComponent(pe);
@@ -254,6 +386,9 @@
 
   /** Cambio year: da cache se presente, altrimenti GET /all per singolo anno. */
   function onYearChange(scope, year) {
+    if (window.MIPeriodWidgets && typeof window.MIPeriodWidgets.forceYearMode === 'function') {
+      window.MIPeriodWidgets.forceYearMode(scope);
+    }
     var y = String(year || '');
     var byYear = window._miDataByYear || {};
     if (!byYear[y]) {
@@ -301,6 +436,12 @@
       window._miIncrementalYoYChannel = {};
       window._miDataByYear = {};
       window._miDataByYear[slot] = resp;
+      ['category_pie', 'subcategory_pie', 'promo_share', 'promo_roi', 'peak'].forEach(function(k) {
+        window._miLiveOverrides[k] = null;
+      });
+      if (window.MIPeriodWidgets && window._miPeriodWidgetsInited) {
+        window.MIPeriodWidgets.resetAllToYear(_scopeState, window._miLiveOverrides);
+      }
       _scopeState.year_category_pie = slot;
       _scopeState.year_subcategory_pie = slot;
       _scopeState.year_promo_share = slot;
@@ -331,6 +472,9 @@
       window._miCustomPeriod = false;
       window._miPeriodYearLabelMap = null;
       document.body.classList.remove('mi-custom-period');
+      if (window.MIPeriodWidgets && window._miPeriodWidgetsInited) {
+        window.MIPeriodWidgets.resetAllToYear(_scopeState, window._miLiveOverrides);
+      }
       loadData();
       return;
     }
@@ -408,6 +552,12 @@
       _scopeState.year_peak = defY;
       window._miDataByYear = byYear;
       window._miLastData = null;
+      ['category_pie', 'subcategory_pie', 'promo_share', 'promo_roi', 'peak'].forEach(function(k) {
+        window._miLiveOverrides[k] = null;
+      });
+      if (window.MIPeriodWidgets && window._miPeriodWidgetsInited) {
+        window.MIPeriodWidgets.resetAllToYear(_scopeState, window._miLiveOverrides);
+      }
       var fullData = byYear[defY] || byYear[Object.keys(byYear)[0]] || {};
       _scopeState.category_pie_id = fullData.category_pie_id || _scopeState.category_pie_id;
       _scopeState.subcategory_pie_id = fullData.subcategory_pie_id || _scopeState.subcategory_pie_id;
@@ -420,6 +570,19 @@
 
       if (window.MIChartsSegmentSku && window.MIChartsSegmentSku.init) {
         window.MIChartsSegmentSku.init(_scopeState, fullData.brand_categories || [], fullData.brand_subcategories || {}, { applyViewFromState: applyViewFromState });
+      }
+
+      var defYNum = parseInt(String(defY), 10) || new Date().getFullYear();
+      if (window.MIPeriodWidgets && !window._miPeriodWidgetsInited) {
+        window.MIPeriodWidgets.init({
+          state: _scopeState,
+          liveOverrides: window._miLiveOverrides,
+          widgets: _miPeriodWidgetDefs,
+          defaultCalendarYear: defYNum,
+          fetchSlice: fetchSliceForScope,
+          applyViewFromState: applyViewFromState
+        });
+        window._miPeriodWidgetsInited = true;
       }
 
       applyViewFromState('all');

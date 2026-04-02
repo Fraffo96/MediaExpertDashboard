@@ -2,14 +2,25 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">3. Promo Share of Sales</h3>
     <div class="mi-promo-share-controls">
-      <label>Year: <div id="mi-year-promo-share" class="mi-dropdown-container"></div></label>
+      <label>Periodo: <div id="mi-period-gran-promo-share" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-promo-share" style="display:none;">Mese:
+        <input type="month" id="mi-period-month-promo-share" class="mi-period-bound-input" autocomplete="off" />
+      </label>
+      <label class="mi-period-bound-row mi-period-row-week-promo-share" style="display:none;">
+        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inputs">
+          <input type="number" id="mi-period-iso-y-promo-share" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
+          <input type="number" id="mi-period-iso-w-promo-share" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />
+        </span>
+      </label>
+      <label class="mi-period-row-year-promo-share">Year: <div id="mi-year-promo-share" class="mi-dropdown-container"></div></label>
       <label>Channel: <div id="mi-channel-promo-share" class="mi-dropdown-container"></div></label>
       <label>Category: <div id="mi-promo-share-category-select" class="mi-dropdown-container"></div></label>
     </div>
   </div>
   <div class="mi-col-center">
     <div class="chart-wrap chart-wrap-promo">
-      <div class="chart-loading" data-chart-scope="promo"><div class="chart-spinner"></div></div>
+      <div class="chart-loading" data-chart-scope="promo_share"><div class="chart-spinner"></div></div>
       <canvas id="chart-promo-share"></canvas>
     </div>
   </div>
@@ -21,14 +32,25 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">4. Promo ROI by Type</h3>
     <div class="mi-roi-controls">
-      <label>Year: <div id="mi-year-promo-roi" class="mi-dropdown-container"></div></label>
+      <label>Periodo: <div id="mi-period-gran-promo-roi" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-promo-roi" style="display:none;">Mese:
+        <input type="month" id="mi-period-month-promo-roi" class="mi-period-bound-input" autocomplete="off" />
+      </label>
+      <label class="mi-period-bound-row mi-period-row-week-promo-roi" style="display:none;">
+        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inputs">
+          <input type="number" id="mi-period-iso-y-promo-roi" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
+          <input type="number" id="mi-period-iso-w-promo-roi" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />
+        </span>
+      </label>
+      <label class="mi-period-row-year-promo-roi">Year: <div id="mi-year-promo-roi" class="mi-dropdown-container"></div></label>
       <label>Channel: <div id="mi-channel-promo-roi" class="mi-dropdown-container"></div></label>
       <label>Deep dive: <div id="mi-roi-scope-select" class="mi-dropdown-container"></div></label>
     </div>
   </div>
   <div class="mi-col-center">
     <div class="chart-wrap chart-wrap-promo">
-      <div class="chart-loading" data-chart-scope="promo"><div class="chart-spinner"></div></div>
+      <div class="chart-loading" data-chart-scope="promo_roi"><div class="chart-spinner"></div></div>
       <canvas id="chart-promo-roi"></canvas>
     </div>
   </div>

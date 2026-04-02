@@ -2,7 +2,18 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">1. Categories</h3>
     <div class="mi-pie-controls">
-      <label>Year: <div id="mi-year-category" class="mi-dropdown-container"></div></label>
+      <label>Periodo: <div id="mi-period-gran-category" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-category" style="display:none;">Mese:
+        <input type="month" id="mi-period-month-category" class="mi-period-bound-input" autocomplete="off" />
+      </label>
+      <label class="mi-period-bound-row mi-period-row-week-category" style="display:none;">
+        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inputs">
+          <input type="number" id="mi-period-iso-y-category" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
+          <input type="number" id="mi-period-iso-w-category" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />
+        </span>
+      </label>
+      <label class="mi-period-row-year-category">Year: <div id="mi-year-category" class="mi-dropdown-container"></div></label>
       <label>Channel: <div id="mi-channel-category" class="mi-dropdown-container"></div></label>
       <label>Category: <div id="mi-category-pie-select" class="mi-dropdown-container"></div></label>
       <label>Metric: <div id="mi-metric-categories" class="mi-dropdown-container"></div></label>
@@ -10,7 +21,7 @@
   </div>
   <div class="mi-col-center">
     <div class="chart-wrap mi-pie-chart-wrap">
-      <div class="chart-loading" data-chart-scope="sales"><div class="chart-spinner"></div></div>
+      <div class="chart-loading" data-chart-scope="category_pie"><div class="chart-spinner"></div></div>
       <canvas id="chart-category-pie"></canvas>
     </div>
   </div>
@@ -22,7 +33,18 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">2. Subcategories</h3>
     <div class="mi-pie-controls">
-      <label>Year: <div id="mi-year-subcategory" class="mi-dropdown-container"></div></label>
+      <label>Periodo: <div id="mi-period-gran-subcategory" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-subcategory" style="display:none;">Mese:
+        <input type="month" id="mi-period-month-subcategory" class="mi-period-bound-input" autocomplete="off" />
+      </label>
+      <label class="mi-period-bound-row mi-period-row-week-subcategory" style="display:none;">
+        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inputs">
+          <input type="number" id="mi-period-iso-y-subcategory" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
+          <input type="number" id="mi-period-iso-w-subcategory" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />
+        </span>
+      </label>
+      <label class="mi-period-row-year-subcategory">Year: <div id="mi-year-subcategory" class="mi-dropdown-container"></div></label>
       <label>Channel: <div id="mi-channel-subcategory" class="mi-dropdown-container"></div></label>
       <label>Category: <div id="mi-subcategory-category-select" class="mi-dropdown-container"></div></label>
       <label>Subcategory: <div id="mi-subcategory-pie-select" class="mi-dropdown-container"></div></label>
@@ -31,7 +53,7 @@
   </div>
   <div class="mi-col-center">
     <div class="chart-wrap mi-pie-chart-wrap">
-      <div class="chart-loading" data-chart-scope="sales"><div class="chart-spinner"></div></div>
+      <div class="chart-loading" data-chart-scope="subcategory_pie"><div class="chart-spinner"></div></div>
       <canvas id="chart-subcategory-pie"></canvas>
     </div>
   </div>

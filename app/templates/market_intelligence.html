@@ -6,8 +6,6 @@
 {% block content %}
 <p class="dashboard-intro">Compare your brand performance vs category/subcategory average.</p>
 
-{% include "market_intelligence/_period_toolbar.html" %}
-
 <div id="mi-summary-row" class="mi-summary-row">
   <div class="mi-summary-revenue">
     <span class="mi-summary-label">Revenue by category:</span>
@@ -40,9 +38,10 @@
   window.MI_AVAILABLE_YEARS = {{ available_years|default([])|tojson }};
   window.MI_DEFAULT_YEAR = {{ (available_years[-1] if available_years else none)|tojson }};
 </script>
-{% set mi_js_v = '3' %}
+{% set mi_js_v = '4' %}
 <script src="/static/js/market_intelligence/core.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/category-dropdown.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/period_widgets.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/dropdowns.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/charts/sales.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/charts/promo.js?v={{ mi_js_v }}"></script>
@@ -50,5 +49,4 @@
 <script src="/static/js/market_intelligence/charts/segment-sku.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/charts/incremental-yoy.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/dashboard.js?v={{ mi_js_v }}"></script>
-<script src="/static/js/market_intelligence/period_toolbar.js?v={{ mi_js_v }}"></script>
 {% endblock %}

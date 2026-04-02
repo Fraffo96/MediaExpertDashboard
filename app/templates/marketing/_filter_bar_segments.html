@@ -1,9 +1,8 @@
 <form id="filter-form" class="marketing-filter-bar" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
-  <label title="Brand">Brand
-    <select name="brand_id" id="f-brand-id">
-      <option value="">All</option>
-      {% for b in brands %}
-      <option value="{{ b.brand_id }}" {% if default_brand_id and b.brand_id == default_brand_id %}selected{% endif %}>{{ b.brand_name }}</option>
+  <label title="Segment">Segment
+    <select name="segment_id" id="f-segment-id">
+      {% for s in segments %}
+      <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
       {% endfor %}
     </select>
   </label>
@@ -23,10 +22,11 @@
       {% endfor %}
     </select>
   </label>
-  <label title="Segment">Segment
-    <select name="segment_id" id="f-segment-id">
-      {% for s in segments %}
-      <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
+  <label title="Brand">Brand
+    <select name="brand_id" id="f-brand-id">
+      <option value="">All</option>
+      {% for b in brands %}
+      <option value="{{ b.brand_id }}" {% if default_brand_id and b.brand_id == default_brand_id %}selected{% endif %}>{{ b.brand_name }}</option>
       {% endfor %}
     </select>
   </label>
