@@ -1,4 +1,5 @@
-# Rinnova Application Default Credentials (ADC) in una finestra CMD visibile + browser.
+# Rinnova Application Default Credentials (ADC) in una finestra CMD visibile.
+# gcloud auth application-default login apre il browser di sistema (nessun --no-launch-browser).
 # Utile quando ADC utente e' scaduto; lo script rimuove GOOGLE_APPLICATION_CREDENTIALS solo per questa sessione
 # cosi' gcloud non chiede il conflitto con la chiave SA del repo.
 #
@@ -36,7 +37,7 @@ $lines = @(
     'title Google Cloud SDK - Application Default Credentials',
     'REM Evita conflitto: durante login ADC non usare la variabile che punta al SA',
     'set GOOGLE_APPLICATION_CREDENTIALS=',
-    'echo Login ADC (credenziali utente per librerie Google in locale)...',
+    'echo Login ADC — si apre il browser per accedere con il tuo account Google...',
     ("call `"{0}`" auth application-default login" -f $gcloudCmd),
     'if errorlevel 1 (',
     '  echo Login ADC annullato o errore.',
