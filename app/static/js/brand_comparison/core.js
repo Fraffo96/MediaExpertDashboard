@@ -25,10 +25,29 @@
     return '/api/brand-comparison/all-years?' + q.join('&');
   }
 
+  function buildSalesUrl(ps, pe, competitorId, catIds, subIds, subCatId) {
+    var q = ['period_start=' + encodeURIComponent(ps), 'period_end=' + encodeURIComponent(pe), 'competitor_id=' + encodeURIComponent(competitorId || '')];
+    if (catIds && catIds.length) q.push('cat_ids=' + encodeURIComponent(catIds.join(',')));
+    if (subIds && subIds.length) q.push('sub_ids=' + encodeURIComponent(subIds.join(',')));
+    if (subCatId) q.push('subcategory_category_id=' + encodeURIComponent(subCatId));
+    return '/api/brand-comparison/sales?' + q.join('&');
+  }
+
+  function buildPromoUrl(ps, pe, competitorId) {
+    return '/api/brand-comparison/promo?period_start=' + encodeURIComponent(ps) + '&period_end=' + encodeURIComponent(pe) + '&competitor_id=' + encodeURIComponent(competitorId || '');
+  }
+
+  function buildPeakUrl(ps, pe, competitorId) {
+    return '/api/brand-comparison/peak?period_start=' + encodeURIComponent(ps) + '&period_end=' + encodeURIComponent(pe) + '&competitor_id=' + encodeURIComponent(competitorId || '');
+  }
+
   window.BCCore = {
     buildCompetitorsUrl: buildCompetitorsUrl,
     buildBaseUrl: buildBaseUrl,
     buildAllUrl: buildAllUrl,
-    buildAllYearsUrl: buildAllYearsUrl
+    buildAllYearsUrl: buildAllYearsUrl,
+    buildSalesUrl: buildSalesUrl,
+    buildPromoUrl: buildPromoUrl,
+    buildPeakUrl: buildPeakUrl
   };
 })();

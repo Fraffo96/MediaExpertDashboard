@@ -12,7 +12,9 @@ from app.db.queries.brand_comparison import (
     query_promo_share_by_category_brand_vs_competitor,
     query_promo_share_by_subcategory_brand_vs_competitor,
     query_sales_by_brand_in_all_categories_bc,
+    query_sales_by_brand_in_all_categories_bc_all_channels,
     query_sales_by_brand_in_all_subcategories_bc,
+    query_sales_by_brand_in_all_subcategories_bc_all_channels,
 )
 from app.db.queries.market_intelligence import (
     query_brand_categories,
@@ -507,34 +509,33 @@ async def get_bc_sales_live(ps: str, pe: str, brand_id: int, competitor_id: int,
     cat_ids_int = [int(c) for c in cat_ids if c] if cat_ids else []
     sub_ids_int = [int(s) for s in sub_ids if s] if sub_ids else []
 
-    async def run_cat_ch(ch):
-        chv = ch if ch else None
-        if not cat_ids_int:
-            return []
-        rows = await asyncio.to_thread(query_sales_by_brand_in_all_categories_bc, ps, pe, cat_ids_int, bid, cid, chv)
-        out = []
-        for r in rows or []:
-            rr = dict(r)
-            rr["channel"] = ch
-            out.append(rr)
-        return out
-
-    async def run_sub_ch(ch):
-        chv = ch if ch else None
-        if not sub_ids_int:
-            return []
-        rows = await asyncio.to_thread(query_sales_by_brand_in_all_subcategories_bc, ps, pe, sub_ids_int, bid, cid, chv)
-        out = []
-        for r in rows or []:
-            rr = dict(r)
-            rr["channel"] = ch
-            out.append(rr)
-        return out
-
-    cat_blocks = await asyncio.gather(*[run_cat_ch(ch) for ch in CHANNELS])
-    sub_blocks = await asyncio.gather(*[run_sub_ch(ch) for ch in CHANNELS])
-    cat_pie_all = [r for blk in cat_blocks for r in blk]
-    sub_pie_all = [r for blk in sub_blocks for r in blk]
+    cat_pie_all = []
+    sub_pie_all = []
+    if cat_ids_int and sub_ids_int:
+        cat_pie_all, sub_pie_all = await asyncio.gather(
+            asyncio.to_thread(
+                query_sales_by_brand_in_all_categories_bc_all_channels, ps, pe, cat_ids_int, bid, cid
+            ),
+            asyncio.to_thread(
+                query_sales_by_brand_in_all_subcategories_bc_all_channels, ps, pe, sub_ids_int, bid, cid
+            ),
+        )
+        cat_pie_all = list(cat_pie_all or [])
+        sub_pie_all = list(sub_pie_all or [])
+    elif cat_ids_int:
+        cat_pie_all = list(
+            (await asyncio.to_thread(
+                query_sales_by_brand_in_all_categories_bc_all_channels, ps, pe, cat_ids_int, bid, cid
+            ))
+            or []
+        )
+    elif sub_ids_int:
+        sub_pie_all = list(
+            (await asyncio.to_thread(
+                query_sales_by_brand_in_all_subcategories_bc_all_channels, ps, pe, sub_ids_int, bid, cid
+            ))
+            or []
+        )
 
     def _group_bc(rows):
         out = {ch: {} for ch in CHANNELS}

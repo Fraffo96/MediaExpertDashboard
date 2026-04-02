@@ -251,6 +251,104 @@ def query_sales_by_brand_in_all_subcategories_bc(ps, pe, subcategory_ids, brand_
     return run_query(q, p)
 
 
+def query_sales_by_brand_in_all_categories_bc_all_channels(ps, pe, category_ids, brand_id, competitor_id):
+    """Una query: pie categorie BC per tutti i channel ('' + web, app, store). Come MI all_channels ma solo brand+competitor."""
+    if not category_ids:
+        return []
+    ids = [int(x) for x in category_ids if x]
+    if not ids:
+        return []
+    p = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        ArrayQueryParameter("cat_ids", "INT64", ids),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+        bigquery.ScalarQueryParameter("competitor", "INT64", int(competitor_id)),
+    ]
+    q = """
+    WITH all_data AS (
+      SELECT CAST('' AS STRING) AS channel, f.parent_category_id AS category_id,
+        b.brand_id, b.brand_name, f.gross_pln, f.units
+      FROM mart.fact_sales_daily f
+      JOIN mart.dim_brand b ON b.brand_id = f.brand_id
+      WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+        AND f.parent_category_id IN UNNEST(@cat_ids) AND f.brand_id IN (@brand, @competitor) AND f.gross_pln > 0
+      UNION ALL
+      SELECT f.channel, f.parent_category_id AS category_id,
+        b.brand_id, b.brand_name, f.gross_pln, f.units
+      FROM mart.v_sales_daily_by_channel f
+      JOIN mart.dim_brand b ON b.brand_id = f.brand_id
+      WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+        AND f.parent_category_id IN UNNEST(@cat_ids) AND f.brand_id IN (@brand, @competitor) AND f.gross_pln > 0
+    ),
+    per_cat AS (
+      SELECT channel, category_id, brand_id, brand_name,
+        SUM(gross_pln) AS gross_pln, SUM(units) AS units
+      FROM all_data GROUP BY channel, category_id, brand_id, brand_name
+    ),
+    totals AS (
+      SELECT channel, category_id, SUM(gross_pln) AS total_gross, SUM(units) AS total_units
+      FROM per_cat GROUP BY channel, category_id
+    )
+    SELECT p.channel, p.category_id, p.brand_id, p.brand_name, p.gross_pln, p.units,
+      ROUND(100.0 * p.gross_pln / NULLIF(t.total_gross, 0), 1) AS pct_value,
+      ROUND(100.0 * p.units / NULLIF(t.total_units, 0), 1) AS pct_volume
+    FROM per_cat p
+    JOIN totals t ON p.channel = t.channel AND p.category_id = t.category_id
+    ORDER BY p.channel, p.category_id, p.gross_pln DESC
+    """
+    return run_query(q, p)
+
+
+def query_sales_by_brand_in_all_subcategories_bc_all_channels(ps, pe, subcategory_ids, brand_id, competitor_id):
+    """Una query: pie sottocategorie BC per tutti i channel."""
+    if not subcategory_ids:
+        return []
+    ids = [int(x) for x in subcategory_ids if x]
+    if not ids:
+        return []
+    p = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        ArrayQueryParameter("sub_ids", "INT64", ids),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+        bigquery.ScalarQueryParameter("competitor", "INT64", int(competitor_id)),
+    ]
+    q = """
+    WITH all_data AS (
+      SELECT CAST('' AS STRING) AS channel, f.category_id,
+        b.brand_id, b.brand_name, f.gross_pln, f.units
+      FROM mart.fact_sales_daily f
+      JOIN mart.dim_brand b ON b.brand_id = f.brand_id
+      WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+        AND f.category_id IN UNNEST(@sub_ids) AND f.brand_id IN (@brand, @competitor) AND f.gross_pln > 0
+      UNION ALL
+      SELECT f.channel, f.category_id,
+        b.brand_id, b.brand_name, f.gross_pln, f.units
+      FROM mart.v_sales_daily_by_channel f
+      JOIN mart.dim_brand b ON b.brand_id = f.brand_id
+      WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+        AND f.category_id IN UNNEST(@sub_ids) AND f.brand_id IN (@brand, @competitor) AND f.gross_pln > 0
+    ),
+    per_sub AS (
+      SELECT channel, category_id, brand_id, brand_name,
+        SUM(gross_pln) AS gross_pln, SUM(units) AS units
+      FROM all_data GROUP BY channel, category_id, brand_id, brand_name
+    ),
+    totals AS (
+      SELECT channel, category_id, SUM(gross_pln) AS total_gross, SUM(units) AS total_units
+      FROM per_sub GROUP BY channel, category_id
+    )
+    SELECT p.channel, p.category_id, p.brand_id, p.brand_name, p.gross_pln, p.units,
+      ROUND(100.0 * p.gross_pln / NULLIF(t.total_gross, 0), 1) AS pct_value,
+      ROUND(100.0 * p.units / NULLIF(t.total_units, 0), 1) AS pct_volume
+    FROM per_sub p
+    JOIN totals t ON p.channel = t.channel AND p.category_id = t.category_id
+    ORDER BY p.channel, p.category_id, p.gross_pln DESC
+    """
+    return run_query(q, p)
+
+
 def query_promo_share_by_subcategory_brand_vs_competitor(ps, pe, brand_id, competitor_id, parent_cat_id, channel=None):
     """Promo share per subcategorie: brand vs competitor. Output come MI."""
     if not parent_cat_id:

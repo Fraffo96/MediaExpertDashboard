@@ -229,65 +229,98 @@
     { scope: 'peak', suffix: 'peak', modeKey: 'period_mode_peak' }
   ];
 
+  function getSalesMetaForFetch() {
+    var yk = _scopeState.year_category_pie;
+    var byYear = window._miDataByYear || {};
+    var base = byYear[yk] || {};
+    var fk = Object.keys(byYear)[0];
+    if ((!base.cat_ids || !base.cat_ids.length) && fk) base = byYear[fk] || {};
+    return {
+      cat_ids: base.cat_ids || [],
+      sub_ids: base.sub_ids || [],
+      subcategory_category_id: _scopeState.subcategory_category_id || base.subcategory_category_id
+    };
+  }
+
+  function fetchJson(url) {
+    return fetch(url, { credentials: 'include' }).then(function(r) { return r.json(); });
+  }
+
   async function fetchBcSliceForScope(scope, ps, pe) {
     var compId = _scopeState.competitor_id;
     if (!compId) return;
     showChartLoading(scope);
     try {
-      var url = core.buildAllUrl(ps, pe, compId, _scopeState.disc_cat, _scopeState.disc_sub);
-      var r = await fetch(url, { credentials: 'include' });
-      var j = await r.json();
-      if (j.error) {
-        if (typeof showError === 'function') showError(j.error || j.detail || 'Request failed');
-        return;
-      }
-      if (typeof showError === 'function') showError('');
-      if (scope === 'category_pie') {
-        window._miLiveOverrides.category_pie = {
-          ps: ps,
-          pe: pe,
-          patch: {
-            category_pie_brands_map_channel: j.category_pie_brands_map_channel,
-            category_pie_brands_prev_map_channel: j.category_pie_brands_prev_map_channel
-          }
-        };
-      } else if (scope === 'subcategory_pie') {
-        window._miLiveOverrides.subcategory_pie = {
-          ps: ps,
-          pe: pe,
-          patch: {
-            subcategory_pie_brands_map_channel: j.subcategory_pie_brands_map_channel,
-            subcategory_pie_brands_prev_map_channel: j.subcategory_pie_brands_prev_map_channel
-          }
-        };
-      } else if (scope === 'promo_share') {
-        window._miLiveOverrides.promo_share = {
-          ps: ps,
-          pe: pe,
-          patch: {
-            promo_share_by_category: j.promo_share_by_category,
-            promo_share_by_category_channel: j.promo_share_by_category_channel,
-            promo_share_by_subcategory_map: j.promo_share_by_subcategory_map,
-            promo_share_by_subcategory_map_channel: j.promo_share_by_subcategory_map_channel
-          }
-        };
-      } else if (scope === 'promo_roi') {
-        window._miLiveOverrides.promo_roi = {
-          ps: ps,
-          pe: pe,
-          patch: {
-            promo_roi: j.promo_roi,
-            promo_roi_map: j.promo_roi_map
-          }
-        };
+      if (scope === 'category_pie' || scope === 'subcategory_pie') {
+        var meta = getSalesMetaForFetch();
+        var url = core.buildSalesUrl(ps, pe, compId, meta.cat_ids, meta.sub_ids, meta.subcategory_category_id);
+        var j = await fetchJson(url);
+        if (j.error) {
+          if (typeof showError === 'function') showError(j.error || j.detail || 'Request failed');
+          return;
+        }
+        if (typeof showError === 'function') showError('');
+        if (scope === 'category_pie') {
+          window._miLiveOverrides.category_pie = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              category_pie_brands_map_channel: j.category_pie_brands_map_channel,
+              category_pie_brands_prev_map_channel: j.category_pie_brands_prev_map_channel
+            }
+          };
+        } else {
+          window._miLiveOverrides.subcategory_pie = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              subcategory_pie_brands_map_channel: j.subcategory_pie_brands_map_channel,
+              subcategory_pie_brands_prev_map_channel: j.subcategory_pie_brands_prev_map_channel
+            }
+          };
+        }
+      } else if (scope === 'promo_share' || scope === 'promo_roi') {
+        var pj = await fetchJson(core.buildPromoUrl(ps, pe, compId));
+        if (pj.error) {
+          if (typeof showError === 'function') showError(pj.error || pj.detail || 'Request failed');
+          return;
+        }
+        if (typeof showError === 'function') showError('');
+        if (scope === 'promo_share') {
+          window._miLiveOverrides.promo_share = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              promo_share_by_category: pj.promo_share_by_category,
+              promo_share_by_category_channel: pj.promo_share_by_category_channel,
+              promo_share_by_subcategory_map: pj.promo_share_by_subcategory_map,
+              promo_share_by_subcategory_map_channel: pj.promo_share_by_subcategory_map_channel
+            }
+          };
+        } else {
+          window._miLiveOverrides.promo_roi = {
+            ps: ps,
+            pe: pe,
+            patch: {
+              promo_roi: pj.promo_roi,
+              promo_roi_map: pj.promo_roi_map
+            }
+          };
+        }
       } else if (scope === 'peak') {
+        var kj = await fetchJson(core.buildPeakUrl(ps, pe, compId));
+        if (kj.error) {
+          if (typeof showError === 'function') showError(kj.error || kj.detail || 'Request failed');
+          return;
+        }
+        if (typeof showError === 'function') showError('');
         window._miLiveOverrides.peak = {
           ps: ps,
           pe: pe,
           patch: {
-            peak_events: j.peak_events,
-            peak_events_map: j.peak_events_map,
-            peak_events_map_channel: j.peak_events_map_channel
+            peak_events: kj.peak_events,
+            peak_events_map: kj.peak_events_map,
+            peak_events_map_channel: kj.peak_events_map_channel
           }
         };
       }
