@@ -580,60 +580,119 @@ GROUP BY 1, 2, 3, 4, 6
     if not run_query(client, sql_mi_seg_by_prod, "precalc_mi_segment_by_product"):
         sys.exit(1)
 
-    # 14. precalc_mkt_purchasing_channel: Marketing purchasing – channel mix per segment
+    # 14. precalc_mkt_purchasing_channel: Marketing purchasing – channel mix (NULL parent = tutte le macro)
     sql_mkt_ch = f"""
 CREATE OR REPLACE TABLE {DATASET}.precalc_mkt_purchasing_channel
 PARTITION BY RANGE_BUCKET(year, GENERATE_ARRAY(2023, 2026))
-CLUSTER BY segment_id
+CLUSTER BY segment_id, parent_category_id
 AS
 SELECT
   CAST(EXTRACT(YEAR FROM o.date) AS INT64) AS year,
   c.segment_id,
-  s.segment_name,
+  ANY_VALUE(s.segment_name) AS segment_name,
   o.channel,
+  CAST(NULL AS INT64) AS parent_category_id,
   SUM(o.gross_pln) AS gross_pln
 FROM mart.fact_orders o
 JOIN mart.dim_customer c ON c.customer_id = o.customer_id
 JOIN mart.dim_segment s ON s.segment_id = c.segment_id
 WHERE o.date IS NOT NULL
-GROUP BY 1, 2, 3, 4
+GROUP BY 1, 2, 4
+UNION ALL
+SELECT
+  CAST(EXTRACT(YEAR FROM o.date) AS INT64) AS year,
+  c.segment_id,
+  ANY_VALUE(s.segment_name) AS segment_name,
+  o.channel,
+  macro_cat AS parent_category_id,
+  SUM(o.gross_pln) AS gross_pln
+FROM mart.fact_orders o
+JOIN mart.dim_customer c ON c.customer_id = o.customer_id
+JOIN mart.dim_segment s ON s.segment_id = c.segment_id
+CROSS JOIN UNNEST(GENERATE_ARRAY(1, 10)) AS macro_cat
+WHERE o.date IS NOT NULL
+  AND EXISTS (
+    SELECT 1
+    FROM mart.fact_order_items oi
+    JOIN mart.dim_product pr ON pr.product_id = oi.product_id
+    JOIN mart.dim_category dc ON dc.category_id = pr.category_id
+    WHERE oi.order_id = o.order_id
+      AND (dc.parent_category_id = macro_cat OR (dc.level = 1 AND dc.category_id = macro_cat))
+  )
+GROUP BY 1, 2, 4, 5
 """
     if not run_query(client, sql_mkt_ch, "precalc_mkt_purchasing_channel"):
         sys.exit(1)
 
-    # 15. precalc_mkt_purchasing_peak: Marketing purchasing – peak events per segment
+    # 15. precalc_mkt_purchasing_peak: Marketing purchasing – peak events per segment × macro categoria
     sql_mkt_peak = f"""
 CREATE OR REPLACE TABLE {DATASET}.precalc_mkt_purchasing_peak
 PARTITION BY RANGE_BUCKET(year, GENERATE_ARRAY(2023, 2026))
-CLUSTER BY segment_id
+CLUSTER BY segment_id, parent_category_id
 AS
-WITH base AS (
+WITH base_all AS (
   SELECT
     CAST(EXTRACT(YEAR FROM o.date) AS INT64) AS year,
     c.segment_id,
-    s.segment_name,
+    ANY_VALUE(s.segment_name) AS segment_name,
     d.peak_event,
+    CAST(NULL AS INT64) AS parent_category_id,
     SUM(o.gross_pln) AS gross_pln
   FROM mart.fact_orders o
   JOIN mart.dim_customer c ON c.customer_id = o.customer_id
   JOIN mart.dim_segment s ON s.segment_id = c.segment_id
   JOIN mart.dim_date d ON d.date = o.date
   WHERE o.date IS NOT NULL AND d.peak_event IS NOT NULL
-  GROUP BY 1, 2, 3, 4
+  GROUP BY 1, 2, 4, 5
+),
+base_cat AS (
+  SELECT
+    CAST(EXTRACT(YEAR FROM o.date) AS INT64) AS year,
+    c.segment_id,
+    ANY_VALUE(s.segment_name) AS segment_name,
+    d.peak_event,
+    macro_cat AS parent_category_id,
+    SUM(o.gross_pln) AS gross_pln
+  FROM mart.fact_orders o
+  JOIN mart.dim_customer c ON c.customer_id = o.customer_id
+  JOIN mart.dim_segment s ON s.segment_id = c.segment_id
+  JOIN mart.dim_date d ON d.date = o.date
+  CROSS JOIN UNNEST(GENERATE_ARRAY(1, 10)) AS macro_cat
+  WHERE o.date IS NOT NULL AND d.peak_event IS NOT NULL
+    AND EXISTS (
+      SELECT 1
+      FROM mart.fact_order_items oi
+      JOIN mart.dim_product pr ON pr.product_id = oi.product_id
+      JOIN mart.dim_category dc ON dc.category_id = pr.category_id
+      WHERE oi.order_id = o.order_id
+        AND (dc.parent_category_id = macro_cat OR (dc.level = 1 AND dc.category_id = macro_cat))
+    )
+  GROUP BY 1, 2, 4, 5
+),
+base AS (
+  SELECT * FROM base_all
+  UNION ALL
+  SELECT * FROM base_cat
 ),
 totals AS (
-  SELECT year, segment_id, SUM(gross_pln) AS total
-  FROM base GROUP BY 1, 2
+  SELECT year, segment_id, parent_category_id, SUM(gross_pln) AS total
+  FROM base
+  GROUP BY 1, 2, 3
 )
 SELECT
   b.year,
   b.segment_id,
   b.segment_name,
   b.peak_event,
+  b.parent_category_id,
   ROUND(100.0 * b.gross_pln / NULLIF(t.total, 0), 1) AS orders_pct,
   b.gross_pln
 FROM base b
-JOIN totals t ON t.year = b.year AND t.segment_id = b.segment_id
+JOIN totals t
+  ON t.year = b.year
+  AND t.segment_id = b.segment_id
+  AND ((t.parent_category_id IS NULL AND b.parent_category_id IS NULL)
+    OR (t.parent_category_id = b.parent_category_id))
 """
     if not run_query(client, sql_mkt_peak, "precalc_mkt_purchasing_peak"):
         sys.exit(1)

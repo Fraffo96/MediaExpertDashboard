@@ -57,7 +57,16 @@ async def login_submit(
     username: str = Form(...),
     password: str = Form(...),
 ):
-    user = get_user_by_username(username)
+    try:
+        user = get_user_by_username(username)
+    except Exception as e:
+        logger.error("login_submit Firestore: %s", e)
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"error": "Unable to sign in. Please try again."},
+            status_code=503,
+        )
     if not user or not user.is_active or not verify_password(password, user.hashed_password):
         return templates.TemplateResponse(
             request,

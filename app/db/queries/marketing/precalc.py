@@ -90,13 +90,20 @@ def query_precalc_segment_top_skus(
     return run_query(q, params)
 
 
-def query_precalc_purchasing_channel(year: int, segment_id: int | None = None) -> list[dict]:
-    """Channel mix from precalc."""
+def query_precalc_purchasing_channel(
+    year: int, segment_id: int | None = None, parent_category_id: int | None = None,
+) -> list[dict]:
+    """Channel mix from precalc. parent_category_id None = righe aggregate (tutte le categorie)."""
     params = [bigquery.ScalarQueryParameter("year", "INT64", year)]
     where = ["year = @year"]
     if segment_id is not None:
         where.append("segment_id = @seg")
         params.append(bigquery.ScalarQueryParameter("seg", "INT64", segment_id))
+    if parent_category_id is not None:
+        where.append("parent_category_id = @pcat")
+        params.append(bigquery.ScalarQueryParameter("pcat", "INT64", int(parent_category_id)))
+    else:
+        where.append("parent_category_id IS NULL")
     q = f"""
     SELECT segment_id, segment_name, channel, gross_pln
     FROM mart.precalc_mkt_purchasing_channel
@@ -106,13 +113,20 @@ def query_precalc_purchasing_channel(year: int, segment_id: int | None = None) -
     return run_query(q, params)
 
 
-def query_precalc_purchasing_peak(year: int, segment_id: int | None = None) -> list[dict]:
-    """Peak events from precalc."""
+def query_precalc_purchasing_peak(
+    year: int, segment_id: int | None = None, parent_category_id: int | None = None,
+) -> list[dict]:
+    """Peak events from precalc. parent_category_id None = righe aggregate."""
     params = [bigquery.ScalarQueryParameter("year", "INT64", year)]
     where = ["year = @year"]
     if segment_id is not None:
         where.append("segment_id = @seg")
         params.append(bigquery.ScalarQueryParameter("seg", "INT64", segment_id))
+    if parent_category_id is not None:
+        where.append("parent_category_id = @pcat")
+        params.append(bigquery.ScalarQueryParameter("pcat", "INT64", int(parent_category_id)))
+    else:
+        where.append("parent_category_id IS NULL")
     q = f"""
     SELECT segment_id, segment_name, peak_event, orders_pct AS orders_pct, gross_pln
     FROM mart.precalc_mkt_purchasing_peak

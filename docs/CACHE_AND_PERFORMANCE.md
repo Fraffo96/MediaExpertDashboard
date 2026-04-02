@@ -112,7 +112,7 @@ Passo-passo deploy, VPC, Secret Manager e substitution sui trigger: **[GITHUB_CL
 1. **Redis (Memorystore)**: crea istanza, imposta `REDIS_URL` su Cloud Run (variabile o secret).
 2. **PREWARM_TOKEN**: genera token sicuro, imposta su Cloud Run e in Cloud Scheduler.
 3. **Cloud Scheduler**: `.\scripts\setup-prewarm-scheduler.ps1` oppure crea job manualmente.
-4. **Min instances**: già in `cloudbuild.yaml` (`--min-instances=1`).
+4. **Min instances**: in `cloudbuild.yaml` è impostato `--min-instances=1` per evitare cold start sul primo accesso. Con **`--min-instances=0`** si riducono i costi quando non c’è traffico, ma la prima richiesta dopo idle può essere lenta (cold start); in alternativa si può tenere 0 istanze e usare **Cloud Scheduler** che chiama periodicamente l’app (es. `/internal/prewarm` o health) per riscaldare la cache—resta comunque possibile un cold start se lo scheduler non coincide col traffico utenti.
 5. **Tabelle precalcolate**: `python scripts/run_bigquery_schema.py` (fase 4 DDL) + `python scripts/refresh_precalc_tables.py` (popolamento).
 
 ---

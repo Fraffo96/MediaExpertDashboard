@@ -1,10 +1,13 @@
 """
 Client BigQuery generico: connessione e esecuzione query parametrizzate.
 Legge dati dal dataset mart (progetto GCP da variabile d'ambiente o default).
-Carica .env all'avvio per GOOGLE_APPLICATION_CREDENTIALS (service account = connessione persistente).
+Carica .env dalla root del repo (non dalla cwd) per GOOGLE_APPLICATION_CREDENTIALS.
 """
+from pathlib import Path
+
 from dotenv import load_dotenv
-load_dotenv()
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 import os
 import threading
@@ -13,7 +16,14 @@ from typing import Optional
 from google.cloud import bigquery
 from google.cloud.bigquery import QueryJobConfig
 
-PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "mediaexpertdashboard")
+
+def _resolve_gcp_project_id() -> str:
+    """GCP_PROJECT_ID vuoto nel launch (VS Code / shell) non deve mascherare il default."""
+    v = (os.environ.get("GCP_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT") or "").strip()
+    return v or "mediaexpertdashboard"
+
+
+PROJECT_ID = _resolve_gcp_project_id()
 DATASET = "mart"
 
 _bq_client: Optional[bigquery.Client] = None

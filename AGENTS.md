@@ -13,7 +13,7 @@
 | Auth | Firestore (`dashboard_users`, `dashboard_ecosystems`) + JWT | `app/auth/firestore_store.py`, `app/auth/routes.py` |
 | Deploy | Cloud Run via Cloud Build | `cloudbuild.yaml`, `Dockerfile` |
 
-**Non usato:** PostgreSQL (rimosso). L'app usa **solo BigQuery** per analytics; **Firestore** per account e permessi. I loghi brand in cloud usano **URL pubblici GCS** (`BRAND_LOGOS_PUBLIC_BASE` + `/{brand_id}.png`), con fallback a `/static/img/brands/` in locale.
+**Non usato:** PostgreSQL (rimosso). L'app usa **solo BigQuery** per analytics; **Firestore** per account e permessi. I loghi sono PNG su **GCS** (stesso `BRAND_LOGOS_PUBLIC_BASE` di Cloud Run, vedi `.env.example`) con fallback a `app/static/img/brands/` se la variabile non è impostata.
 
 ---
 
@@ -82,14 +82,30 @@ Vedi `docs/PRECALC_TABLES.md` per mappatura dashboard → tabelle e come aggiung
 
 ## Comandi essenziali
 
-```bash
-# Avvio locale
-pip install -r app/requirements.txt
-uvicorn app.main:app --reload
+Il file `.env` nella **root del repository** viene caricato sempre da lì (`app/main.py` e `app/db/client.py`), non dalla directory di lavoro corrente. **`GCP_PROJECT_ID` nel launch di VS/Cursor non deve essere la stringa vuota**: se è presente ma vuota, `os.environ.get("GCP_PROJECT_ID", default)` non applica il default e i loghi finivano su `/static/` (placeholder). Risolto in `app/db/client.py` con `_resolve_gcp_project_id()`. Loghi in UI: sempre URL HTTPS verso GCS (`BRAND_LOGOS_PUBLIC_BASE` o bucket da `PROJECT_ID` o `DEFAULT_GCS_BRAND_LOGOS_BASE` in [`app/constants.py`](app/constants.py)). **Non passano da Firestore** (il browser apre l’URL). Avvio consigliato: [`scripts/run-local-server.ps1`](scripts/run-local-server.ps1).
 
-# Firestore in locale: emulatore (altrimenti usa progetto GCP reale — attenzione ai dati)
+```bash
+# Avvio locale (consigliato su Windows: PYTHONPATH = root repo, libera porta 8000)
+# .\scripts\run-local-server.ps1
+
+pip install -r app/requirements.txt
+# Da root repo con: $env:PYTHONPATH = (Get-Location).Path
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+# Firestore in locale: emulatore (opzione A)
 # gcloud beta emulators firestore start --host-port=127.0.0.1:8080
 # $env:FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"; $env:GCP_PROJECT_ID="demo-local"
+
+# Firestore su GCP reale (opzione B, stesso SA di BigQuery): .env senza FIRESTORE_EMULATOR_HOST
+# .\scripts\setup-bigquery-service-account.ps1
+# oppure, SA già creato solo per BigQuery: .\scripts\grant-firestore-to-dashboard-sa.ps1
+
+# Login gcloud con browser su Windows (finestra CMD dedicata, usa gcloud.cmd)
+# .\scripts\gcloud-browser-login.ps1
+
+# Verifica loghi GCS: python scripts/verify_brand_logo_env.py
+# Verifica HTML home (logo in topbar): $env:PYTHONPATH = (Get-Location).Path; python scripts/check_landing_logo_html.py
+# Admin: GET /api/admin/brand-logo-debug?brand_id=1
 
 # Provisioning GCP (una tantum): API + bucket loghi + IAM
 # .\scripts\provision-firestore-and-brand-logos.ps1 -ProjectId mediaexpertdashboard

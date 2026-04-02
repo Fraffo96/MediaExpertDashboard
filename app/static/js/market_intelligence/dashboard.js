@@ -266,6 +266,7 @@
         else if (scope === 'promo_share') _scopeState.year_promo_share = y;
         else if (scope === 'promo_roi') _scopeState.year_promo_roi = y;
         else if (scope === 'peak') _scopeState.year_peak = y;
+        else if (scope === 'segment_sku' && window.MIScopeState) window.MIScopeState.year_segment_sku = y;
         applyViewFromState(scope);
       });
       return;
@@ -275,8 +276,77 @@
     else if (scope === 'promo_share') _scopeState.year_promo_share = y;
     else if (scope === 'promo_roi') _scopeState.year_promo_roi = y;
     else if (scope === 'peak') _scopeState.year_peak = y;
+    else if (scope === 'segment_sku' && window.MIScopeState) window.MIScopeState.year_segment_sku = y;
     applyViewFromState(scope);
   }
+
+  async function loadDataCustomPeriod(ps, pe, labelHint) {
+    if (typeof showLoadingLight === 'function') showLoadingLight(true);
+    showChartLoadings();
+    try {
+      var url = buildAllUrl(ps, pe, _scopeState.disc_cat, _scopeState.disc_sub);
+      var resp = await fetchJson(url);
+      if (resp.error) {
+        if (typeof showError === 'function') showError(resp.error || resp.detail || 'Request failed');
+        hideChartLoadings();
+        if (typeof showLoadingLight === 'function') showLoadingLight(false);
+        return;
+      }
+      window._miCustomPeriod = true;
+      document.body.classList.add('mi-custom-period');
+      var slot = 'custom';
+      window._miPeriodYearLabelMap = {};
+      window._miPeriodYearLabelMap[slot] = labelHint || (ps + ' → ' + pe);
+      window._miIncrementalYoY = {};
+      window._miIncrementalYoYChannel = {};
+      window._miDataByYear = {};
+      window._miDataByYear[slot] = resp;
+      _scopeState.year_category_pie = slot;
+      _scopeState.year_subcategory_pie = slot;
+      _scopeState.year_promo_share = slot;
+      _scopeState.year_promo_roi = slot;
+      _scopeState.year_peak = slot;
+      if (window.MIScopeState) window.MIScopeState.year_segment_sku = ps.slice(0, 4);
+      var metaForDropdowns = Object.assign({}, resp, { available_years: [slot] });
+      window._miPopulateInProgress = true;
+      if (window.MIDropdowns) window.MIDropdowns.populate(metaForDropdowns, _scopeState, { applyViewFromState: applyViewFromState, loadData: loadData, onYearChange: onYearChange });
+      window._miPopulateInProgress = false;
+      if (window.MIChartsSegmentSku && window.MIChartsSegmentSku.init) {
+        window.MIChartsSegmentSku.init(_scopeState, resp.brand_categories || [], resp.brand_subcategories || {}, { applyViewFromState: applyViewFromState });
+      }
+      applyViewFromState('all');
+      updateSummaryRow(buildCompositeFullData());
+      hideChartLoadings();
+      if (typeof showLoadingLight === 'function') showLoadingLight(false);
+      if (typeof showError === 'function') showError('');
+    } catch (e) {
+      if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
+      hideChartLoadings();
+      if (typeof showLoadingLight === 'function') showLoadingLight(false);
+    }
+  }
+
+  window.MIOnPeriodApply = function(ps, pe, mode, labelHint) {
+    if (mode === 'all_years') {
+      window._miCustomPeriod = false;
+      window._miPeriodYearLabelMap = null;
+      document.body.classList.remove('mi-custom-period');
+      loadData();
+      return;
+    }
+    var y = (ps && pe && ps.length >= 4) ? ps.slice(0, 4) : '';
+    if (mode === 'year' && y && ps === y + '-01-01' && pe === y + '-12-31' && window._miDataByYear && window._miDataByYear[y] && !window._miCustomPeriod) {
+      _scopeState.year_category_pie = y;
+      _scopeState.year_subcategory_pie = y;
+      _scopeState.year_promo_share = y;
+      _scopeState.year_promo_roi = y;
+      _scopeState.year_peak = y;
+      if (window.MIScopeState) window.MIScopeState.year_segment_sku = y;
+      applyViewFromState('all');
+      return;
+    }
+    loadDataCustomPeriod(ps, pe, labelHint);
+  };
 
   async function loadData(extraParams) {
     console.debug('[MI loadData] START', { extraParams: extraParams });
@@ -311,6 +381,9 @@
         return;
       }
       if (typeof showError === 'function') showError('');
+      window._miCustomPeriod = false;
+      window._miPeriodYearLabelMap = null;
+      document.body.classList.remove('mi-custom-period');
       var availYears = resp.available_years || [];
       if (!availYears.length) {
         if (typeof showError === 'function') showError('No years available');

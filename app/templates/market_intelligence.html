@@ -6,6 +6,8 @@
 {% block content %}
 <p class="dashboard-intro">Compare your brand performance vs category/subcategory average.</p>
 
+{% include "market_intelligence/_period_toolbar.html" %}
+
 <div id="mi-summary-row" class="mi-summary-row">
   <div class="mi-summary-revenue">
     <span class="mi-summary-label">Revenue by category:</span>
@@ -48,4 +50,5 @@
 <script src="/static/js/market_intelligence/charts/segment-sku.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/charts/incremental-yoy.js?v={{ mi_js_v }}"></script>
 <script src="/static/js/market_intelligence/dashboard.js?v={{ mi_js_v }}"></script>
+<script src="/static/js/market_intelligence/period_toolbar.js?v={{ mi_js_v }}"></script>
 {% endblock %}

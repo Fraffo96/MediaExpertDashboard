@@ -45,6 +45,14 @@ from app.db.queries.precalc import (
 )
 from app.db.queries.shared import query_available_years
 from app.services._cache import cache_key, get_cached, set_cached, TTL_LONG
+from app.services.mi_bc_live import (
+    build_bc_base_live,
+    get_bc_competitors_live,
+    get_bc_discount_live,
+    get_bc_peak_live,
+    get_bc_promo_live,
+    get_bc_sales_live,
+)
 
 
 def intersect_brand_category_trees(year: int, brand_id: int, competitor_id: int) -> tuple[list[dict], dict[str, list]]:
@@ -92,7 +100,9 @@ async def get_bc_competitors(ps, pe, brand_id):
 
     multi_years = get_multi_year_full_years(ps, pe)
     if not multi_years:
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_bc_competitors_live(ps, pe, int(brand_id))
+        set_cached(key, out)
+        return copy.deepcopy(out)
     bid = int(brand_id)
     results = await asyncio.gather(*[
         asyncio.to_thread(query_competitors_in_scope_from_precalc, y, bid)
@@ -117,8 +127,6 @@ async def get_bc_base(ps, pe, brand_id, competitor_id=None):
     Con competitor_id: solo categorie/sub dove entrambi i brand hanno vendite."""
     if not brand_id or not str(brand_id).strip():
         return {"error": "Brand required"}
-    if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
     cid_opt: int | None = None
     if competitor_id is not None and str(competitor_id).strip():
         try:
@@ -131,8 +139,14 @@ async def get_bc_base(ps, pe, brand_id, competitor_id=None):
     if cached is not None:
         return copy.deepcopy(cached)
 
-    year = int(ps[:4])
     bid = int(brand_id) if brand_id else 0
+
+    if not is_full_year_period(ps, pe):
+        out = await build_bc_base_live(ps, pe, bid, cid_opt)
+        set_cached(key, out)
+        return copy.deepcopy(out)
+
+    year = int(ps[:4])
 
     if cid_opt is not None:
         brand_cats, brand_subcats_map = await asyncio.to_thread(intersect_brand_category_trees, year, bid, cid_opt)
@@ -209,7 +223,9 @@ async def get_bc_sales(ps, pe, brand_id, competitor_id, cat_ids, sub_ids, sub_ca
     sub_cat_id = sub_cat_id or (cat_ids[0] if cat_ids else None)
 
     if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_bc_sales_live(ps, pe, int(brand_id), int(competitor_id), cat_ids, sub_ids, sub_cat_id)
+        set_cached(key, out)
+        return copy.deepcopy(out)
     year = int(ps[:4])
     bid, cid = int(brand_id), int(competitor_id)
 
@@ -282,7 +298,9 @@ async def get_bc_promo(ps, pe, brand_id, competitor_id, brand_cats, brand_subcat
         return copy.deepcopy(cached)
 
     if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_bc_promo_live(ps, pe, int(brand_id), int(competitor_id), brand_cats, brand_subcats_map)
+        set_cached(key, out)
+        return copy.deepcopy(out)
     year = int(ps[:4])
     bid, cid = int(brand_id), int(competitor_id)
 
@@ -441,7 +459,9 @@ async def get_bc_peak(ps, pe, brand_id, competitor_id, brand_cats, brand_subcats
         return copy.deepcopy(cached)
 
     if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_bc_peak_live(ps, pe, int(brand_id), int(competitor_id), brand_cats, brand_subcats_map)
+        set_cached(key, out)
+        return copy.deepcopy(out)
     year = int(ps[:4])
     bid, cid = int(brand_id), int(competitor_id)
 
@@ -508,7 +528,9 @@ async def get_bc_discount(ps, pe, brand_id, competitor_id, brand_cats, sub_ids, 
     bid, comp_id = int(brand_id), int(competitor_id)
 
     if not use_precalc:
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_bc_discount_live(ps, pe, bid, comp_id, brand_cats, sub_ids, discount_cat, discount_subcat)
+        set_cached(key, out)
+        return copy.deepcopy(out)
     disc_depth = await asyncio.to_thread(query_discount_depth_brand_vs_competitor_all_categories_from_precalc, year, bid, comp_id)
     disc_depth = list(disc_depth) if disc_depth else []
 

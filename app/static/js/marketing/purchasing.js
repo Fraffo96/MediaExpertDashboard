@@ -206,5 +206,7 @@
     loadData();
     var segSelect = document.getElementById('f-segment-id');
     if (segSelect) segSelect.addEventListener('change', loadData);
+    var catSelect = document.getElementById('f-category-id');
+    if (catSelect) catSelect.addEventListener('change', loadData);
   });
 })();

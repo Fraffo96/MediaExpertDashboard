@@ -1,4 +1,14 @@
 <form id="filter-form" class="marketing-filter-bar" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
+  <label title="Macro category">Category
+    <select name="category_id" id="f-category-id">
+      <option value="">All categories</option>
+      {% for c in categories %}
+      {% if c.level == 1 %}
+      <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+      {% endif %}
+      {% endfor %}
+    </select>
+  </label>
   <label title="Start date">From <input type="date" name="period_start" value="{{ period_start }}" id="f-ps"></label>
   <label title="End date">To <input type="date" name="period_end" value="{{ period_end }}" id="f-pe"></label>
   <label title="Filter by segment">Segment

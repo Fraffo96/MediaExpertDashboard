@@ -194,6 +194,21 @@
   function onYearChange(scope, year) {
     var y = String(year || '');
     var byYear = window._miDataByYear || {};
+    var compId = _scopeState.competitor_id;
+    if (!byYear[y] && compId) {
+      var url = core.buildAllUrl(y + '-01-01', y + '-12-31', compId, _scopeState.disc_cat, _scopeState.disc_sub);
+      fetch(url, { credentials: 'include' }).then(function(r) { return r.json(); }).then(function(j) {
+        if (j.error) return;
+        window._miDataByYear[y] = j;
+        if (scope === 'category_pie') _scopeState.year_category_pie = y;
+        else if (scope === 'subcategory_pie') _scopeState.year_subcategory_pie = y;
+        else if (scope === 'promo_share') _scopeState.year_promo_share = y;
+        else if (scope === 'promo_roi') _scopeState.year_promo_roi = y;
+        else if (scope === 'peak') _scopeState.year_peak = y;
+        applyViewFromState(scope);
+      });
+      return;
+    }
     if (!byYear[y]) return;
     if (scope === 'category_pie') _scopeState.year_category_pie = y;
     else if (scope === 'subcategory_pie') _scopeState.year_subcategory_pie = y;
@@ -242,6 +257,80 @@
     }
   }
 
+  async function loadDataCustomPeriod(ps, pe, labelHint) {
+    var compId = _scopeState.competitor_id;
+    var noDataEl = document.getElementById('mi-no-data');
+    var chartsEl = document.getElementById('bc-charts');
+    if (!compId) return;
+    if (typeof showLoading === 'function') showLoading(true);
+    showChartLoadings();
+    try {
+      var url = core.buildAllUrl(ps, pe, compId, _scopeState.disc_cat, _scopeState.disc_sub);
+      var resp = await fetch(url, { credentials: 'include' }).then(function(r) { return r.json(); });
+      if (resp.error) {
+        if (typeof showError === 'function') showError(resp.error || resp.detail || 'Request failed');
+        hideChartLoadings();
+        if (typeof showLoading === 'function') showLoading(false);
+        return;
+      }
+      window._bcCustomPeriod = true;
+      document.body.classList.add('mi-custom-period');
+      var slot = 'custom';
+      window._miPeriodYearLabelMap = {};
+      window._miPeriodYearLabelMap[slot] = labelHint || (ps + ' → ' + pe);
+      window._miDataByYear = {};
+      window._miDataByYear[slot] = resp;
+      _scopeState.year_category_pie = slot;
+      _scopeState.year_subcategory_pie = slot;
+      _scopeState.year_promo_share = slot;
+      _scopeState.year_promo_roi = slot;
+      _scopeState.year_peak = slot;
+      var fullData = resp;
+      var metaForDropdowns = Object.assign({}, fullData, {
+        available_years: [slot],
+        competitors: window._bcBase ? (window._bcBase.competitors || []) : (fullData.competitors || [])
+      });
+      if (window.BCDropdowns) window.BCDropdowns.populate(metaForDropdowns, _scopeState, { applyViewFromState: applyViewFromState, loadData: loadData, onYearChange: onYearChange });
+      applyViewFromState('all');
+      updateSummaryRow(buildCompositeFullData());
+      hideChartLoadings();
+      if (chartsEl) chartsEl.style.display = '';
+      if (noDataEl) noDataEl.style.display = 'none';
+      if (typeof showLoading === 'function') showLoading(false);
+      if (typeof showError === 'function') showError('');
+    } catch (e) {
+      if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
+      hideChartLoadings();
+      if (typeof showLoading === 'function') showLoading(false);
+    }
+  }
+
+  window.BCOnPeriodApply = function(ps, pe, mode, labelHint) {
+    var compId = _scopeState.competitor_id;
+    if (!compId) {
+      if (typeof showError === 'function') showError('Select a competitor first');
+      return;
+    }
+    if (mode === 'all_years') {
+      window._bcCustomPeriod = false;
+      window._miPeriodYearLabelMap = null;
+      document.body.classList.remove('mi-custom-period');
+      loadData();
+      return;
+    }
+    var y = (ps && pe && ps.length >= 4) ? ps.slice(0, 4) : '';
+    if (mode === 'year' && y && ps === y + '-01-01' && pe === y + '-12-31' && window._miDataByYear && window._miDataByYear[y] && !window._bcCustomPeriod) {
+      _scopeState.year_category_pie = y;
+      _scopeState.year_subcategory_pie = y;
+      _scopeState.year_promo_share = y;
+      _scopeState.year_promo_roi = y;
+      _scopeState.year_peak = y;
+      applyViewFromState('all');
+      return;
+    }
+    loadDataCustomPeriod(ps, pe, labelHint);
+  };
+
   async function loadData() {
     console.debug('[BC loadData] START', { competitor_id: _scopeState.competitor_id });
     var compId = _scopeState.competitor_id;
@@ -285,6 +374,9 @@
         return;
       }
       if (typeof showError === 'function') showError('');
+      window._bcCustomPeriod = false;
+      window._miPeriodYearLabelMap = null;
+      document.body.classList.remove('mi-custom-period');
       var byYear = resp.by_year || {};
       var availYears = resp.available_years || Object.keys(byYear);
       var defY = availYears.length ? String(availYears[availYears.length - 1]) : '';

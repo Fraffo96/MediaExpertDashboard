@@ -32,6 +32,10 @@
   function renderSpider(data) {
     var dimensions = data.dimensions || [];
     var scores = data.scores || [];
+    var categoryAvg = data.scores_category_avg;
+    if (!categoryAvg || !categoryAvg.length) {
+      categoryAvg = dimensions.map(function() { return 0; });
+    }
     var segmentName = data.segment_name || 'Segment';
 
     if (!dimensions.length || !scores.length) return;
@@ -44,11 +48,9 @@
 
     if (!canvas || typeof Chart === 'undefined') return;
 
-    if (subtitle) subtitle.textContent = 'How ' + segmentName + ' buy in this category';
+    if (subtitle) subtitle.textContent = 'Share of needstates for ' + segmentName + ' in this category (%)';
 
-    var baseline = dimensions.map(function() { return 100; });
-    var maxV = Math.max.apply(null, scores.concat([100]));
-    var rMax = Math.max(200, Math.ceil(maxV / 20) * 20);
+    var rMax = 100;
 
     if (!spiderChart) {
       var opt = {
@@ -59,6 +61,7 @@
           r: {
             min: 0,
             max: rMax,
+            suggestedMax: rMax,
             ticks: {
               stepSize: 20,
               color: '#e8e8e8',
@@ -90,8 +93,9 @@
             callbacks: {
               label: function(ctx) {
                 var v = ctx.raw;
-                if (ctx.datasetIndex === 1) return 'Category average: 100';
-                return ctx.dataset.label + ': ' + v;
+                var pct = typeof v === 'number' ? Math.round(v * 10) / 10 : v;
+                if (ctx.datasetIndex === 1) return 'Category average: ' + pct + '%';
+                return ctx.dataset.label + ': ' + pct + '%';
               }
             }
           }
@@ -106,6 +110,7 @@
 
     if (spiderChart.options.scales && spiderChart.options.scales.r) {
       spiderChart.options.scales.r.max = rMax;
+      spiderChart.options.scales.r.suggestedMax = rMax;
     }
     spiderChart.data.labels = dimensions;
     spiderChart.data.datasets = [
@@ -123,7 +128,7 @@
       },
       {
         label: 'Category average',
-        data: baseline,
+        data: categoryAvg,
         backgroundColor: 'rgba(128, 128, 128, 0.08)',
         borderColor: 'rgba(160, 160, 160, 0.9)',
         borderWidth: 2.5,
@@ -148,7 +153,7 @@
               '<span class="mkt-takeout-rank">' + (i + 1) + '</span>' +
               '<span class="mkt-takeout-label">' + p.label + '</span>' +
             '</div>' +
-            '<span class="mkt-takeout-score">' + ix + '</span>' +
+            '<span class="mkt-takeout-score">' + ix + '%</span>' +
           '</div>'
         );
       }).join('');

@@ -72,7 +72,11 @@
 
   function populateYearSelects(availableYears, state, onYearChange) {
     if (!availableYears || !availableYears.length || !window.MIGenericDropdown) return;
-    var items = availableYears.map(function(y) { return { value: String(y), label: String(y) }; });
+    var map = (typeof window._miPeriodYearLabelMap === 'object' && window._miPeriodYearLabelMap) ? window._miPeriodYearLabelMap : null;
+    var items = availableYears.map(function(y) {
+      var ys = String(y);
+      return { value: ys, label: (map && map[ys]) ? map[ys] : ys };
+    });
     var defY = String(availableYears[availableYears.length - 1] || '');
     YEAR_CONFIG.forEach(function(cfg) {
       var container = document.getElementById(cfg.id);

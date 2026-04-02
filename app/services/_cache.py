@@ -67,6 +67,40 @@ def _get_redis():
 # In-memory fallback
 _CACHE: dict[str, tuple[dict, float]] = {}
 
+# Prefissi cache_key(...) usati dall'app (per SCAN/delete su Redis senza FLUSHDB).
+_CACHE_KEY_PREFIXES: tuple[str, ...] = (
+    "bc_all_years",
+    "bc_base",
+    "bc_competitors",
+    "bc_discount",
+    "bc_peak",
+    "bc_promo",
+    "bc_sales",
+    "basic",
+    "basic_granular",
+    "clp_active",
+    "clp_seg",
+    "clp_sku",
+    "customer",
+    "mi_all_years_v3",
+    "mi_base",
+    "mi_discount_v2_excl_brand",
+    "mi_incr_yoy_v2_dedup_ch",
+    "mi_peak_v3_comp_avg",
+    "mi_promo_v4_weighted_scope",
+    "mi_sales",
+    "mi_seg_sku_v3_mix46",
+    "mi_top_prod_v2",
+    "mkt_need",
+    "mkt_purch_v2",
+    "mkt_seg_cat",
+    "mkt_seg_v2",
+    "pc_v3_fast_ui",
+    "products",
+    "promo",
+    "simulation",
+)
+
 
 def cache_key(prefix: str, **kwargs) -> str:
     parts = [str(kwargs.get(k, "")) for k in sorted(kwargs)]
@@ -115,6 +149,37 @@ def set_cached(key: str, data: dict, ttl: int | None = None):
 
 # Esporta per uso nei servizi
 TTL_LONG = _TTL_LONG
+
+
+def clear_service_cache() -> dict:
+    """Svuota cache RAM dell'app e, se Redis è configurato, elimina le chiavi conosciute.
+    Ritorna conteggi per logging/monitoraggio."""
+    global _CACHE
+    n_mem = len(_CACHE)
+    _CACHE.clear()
+    redis_deleted = 0
+    r = _get_redis()
+    if r:
+        try:
+            for prefix in _CACHE_KEY_PREFIXES:
+                pattern = f"{prefix}:*"
+                cursor = 0
+                while True:
+                    cursor, keys = r.scan(cursor=cursor, match=pattern, count=500)
+                    if keys:
+                        redis_deleted += int(r.delete(*keys))
+                    if cursor == 0:
+                        break
+        except Exception as e:
+            logger.warning("Redis cache clear failed: %s", e)
+    try:
+        from app.db.queries.shared import clear_available_years_cache
+
+        clear_available_years_cache()
+    except Exception as e:
+        logger.warning("clear_available_years_cache: %s", e)
+    logger.info("clear_service_cache: memory=%s redis_keys_deleted=%s", n_mem, redis_deleted)
+    return {"memory_entries_cleared": n_mem, "redis_keys_deleted": redis_deleted}
 
 
 def safe(fn, *a, **kw):

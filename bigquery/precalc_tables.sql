@@ -178,25 +178,27 @@ CREATE TABLE IF NOT EXISTS mart.precalc_mkt_segment_skus (
 PARTITION BY RANGE_BUCKET(year, GENERATE_ARRAY(2023, 2026))
 CLUSTER BY segment_id, parent_category_id;
 
--- Marketing: purchasing channel mix (year, segment_id, channel, gross_pln)
+-- Marketing: purchasing channel mix (parent_category_id NULL = tutte le macro-categorie)
 CREATE TABLE IF NOT EXISTS mart.precalc_mkt_purchasing_channel (
   year INT64 NOT NULL,
   segment_id INT64 NOT NULL,
   segment_name STRING,
   channel STRING NOT NULL,
+  parent_category_id INT64,
   gross_pln NUMERIC(14,2) NOT NULL
 )
 PARTITION BY RANGE_BUCKET(year, GENERATE_ARRAY(2023, 2026))
-CLUSTER BY segment_id;
+CLUSTER BY segment_id, parent_category_id;
 
--- Marketing: purchasing peak events (year, segment_id, peak_event, orders_pct, gross_pln)
+-- Marketing: purchasing peak events (parent_category_id NULL = tutte le macro-categorie)
 CREATE TABLE IF NOT EXISTS mart.precalc_mkt_purchasing_peak (
   year INT64 NOT NULL,
   segment_id INT64 NOT NULL,
   segment_name STRING,
   peak_event STRING NOT NULL,
+  parent_category_id INT64,
   orders_pct NUMERIC(5,1) NOT NULL,
   gross_pln NUMERIC(14,2) NOT NULL
 )
 PARTITION BY RANGE_BUCKET(year, GENERATE_ARRAY(2023, 2026))
-CLUSTER BY segment_id;
+CLUSTER BY segment_id, parent_category_id;

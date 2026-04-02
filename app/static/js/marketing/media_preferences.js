@@ -4,7 +4,7 @@
 (function() {
   var charts = {};
   var SOCIAL_COLORS = ['#FFD700', '#FFE44D', '#D4A012', '#94a3b8', '#64748b', '#475569', '#334155'];
-  var state = { segmentId: '1' };
+  var state = { segmentId: '1', categoryId: '' };
 
   function destroyChart(key) {
     if (charts[key]) {
@@ -17,8 +17,10 @@
     Object.keys(charts).forEach(destroyChart);
   }
 
-  function apiUrl(segId) {
-    return '/api/marketing/media-preferences?segment_id=' + encodeURIComponent(segId || '1');
+  function apiUrl(segId, catId) {
+    var q = 'segment_id=' + encodeURIComponent(segId || '1');
+    if (catId) q += '&category_id=' + encodeURIComponent(catId);
+    return '/api/marketing/media-preferences?' + q;
   }
 
   function hBarOptions(maxX) {
@@ -197,7 +199,8 @@
     var loading = document.getElementById('mkt-media-loading');
     var content = document.getElementById('mkt-media-content');
     var pc = typeof window.MKT_MEDIA_PRECALC !== 'undefined' ? window.MKT_MEDIA_PRECALC : null;
-    if (pc && pc.segments && state.segmentId) {
+    var usePrecalc = !state.categoryId && pc && pc.segments && state.segmentId;
+    if (usePrecalc) {
       var block = pc.segments[state.segmentId];
       if (loading) loading.style.display = 'none';
       render({
@@ -210,7 +213,7 @@
     if (loading) loading.style.display = '';
     if (content) content.style.display = 'none';
 
-    fetch(apiUrl(state.segmentId), { credentials: 'include' })
+    fetch(apiUrl(state.segmentId, state.categoryId), { credentials: 'include' })
       .then(function(r) { return r.ok ? r.json() : {}; })
       .then(render)
       .catch(function() {
@@ -241,7 +244,18 @@
     }
   }
 
+  function initCategorySelect() {
+    var sel = document.getElementById('mkt-media-category');
+    if (!sel) return;
+    state.categoryId = sel.value || '';
+    sel.addEventListener('change', function() {
+      state.categoryId = sel.value || '';
+      loadData();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
+    initCategorySelect();
     initSegmentDropdown();
     loadData();
   });

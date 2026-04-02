@@ -119,7 +119,8 @@
       <a href="/" class="topbar-back" title="Back to Home">← Back</a>
       {% endif %}
       {% if brand_logo_url %}
-      <span class="topbar-brand-logo-wrap"><img src="{{ brand_logo_url }}" alt="" class="topbar-brand-logo" width="140" height="40" loading="lazy" onerror="this.closest('.topbar-brand-logo-wrap').style.display='none'"></span>
+      <!-- topbar logo: HTTPS GCS come Cloud Run ({{ brand_logo_url[:64] }}...) salvo BRAND_LOGOS_FORCE_SAME_ORIGIN_IMG -->
+      <span class="topbar-brand-logo-wrap"{% if brand_logo_effective_brand_id %} data-brand-id="{{ brand_logo_effective_brand_id }}"{% endif %}{% if brand_logo_gcs_url %} data-gcs-logo-url="{{ brand_logo_gcs_url }}"{% endif %}{% if brand_logo_url and '/brand-logo/' in brand_logo_url %} data-proxy-logo-url="{{ brand_logo_url }}"{% endif %}><img src="{{ brand_logo_url }}" alt="" class="topbar-brand-logo" width="140" height="40" loading="lazy" decoding="async" referrerpolicy="no-referrer-when-downgrade" onload="console.info('[brand_logo] Caricata:', (this.currentSrc || this.src))" onerror="(function(el){ var w=el.closest('.topbar-brand-logo-wrap'); if(!w)return; var u=String(el.currentSrc||el.src||''); var px=w.getAttribute('data-proxy-logo-url'); var bid=w.getAttribute('data-brand-id'); var g=w.getAttribute('data-gcs-logo-url'); if(u.indexOf('googleapis.com')!==-1 &amp;&amp; (px||bid)){ var next=px||(bid?('/brand-logo/'+bid+'.png'):''); if(next){ el.onerror=function(){ w.style.display='none'; }; el.src=next; return;} } if(u.indexOf('googleapis.com')===-1 &amp;&amp; g){ el.onerror=function(){ w.style.display='none'; }; el.src=g; return;} w.style.display='none'; })(this)"></span>
       {% endif %}
       <h1>{% block page_title %}Dashboard{% endblock %}</h1>
       {% block topbar_actions %}

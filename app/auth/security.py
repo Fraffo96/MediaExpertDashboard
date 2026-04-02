@@ -1,4 +1,5 @@
 """Password hashing, JWT tokens, FastAPI dependencies."""
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -8,6 +9,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.auth.firestore_store import StoredUser, get_user_by_username
+
+logger = logging.getLogger(__name__)
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "mediaexpert-dashboard-secret-change-in-prod")
 ALGORITHM = "HS256"
@@ -48,7 +51,11 @@ def get_current_user(access_token: Optional[str] = None) -> Optional[StoredUser]
     username: str = payload.get("sub", "")
     if not username:
         return None
-    user = get_user_by_username(username)
+    try:
+        user = get_user_by_username(username)
+    except Exception as e:
+        logger.warning("get_current_user: failed to load user %s (%s)", username, e)
+        return None
     if not user or not user.is_active:
         return None
     return user

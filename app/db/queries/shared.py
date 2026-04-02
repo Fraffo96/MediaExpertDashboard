@@ -11,6 +11,13 @@ _available_years_cached: list[int] | None = None
 _available_years_cached_at: float = 0.0
 
 
+def clear_available_years_cache() -> None:
+    """Invalida cache locale anni disponibili (non Redis)."""
+    global _available_years_cached, _available_years_cached_at
+    _available_years_cached = None
+    _available_years_cached_at = 0.0
+
+
 def query_categories():
     return run_query("""
         SELECT category_id, category_name, level, parent_category_id, category_path

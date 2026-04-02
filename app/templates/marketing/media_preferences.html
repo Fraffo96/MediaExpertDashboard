@@ -8,6 +8,16 @@
 
 <div class="mkt-media-page">
   <div class="mkt-media-toolbar marketing-filter-bar mkt-media-filter">
+    <label class="mkt-media-category-label">Category
+      <select id="mkt-media-category" name="category_id" class="form-select" style="min-width:12rem;">
+        <option value="">All categories</option>
+        {% for c in categories %}
+        {% if c.level == 1 %}
+        <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+        {% endif %}
+        {% endfor %}
+      </select>
+    </label>
     <label class="mkt-media-segment-label">Segment <div id="mkt-media-segment" class="mi-dropdown-container"></div></label>
   </div>
 

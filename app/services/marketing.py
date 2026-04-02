@@ -16,6 +16,7 @@ from app.db.queries.marketing import (
     query_segment_top_categories,
     query_segment_top_skus,
 )
+from app.constants import ADMIN_CATEGORIES
 from app.services._cache import cache_key, get_cached, set_cached, safe
 
 _SEGMENT_PROFILES_PATH = Path(__file__).resolve().parent.parent / "static" / "data" / "segment_profiles.json"
@@ -30,7 +31,7 @@ _NEEDSTATES_SPIDER_PRECALC: dict[str, dict] | None = None
 def _spider_payload_from_hcg(
     cat_id: int, seg_id: int, segments_map: dict, needstates: list,
 ) -> dict:
-    """Costruisce il payload API spider da righe HCG (stesso contratto di get_needstates_spider)."""
+    """Costruisce il payload API spider da righe HCG (percentuali 0–100, non indice)."""
     seg_name = segments_map.get(str(seg_id), f"Segment {seg_id}")
     if not needstates:
         return {
@@ -39,23 +40,37 @@ def _spider_payload_from_hcg(
             "segment_name": seg_name,
             "dimensions": [],
             "scores": [],
+            "scores_category_avg": [],
             "scores_raw": [],
         }
     seg_idx = max(0, min(5, seg_id - 1))
     dimensions = [n["label"] for n in needstates]
     scores_raw = [int(n["scores"][seg_idx]) for n in needstates]
-    index_scores: list[float] = []
-    for n in needstates:
-        row = [float(x) for x in n["scores"][:6]]
-        avg = sum(row) / len(row) if row else 0.0
-        raw = int(n["scores"][seg_idx])
-        index_scores.append(round(100.0 * raw / avg, 1) if avg > 0 else 100.0)
+
+    def segment_distribution(s: int) -> list[float]:
+        w = [float(n["scores"][s]) for n in needstates]
+        t = sum(w)
+        if t <= 0:
+            return [0.0] * len(w)
+        return [100.0 * x / t for x in w]
+
+    seg_pcts = [segment_distribution(s) for s in range(6)]
+    n_dim = len(dimensions)
+    category_avg: list[float] = []
+    for i in range(n_dim):
+        col = [seg_pcts[s][i] for s in range(6)]
+        category_avg.append(round(sum(col) / 6.0, 1))
+
+    selected = seg_pcts[seg_idx]
+    segment_pct = [round(x, 1) for x in selected]
+
     return {
         "category_id": cat_id,
         "segment_id": seg_id,
         "segment_name": seg_name,
         "dimensions": dimensions,
-        "scores": index_scores,
+        "scores": segment_pct,
+        "scores_category_avg": category_avg,
         "scores_raw": scores_raw,
     }
 
@@ -143,6 +158,53 @@ def _load_needstates_hcg() -> dict:
         return {}
 
 
+def _parent_category_name(cat_id: int | None) -> str:
+    if not cat_id:
+        return ""
+    for c in ADMIN_CATEGORIES:
+        if int(c["category_id"]) == int(cat_id):
+            return str(c.get("category_name") or "")
+    return ""
+
+
+def _normalize_pct_rows(rows: list) -> list:
+    s = sum(float(r.get("pct") or 0) for r in (rows or []))
+    if s <= 0:
+        return list(rows or [])
+    return [{**r, "pct": round(100.0 * float(r.get("pct") or 0) / s, 1)} for r in rows]
+
+
+def _nudge_media_block_for_category(block: dict | None, segment_id: int, category_id: int) -> dict | None:
+    if not block or not category_id:
+        return block
+    out = copy.deepcopy(block)
+    delta = ((category_id * 5 + segment_id * 3) % 11) - 5
+    cn = _parent_category_name(category_id)
+    if cn:
+        base = (out.get("summary") or "").strip()
+        out["summary"] = f"{base} In {cn}, media choices tilt slightly vs the all-category baseline."
+    for key in ("social", "comparison_sites", "ai_touchpoints", "other_channels"):
+        rows = out.get(key)
+        if not rows:
+            continue
+        adj = []
+        for i, r in enumerate(rows):
+            w = int(r.get("pct") or 0) + (delta if (key == "social" and i % 2 == 0) else delta // 2)
+            adj.append({**r, "pct": max(3, min(52, w))})
+        out[key] = _normalize_pct_rows(adj)
+    inf = out.get("influence") or {}
+    g, io = int(inf.get("get_influenced") or 0), int(inf.get("influencing_others") or 0)
+    g2 = max(5, min(80, g + delta))
+    io2 = max(5, min(80, io - delta // 2))
+    s = g2 + io2
+    if s > 0:
+        out["influence"] = {
+            "get_influenced": round(100.0 * g2 / s, 1),
+            "influencing_others": round(100.0 * io2 / s, 1),
+        }
+    return out
+
+
 def _load_media_preferences() -> dict:
     """Static media mix per segment (Polish market touchpoints)."""
     global _MEDIA_PREFS_CACHE
@@ -156,14 +218,16 @@ def _load_media_preferences() -> dict:
         return {}
 
 
-def get_media_preferences(segment_id: int | None = None) -> dict:
-    """All segments or one segment id 1–6."""
+def get_media_preferences(segment_id: int | None = None, parent_category_id: int | None = None) -> dict:
+    """Static mix per segment; con parent_category_id applica variazione illustrativa per categoria."""
     data = _load_media_preferences()
     if segment_id and 1 <= segment_id <= 6:
         key = str(segment_id)
         block = data.get(key)
-        return {"segment_id": segment_id, "segment": block} if block else {"segment_id": segment_id, "segment": None}
-    return {"segments": data}
+        if block and parent_category_id and 1 <= parent_category_id <= 10:
+            block = _nudge_media_block_for_category(block, segment_id, parent_category_id)
+        return {"segment_id": segment_id, "segment": block, "parent_category_id": parent_category_id} if block else {"segment_id": segment_id, "segment": None, "parent_category_id": parent_category_id}
+    return {"segments": data, "parent_category_id": parent_category_id}
 
 
 def _load_segment_profiles() -> dict:
@@ -283,7 +347,7 @@ def get_needstates(ps: str | None = None, pe: str | None = None, category_id: in
     return out
 
 
-def _synthetic_channel_mix(segment_id: int | None) -> list[dict]:
+def _synthetic_channel_mix(segment_id: int | None, parent_category_id: int | None = None) -> list[dict]:
     """Synthetic channel mix when real data is empty (web/app/store)."""
     profiles = {
         1: {"web": 45, "app": 25, "store": 30},   # Liberals – digital
@@ -294,13 +358,18 @@ def _synthetic_channel_mix(segment_id: int | None) -> list[dict]:
         6: {"web": 20, "app": 10, "store": 70},   # Floaters – store
     }
     if segment_id:
-        mix = profiles.get(segment_id, profiles[1])
+        mix = dict(profiles.get(segment_id, profiles[1]))
     else:
         mix = {k: sum(p.get(k, 0) for p in profiles.values()) / 6 for k in profiles[1]}
-    return [{"channel": k, "gross_pln": round(v * 1000, 0)} for k, v in mix.items()]
+    if parent_category_id:
+        off = (int(parent_category_id) % 5) * 0.03
+        mix["web"] = float(mix.get("web", 40)) * (1.0 + off)
+        mix["app"] = float(mix.get("app", 30)) * (1.0 - off * 0.4)
+        mix["store"] = float(mix.get("store", 30)) * (1.0 - off * 0.2)
+    return [{"channel": k, "gross_pln": round(float(v) * 1000, 0)} for k, v in mix.items()]
 
 
-def _synthetic_peak_events(segment_id: int | None) -> list[dict]:
+def _synthetic_peak_events(segment_id: int | None, parent_category_id: int | None = None) -> list[dict]:
     """Synthetic peak events when real data is empty."""
     events = [
         ("Black Friday", 22),
@@ -311,7 +380,16 @@ def _synthetic_peak_events(segment_id: int | None) -> list[dict]:
         ("Cyber Monday", 7),
     ]
     seg_name = "All" if not segment_id else {1: "Liberals", 2: "Optimistic Doers", 3: "Go-Getters", 4: "Outcasts", 5: "Contributors", 6: "Floaters"}.get(segment_id, "Segment")
-    return [{"segment_id": segment_id, "segment_name": seg_name, "peak_event": e[0], "orders": 0, "orders_pct": e[1], "gross_pln": 0} for e in events]
+    skew = (int(parent_category_id) % 7) if parent_category_id else 0
+    rows = []
+    for i, e in enumerate(events):
+        pct = max(3, min(45, int(e[1]) + skew if i % 2 == 0 else int(e[1]) - skew // 2))
+        rows.append({"segment_id": segment_id, "segment_name": seg_name, "peak_event": e[0], "orders": 0, "orders_pct": pct, "gross_pln": 0})
+    tot = sum(r["orders_pct"] for r in rows)
+    if tot > 0:
+        for r in rows:
+            r["orders_pct"] = round(100.0 * r["orders_pct"] / tot, 1)
+    return rows
 
 
 def _synthetic_source_mix(segment_id: int | None) -> list[dict]:
@@ -350,27 +428,33 @@ def _synthetic_pre_purchase_searches(segment_id: int | None) -> list[dict]:
     return [{"search_type": k, "pct": round(v, 1)} for k, v in mix.items()]
 
 
-def get_purchasing(ps: str | None = None, pe: str | None = None, segment_id: int | None = None) -> dict:
+def get_purchasing(
+    ps: str | None = None,
+    pe: str | None = None,
+    segment_id: int | None = None,
+    parent_category_id: int | None = None,
+) -> dict:
     """Purchasing process: channel mix, peak events, source + searches (synthetic)."""
     ps = ps or _DEFAULT_PERIOD[0]
     pe = pe or _DEFAULT_PERIOD[1]
-    key = cache_key("mkt_purch_v2", ps=ps, pe=pe, seg=segment_id or 0)
+    pc = int(parent_category_id) if parent_category_id and 1 <= int(parent_category_id) <= 10 else None
+    key = cache_key("mkt_purch_v2", ps=ps, pe=pe, seg=segment_id or 0, cat=pc or 0)
     cached = get_cached(key)
     if cached is not None:
         return cached
 
     year = int(ps[:4]) if ps and len(ps) >= 4 else None
-    use_precalc = year and _is_full_year(ps, pe)
+    use_precalc = bool(year and _is_full_year(ps, pe))
     if use_precalc:
-        channel_mix = safe(query_precalc_purchasing_channel, year, segment_id) or []
-        peak_events = safe(query_precalc_purchasing_peak, year, segment_id) or []
+        channel_mix = safe(query_precalc_purchasing_channel, year, segment_id, pc) or []
+        peak_events = safe(query_precalc_purchasing_peak, year, segment_id, pc) or []
     else:
-        channel_mix = safe(query_purchasing_channel_mix, ps, pe, segment_id) or []
-        peak_events = safe(query_purchasing_peak_events, ps, pe, segment_id) or []
+        channel_mix = safe(query_purchasing_channel_mix, ps, pe, segment_id, pc) or []
+        peak_events = safe(query_purchasing_peak_events, ps, pe, segment_id, pc) or []
     if not channel_mix:
-        channel_mix = _synthetic_channel_mix(segment_id)
+        channel_mix = _synthetic_channel_mix(segment_id, pc)
     if not peak_events:
-        peak_events = _synthetic_peak_events(segment_id)
+        peak_events = _synthetic_peak_events(segment_id, pc)
     source_mix = _synthetic_source_mix(segment_id)
     pre_purchase_searches = _synthetic_pre_purchase_searches(segment_id)
 
@@ -380,6 +464,7 @@ def get_purchasing(ps: str | None = None, pe: str | None = None, segment_id: int
         "source_mix": source_mix,
         "pre_purchase_searches": pre_purchase_searches,
         "segment_id": segment_id,
+        "parent_category_id": pc,
         "period": {"ps": ps, "pe": pe},
     }
     set_cached(key, out)

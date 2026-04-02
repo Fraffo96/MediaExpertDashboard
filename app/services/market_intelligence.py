@@ -29,6 +29,13 @@ from app.db.queries.precalc import (
 )
 from app.db.queries.shared import query_available_years
 from app.services._cache import cache_key, get_cached, set_cached, TTL_LONG
+from app.services.mi_bc_live import (
+    build_mi_base_live,
+    get_mi_discount_live,
+    get_mi_peak_live,
+    get_mi_promo_live,
+    get_mi_sales_live,
+)
 
 # Parallelismo caricamento anni (all-years). 4 ≈ tipici 4 anni di seed senza appiattire troppo BQ.
 _MI_YEAR_LOAD_SEM = asyncio.Semaphore(4)
@@ -68,10 +75,13 @@ async def get_mi_base(ps, pe, brand_id):
     if cached is not None:
         return cached
 
-    if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
     year = int(ps[:4])
     bid = int(brand_id) if brand_id else 0
+
+    if not is_full_year_period(ps, pe):
+        out = await build_mi_base_live(ps, pe, bid)
+        set_cached(key, out)
+        return copy.deepcopy(out)
 
     brand_cats = await asyncio.to_thread(query_brand_categories_from_precalc, year, bid)
     brand_cats = list(brand_cats) if brand_cats else []
@@ -143,7 +153,9 @@ async def get_mi_sales(ps, pe, brand_id, cat_ids, sub_ids, sub_cat_id=None):
 
     sub_cat_id = sub_cat_id or (cat_ids[0] if cat_ids else None)
     if not _use_precalc_sales(ps, pe, brand_id, cat_ids, sub_ids, sub_cat_id):
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_mi_sales_live(ps, pe, int(brand_id), cat_ids, sub_ids, sub_cat_id)
+        set_cached(key, out)
+        return copy.deepcopy(out)
     year = int(ps[:4])
     bid = int(brand_id)
 
@@ -269,7 +281,10 @@ async def get_mi_promo(ps, pe, brand_id, brand_cats, brand_subcats_map):
         return cached
 
     if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_mi_promo_live(ps, pe, int(brand_id), brand_cats, brand_subcats_map)
+        set_cached(key, out)
+        return out
+
     year = int(ps[:4])
     bid = int(brand_id)
 
@@ -461,7 +476,10 @@ async def get_mi_peak(ps, pe, brand_id, brand_cats, brand_subcats_map):
         return cached
 
     if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_mi_peak_live(ps, pe, int(brand_id), brand_cats, brand_subcats_map)
+        set_cached(key, out)
+        return out
+
     year = int(ps[:4])
     bid = int(brand_id)
 
@@ -528,7 +546,10 @@ async def get_mi_discount(ps, pe, brand_id, brand_cats, sub_ids, discount_cat=No
         return out
 
     if not is_full_year_period(ps, pe):
-        return {"error": PRECALC_ONLY_ERR}
+        out = await get_mi_discount_live(ps, pe, int(brand_id), brand_cats, sub_ids, discount_cat, discount_subcat)
+        set_cached(key, out)
+        return copy.deepcopy(out)
+
     year = int(ps[:4])
 
     disc_depth = await asyncio.to_thread(query_discount_depth_brand_vs_media_from_precalc, year, int(brand_id))

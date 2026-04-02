@@ -1,12 +1,14 @@
 """Pre-warming cache per Cloud Run. Chiamato da Cloud Scheduler per tenere la cache calda.
 
 - MI: /api/market-intelligence/all-years → get_mi_all_years (TTL_LONG).
+- MI live: ultimo mese di calendario → get_mi_all (cache per finestre non annuali).
 - BC: primo competitor da get_bc_competitors(DP) poi get_bc_all_years (TTL_LONG).
+- Marketing: media preferences, purchasing, needstates spider (es. segmento/categoria 1).
 - CLP: get_active_promos ultimi 7g (TTL 300s) come primo fetch della pagina.
 Serve Redis (REDIS_URL) per condividere cache tra istanze e sessioni."""
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from app.auth.firestore_store import list_users_active_with_brand
 from app.constants import CLP_DATA_MAX_DATE, DP
@@ -14,6 +16,7 @@ from app.constants import CLP_DATA_MAX_DATE, DP
 logger = logging.getLogger(__name__)
 
 _MI_PREWARM_SEM = asyncio.Semaphore(2)
+_MI_LIVE_PREWARM_SEM = asyncio.Semaphore(2)
 _BC_PREWARM_SEM = asyncio.Semaphore(2)
 _CLP_PREWARM_SEM = asyncio.Semaphore(3)
 
@@ -22,6 +25,26 @@ def _clp_default_dates() -> tuple[str, str]:
     end = min(datetime.utcnow().date(), datetime.strptime(CLP_DATA_MAX_DATE, "%Y-%m-%d").date())
     start = end - timedelta(days=6)
     return start.isoformat(), end.isoformat()
+
+
+def _prev_calendar_month_bounds() -> tuple[str, str]:
+    """Primo e ultimo giorno del mese di calendario precedente (MI/BC live)."""
+    today = date.today()
+    first_this = today.replace(day=1)
+    last_prev = first_this - timedelta(days=1)
+    first_prev = last_prev.replace(day=1)
+    return first_prev.isoformat(), last_prev.isoformat()
+
+
+def _warm_marketing_sync() -> None:
+    """Cache in-memory: media preferences, purchasing, needstates spider."""
+    from app.services.marketing import get_media_preferences, get_needstates_spider, get_purchasing
+
+    get_media_preferences(1, None)
+    get_media_preferences(1, 1)
+    get_purchasing(DP[0], DP[1], None, None)
+    get_purchasing(DP[0], DP[1], 1, 1)
+    get_needstates_spider(1, 1)
 
 
 async def prewarm_cache():
@@ -68,6 +91,13 @@ async def prewarm_cache():
             ds, de = _clp_default_dates()
             return await get_active_promos(ds, de, bid, None, None, None)
 
+    async def _warm_mi_prev_month(bid: int):
+        from app.services.market_intelligence import get_mi_all
+
+        ps, pe = _prev_calendar_month_bounds()
+        async with _MI_LIVE_PREWARM_SEM:
+            return await get_mi_all(ps, pe, bid, None, None)
+
     tasks: list = [_warm_mi_all_years(bid) for bid in brand_ids]
     tasks += [_warm_bc_all_years(bid) for bid in brand_ids]
     tasks += [_warm_clp_active(bid) for bid in brand_ids]
@@ -79,6 +109,23 @@ async def prewarm_cache():
     bc_res = results[n : n * 2]
     clp_res = results[n * 2 : n * 3]
     filters_ok = not isinstance(results[-1], Exception)
+
+    mkt_ok = True
+    try:
+        await asyncio.to_thread(_warm_marketing_sync)
+    except Exception as e:
+        mkt_ok = False
+        logger.warning("Prewarm: marketing bundle failed (%s)", e)
+
+    mi_live_results = await asyncio.gather(
+        *[_warm_mi_prev_month(bid) for bid in brand_ids],
+        return_exceptions=True,
+    )
+    ok_mi_live = sum(
+        1
+        for r in mi_live_results
+        if not isinstance(r, Exception) and isinstance(r, dict) and not r.get("error")
+    )
 
     ok_mi = sum(
         1
@@ -99,16 +146,20 @@ async def prewarm_cache():
     ok_clp = sum(1 for r in clp_res if not isinstance(r, Exception) and isinstance(r, dict))
 
     errors_n = sum(1 for r in results if isinstance(r, Exception))
+    errors_n += sum(1 for r in mi_live_results if isinstance(r, Exception))
     if errors_n:
         logger.warning("Prewarm: %d task errors", errors_n)
     logger.info(
-        "Prewarm: MI ok %d/%d, BC ok %d/%d, CLP ok %d/%d, brands=%s, filters=%s",
+        "Prewarm: MI ok %d/%d, BC ok %d/%d, CLP ok %d/%d, MI-live-month ok %d/%d, mkt=%s, brands=%s, filters=%s",
         ok_mi,
         n,
         ok_bc,
         n,
         ok_clp,
         n,
+        ok_mi_live,
+        n,
+        mkt_ok,
         brand_ids,
         filters_ok,
     )
@@ -117,6 +168,8 @@ async def prewarm_cache():
         "warmed_mi_brands": ok_mi,
         "warmed_bc_brands": ok_bc,
         "warmed_clp_brands": ok_clp,
+        "warmed_mi_live_month": ok_mi_live,
+        "marketing_bundle": mkt_ok,
         "brands": brand_ids,
         "filters": filters_ok,
         "errors": errors_n,

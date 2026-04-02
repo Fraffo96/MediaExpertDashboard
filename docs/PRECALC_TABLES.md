@@ -43,8 +43,8 @@ Le tabelle precalcolate (`precalc_*`) su BigQuery contengono **dati già pronti*
 | `precalc_promo_live_sku` | date, product_id, product_name, brand_id, brand_name, category_id, category_name, parent_category_id, promo_id, promo_name, channel, gross_pln, units, order_count | Check Live Promo: SKU-level promo performance. Partition by date per query veloci (last 7/30 days) |
 | `precalc_mkt_segment_categories` | year, segment_id, category_id, parent_category_id, category_name, level, gross_pln | Marketing: top categories per segment (level 1=parent, 2=subcategory) |
 | `precalc_mkt_segment_skus` | year, segment_id, product_id, product_name, brand_name, category_id, parent_category_id, gross_pln, units | Marketing: top SKUs per segment |
-| `precalc_mkt_purchasing_channel` | year, segment_id, segment_name, channel, gross_pln | Marketing: channel mix per segment |
-| `precalc_mkt_purchasing_peak` | year, segment_id, segment_name, peak_event, orders_pct, gross_pln | Marketing: peak events per segment |
+| `precalc_mkt_purchasing_channel` | year, segment_id, segment_name, channel, parent_category_id (NULL = tutte le macro), gross_pln | Marketing: channel mix per segmento e macro-categoria |
+| `precalc_mkt_purchasing_peak` | year, segment_id, segment_name, peak_event, parent_category_id (NULL = tutte le macro), orders_pct, gross_pln | Marketing: peak events per segmento e macro-categoria |
 
 ---
 
@@ -76,6 +76,10 @@ python scripts/run_bigquery_schema.py
 
 - **Precalc**: quando `period_start` e `period_end` sono un anno intero (es. `2024-01-01` … `2024-12-31`)
 - **Query live**: fallback per periodi custom (es. Q1, semestre) o se precalc è vuota o errore
+
+### Market Intelligence e Brand Comparison
+
+Per **mese singolo** o **settimana ISO** (e in generale qualsiasi finestra che non sia 1 gen–31 dic dello stesso anno), MI e BC usano **query BigQuery live** con **cache applicativa** (stesse chiavi con `period_start` / `period_end`); non esiste precalc per quelle granularità. Calendario settimana: **ISO** (lun–dom), come in API/servizio.
 
 ---
 

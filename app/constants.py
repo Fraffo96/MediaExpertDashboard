@@ -9,6 +9,9 @@ MKT_DEFAULT_PERIOD = ("2024-01-01", "2024-12-31")
 # Check Live Promo: ultima data presente nel seed (preset = min(oggi, questo))
 CLP_DATA_MAX_DATE = "2025-12-31"
 
+# Loghi brand: URL GCS pubblico (stesso default di cloudbuild se _PROJECT_ID_-brand-logos). Override: BRAND_LOGOS_PUBLIC_BASE nel .env.
+DEFAULT_GCS_BRAND_LOGOS_BASE = "https://storage.googleapis.com/mediaexpertdashboard-brand-logos/brands"
+
 # Fallback per admin quando BigQuery non disponibile
 ADMIN_CATEGORIES = [
     {"category_id": 1, "category_name": "TV & Home Entertainment", "level": 1},
