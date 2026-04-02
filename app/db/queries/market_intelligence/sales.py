@@ -275,7 +275,7 @@ def query_sales_by_brand_in_all_subcategories_all_channels(ps, pe, subcategory_i
 
 
 def query_sales_pct_by_brand_prev_year_categories_all_channels(ps_prev, pe_prev, category_ids):
-    """Una sola query: pct prev year per tutte le categories, per TUTTI i channel."""
+    """Una sola query: pct periodo confronto per tutte le categories, per TUTTI i channel (incl. rollup '')."""
     if not category_ids:
         return []
     ids = [int(x) for x in category_ids if x]
@@ -287,14 +287,22 @@ def query_sales_pct_by_brand_prev_year_categories_all_channels(ps_prev, pe_prev,
         ArrayQueryParameter("cat_ids", "INT64", ids),
     ]
     q = """
-    WITH per_cat AS (
-      SELECT COALESCE(f.channel, '') AS channel, f.parent_category_id AS category_id, b.brand_id,
-        SUM(f.gross_pln) AS gross_pln
+    WITH all_data AS (
+      SELECT CAST('' AS STRING) AS channel, f.parent_category_id AS category_id, b.brand_id, f.gross_pln
+      FROM mart.fact_sales_daily f
+      JOIN mart.dim_brand b ON b.brand_id = f.brand_id
+      WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+        AND f.parent_category_id IN UNNEST(@cat_ids) AND f.gross_pln > 0
+      UNION ALL
+      SELECT f.channel, f.parent_category_id AS category_id, b.brand_id, f.gross_pln
       FROM mart.v_sales_daily_by_channel f
       JOIN mart.dim_brand b ON b.brand_id = f.brand_id
       WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
         AND f.parent_category_id IN UNNEST(@cat_ids) AND f.gross_pln > 0
-      GROUP BY f.channel, f.parent_category_id, b.brand_id
+    ),
+    per_cat AS (
+      SELECT channel, category_id, brand_id, SUM(gross_pln) AS gross_pln
+      FROM all_data GROUP BY channel, category_id, brand_id
     ),
     totals AS (
       SELECT channel, category_id, SUM(gross_pln) AS total_gross FROM per_cat GROUP BY channel, category_id
@@ -308,7 +316,7 @@ def query_sales_pct_by_brand_prev_year_categories_all_channels(ps_prev, pe_prev,
 
 
 def query_sales_pct_by_brand_prev_year_subcategories_all_channels(ps_prev, pe_prev, subcategory_ids):
-    """Una sola query: pct prev year per tutte le subcategories, per TUTTI i channel."""
+    """Una sola query: pct periodo confronto per tutte le subcategories, tutti i channel (incl. rollup '')."""
     if not subcategory_ids:
         return []
     ids = [int(x) for x in subcategory_ids if x]

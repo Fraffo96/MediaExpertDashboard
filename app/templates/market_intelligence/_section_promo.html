@@ -2,12 +2,16 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">3. Promo Share of Sales</h3>
     <div class="mi-promo-share-controls">
-      <label>Periodo: <div id="mi-period-gran-promo-share" class="mi-dropdown-container"></div></label>
-      <label class="mi-period-bound-row mi-period-row-month-promo-share" style="display:none;">Mese:
-        <input type="month" id="mi-period-month-promo-share" class="mi-period-bound-input" autocomplete="off" />
+      <label>Period: <div id="mi-period-gran-promo-share" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-promo-share" style="display:none;">
+        <span class="mi-period-week-inline-label">Month</span>
+        <span class="mi-period-month-inputs">
+          <input type="number" id="mi-period-month-y-promo-share" class="mi-period-bound-input mi-period-month-year" min="2020" max="2035" step="1" title="Year" aria-label="Calendar year" />
+          <input type="number" id="mi-period-month-m-promo-share" class="mi-period-bound-input mi-period-month-num" min="1" max="12" step="1" title="Month" aria-label="Month (1–12)" />
+        </span>
       </label>
       <label class="mi-period-bound-row mi-period-row-week-promo-share" style="display:none;">
-        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inline-label">ISO week</span>
         <span class="mi-period-week-inputs">
           <input type="number" id="mi-period-iso-y-promo-share" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
           <input type="number" id="mi-period-iso-w-promo-share" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />
@@ -32,12 +36,16 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">4. Promo ROI by Type</h3>
     <div class="mi-roi-controls">
-      <label>Periodo: <div id="mi-period-gran-promo-roi" class="mi-dropdown-container"></div></label>
-      <label class="mi-period-bound-row mi-period-row-month-promo-roi" style="display:none;">Mese:
-        <input type="month" id="mi-period-month-promo-roi" class="mi-period-bound-input" autocomplete="off" />
+      <label>Period: <div id="mi-period-gran-promo-roi" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-promo-roi" style="display:none;">
+        <span class="mi-period-week-inline-label">Month</span>
+        <span class="mi-period-month-inputs">
+          <input type="number" id="mi-period-month-y-promo-roi" class="mi-period-bound-input mi-period-month-year" min="2020" max="2035" step="1" title="Year" aria-label="Calendar year" />
+          <input type="number" id="mi-period-month-m-promo-roi" class="mi-period-bound-input mi-period-month-num" min="1" max="12" step="1" title="Month" aria-label="Month (1–12)" />
+        </span>
       </label>
       <label class="mi-period-bound-row mi-period-row-week-promo-roi" style="display:none;">
-        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inline-label">ISO week</span>
         <span class="mi-period-week-inputs">
           <input type="number" id="mi-period-iso-y-promo-roi" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
           <input type="number" id="mi-period-iso-w-promo-roi" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />

@@ -144,12 +144,18 @@ def query_seasonality_by_month(ps, pe, promo_type, cat=None):
     ])
 
 
-def query_segment_promo_responsiveness(ps, pe, cat=None, subcat=None):
-    """Promo Creator: segmenti HCG più reattivi alle promo nella categoria (promo share % per segmento)."""
+def query_segment_promo_responsiveness(ps, pe, cat=None, subcat=None, promo_type=None):
+    """Segmenti HCG più reattivi: quota fatturato in categoria su promo (per tipo se promo_type è valorizzato).
+
+    promo_type: se impostato (es. app_only, flash_sale), il numeratore include solo righe promo_flag
+    con dim_promo.promo_type corrispondente; il denominatore resta tutto il fatturato categoria del segmento.
+    Se None o '', stessa logica di prima (tutte le righe promo_flag).
+    """
     where_cat = ""
     params = [
         bigquery.ScalarQueryParameter("ps", "STRING", ps),
         bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("pt", "STRING", (promo_type or "").strip() or None),
     ]
     if subcat and int(subcat) >= 100:
         where_cat = "AND f.category_id = @subcat"
@@ -163,11 +169,13 @@ def query_segment_promo_responsiveness(ps, pe, cat=None, subcat=None):
     SELECT
       s.segment_id,
       s.segment_name,
-      ROUND(COALESCE(SUM(CASE WHEN f.promo_flag THEN f.gross_pln ELSE 0 END), 0)
-        / NULLIF(SUM(f.gross_pln), 0) * 100, 1) AS promo_share_pct,
+      ROUND(COALESCE(SUM(
+        CASE WHEN f.promo_flag AND (@pt IS NULL OR p.promo_type = @pt) THEN f.gross_pln ELSE 0 END
+      ), 0) / NULLIF(SUM(f.gross_pln), 0) * 100, 1) AS promo_share_pct,
       SUM(f.gross_pln) AS total_gross
     FROM mart.fact_sales_daily f
     JOIN mart.dim_segment s ON s.segment_id = f.segment_id
+    LEFT JOIN mart.dim_promo p ON p.promo_id = f.promo_id
     WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
       AND f.gross_pln > 0 {where_cat}
     GROUP BY s.segment_id, s.segment_name

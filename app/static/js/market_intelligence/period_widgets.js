@@ -27,9 +27,9 @@
   }
 
   var granItems = [
-    { value: 'year', label: 'Anno intero' },
-    { value: 'month', label: 'Mese' },
-    { value: 'week', label: 'Settimana ISO' }
+    { value: 'year', label: 'Full year' },
+    { value: 'month', label: 'Month' },
+    { value: 'week', label: 'ISO week' }
   ];
 
   var _ddRegistry = {};
@@ -40,13 +40,11 @@
   function readBounds(suffix, mode) {
     if (mode === 'year') return null;
     if (mode === 'month') {
-      var inp = document.getElementById('mi-period-month-' + suffix);
-      var v = inp && inp.value;
-      if (!v) return null;
-      var parts = v.split('-');
-      var yy = parseInt(parts[0], 10);
-      var mm = parseInt(parts[1], 10);
-      if (!yy || !mm) return null;
+      var yEl = document.getElementById('mi-period-month-y-' + suffix);
+      var mEl = document.getElementById('mi-period-month-m-' + suffix);
+      var yy = yEl && yEl.value ? parseInt(yEl.value, 10) : NaN;
+      var mm = mEl && mEl.value ? parseInt(mEl.value, 10) : NaN;
+      if (!yy || !mm || mm < 1 || mm > 12) return null;
       var ld = lastDayOfMonth(yy, mm);
       return { ps: yy + '-' + pad(mm) + '-01', pe: yy + '-' + pad(mm) + '-' + pad(ld) };
     }
@@ -78,9 +76,13 @@
   }
 
   function defaultsForSuffix(suffix, defaultYear) {
-    var mInp = document.getElementById('mi-period-month-' + suffix);
-    if (mInp && !mInp.dataset.miPeriodTouched && defaultYear) {
-      mInp.value = defaultYear + '-' + pad(new Date().getMonth() + 1);
+    var mY = document.getElementById('mi-period-month-y-' + suffix);
+    var mM = document.getElementById('mi-period-month-m-' + suffix);
+    if (mY && !mY.dataset.miPeriodTouched && defaultYear) {
+      mY.value = String(defaultYear);
+    }
+    if (mM && !mM.dataset.miPeriodTouched) {
+      mM.value = String(new Date().getMonth() + 1);
     }
     var iy = document.getElementById('mi-period-iso-y-' + suffix);
     var iw = document.getElementById('mi-period-iso-w-' + suffix);
@@ -135,13 +137,19 @@
         if ((state[w.modeKey] || 'year') === 'year') return;
         scheduleSlice(w);
       }
-      var mEl = document.getElementById('mi-period-month-' + w.suffix);
-      if (mEl) {
-        mEl.addEventListener('change', onBoundInput);
-        mEl.addEventListener('input', function() {
-          mEl.dataset.miPeriodTouched = '1';
-          onBoundInput();
-        });
+      var mYEl = document.getElementById('mi-period-month-y-' + w.suffix);
+      var mMEl = document.getElementById('mi-period-month-m-' + w.suffix);
+      function onMonthInput(el) {
+        if (el) el.dataset.miPeriodTouched = '1';
+        onBoundInput();
+      }
+      if (mYEl) {
+        mYEl.addEventListener('change', function() { onMonthInput(mYEl); });
+        mYEl.addEventListener('input', function() { onMonthInput(mYEl); });
+      }
+      if (mMEl) {
+        mMEl.addEventListener('change', function() { onMonthInput(mMEl); });
+        mMEl.addEventListener('input', function() { onMonthInput(mMEl); });
       }
       var iyEl = document.getElementById('mi-period-iso-y-' + w.suffix);
       var iwEl = document.getElementById('mi-period-iso-w-' + w.suffix);

@@ -49,7 +49,7 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
     tasks = [
         asyncio.to_thread(safe, query_category_discount_benchmark_from_precalc, year, int(brand_id), roi_c),
         roi_task,
-        asyncio.to_thread(safe, promo_creator.query_segment_promo_responsiveness, ps, pe, cat, subcat),
+        asyncio.to_thread(safe, promo_creator.query_segment_promo_responsiveness, ps, pe, cat, subcat, promo_type),
         competitor_task,
     ]
 

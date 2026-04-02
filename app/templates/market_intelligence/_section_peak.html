@@ -2,12 +2,16 @@
   <div class="mi-col-left">
     <h3 class="mi-chart-title">5. Past Events Dependence (% of annual)</h3>
     <div class="mi-peak-controls">
-      <label>Periodo: <div id="mi-period-gran-peak" class="mi-dropdown-container"></div></label>
-      <label class="mi-period-bound-row mi-period-row-month-peak" style="display:none;">Mese:
-        <input type="month" id="mi-period-month-peak" class="mi-period-bound-input" autocomplete="off" />
+      <label>Period: <div id="mi-period-gran-peak" class="mi-dropdown-container"></div></label>
+      <label class="mi-period-bound-row mi-period-row-month-peak" style="display:none;">
+        <span class="mi-period-week-inline-label">Month</span>
+        <span class="mi-period-month-inputs">
+          <input type="number" id="mi-period-month-y-peak" class="mi-period-bound-input mi-period-month-year" min="2020" max="2035" step="1" title="Year" aria-label="Calendar year" />
+          <input type="number" id="mi-period-month-m-peak" class="mi-period-bound-input mi-period-month-num" min="1" max="12" step="1" title="Month" aria-label="Month (1–12)" />
+        </span>
       </label>
       <label class="mi-period-bound-row mi-period-row-week-peak" style="display:none;">
-        <span class="mi-period-week-inline-label">Sett. ISO</span>
+        <span class="mi-period-week-inline-label">ISO week</span>
         <span class="mi-period-week-inputs">
           <input type="number" id="mi-period-iso-y-peak" class="mi-period-bound-input mi-period-iso-year" min="2020" max="2035" step="1" title="ISO year" aria-label="ISO year" />
           <input type="number" id="mi-period-iso-w-peak" class="mi-period-bound-input mi-period-iso-week" min="1" max="53" step="1" title="Week number" aria-label="ISO week number" />

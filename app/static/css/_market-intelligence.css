@@ -136,6 +136,16 @@
 .mi-period-week-inputs .mi-period-iso-year { flex: 0 0 auto; width: 5.25rem; min-width: 0; }
 .mi-period-week-inputs .mi-period-iso-week { flex: 0 0 auto; width: 4.25rem; min-width: 0; }
 
+.mi-period-month-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  min-width: 0;
+}
+.mi-period-month-inputs .mi-period-month-year { flex: 0 0 auto; width: 5.25rem; min-width: 0; }
+.mi-period-month-inputs .mi-period-month-num { flex: 0 0 auto; width: 4.25rem; min-width: 0; }
+
 .mi-pie-controls label, .mi-promo-share-controls label, .mi-roi-controls label, .mi-peak-controls label, .mi-incr-yoy-controls label, .mi-segment-sku-controls label {
   display: grid;
   grid-template-columns: 100px 1fr;

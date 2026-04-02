@@ -36,10 +36,15 @@
     if (d.top_segments && d.top_segments.length > 0) {
       var names = d.top_segments.map(function(s) { return escapeHtml(s.segment_name); }).join(', ');
       var pcts = d.top_segments.map(function(s) { return (s.promo_share_pct || 0) + '%'; }).join(', ');
+      var gp = core.getParams && core.getParams();
+      var ptyp = gp && gp.promo_type ? String(gp.promo_type).trim() : '';
+      var segMeta = ptyp
+        ? ('Category sales on ' + escapeHtml(ptyp) + ' promos: ' + pcts)
+        : ('Promo share (all promo types): ' + pcts);
       cards.push('<div class="pc-card pc-card-segments">' +
         '<div class="pc-card-title">Most reactive segments</div>' +
         '<div class="pc-card-value">' + names + '</div>' +
-        '<div class="pc-card-meta">Promo share: ' + pcts + '</div>' +
+        '<div class="pc-card-meta">' + segMeta + '</div>' +
         '</div>');
     }
     return cards.join('');
