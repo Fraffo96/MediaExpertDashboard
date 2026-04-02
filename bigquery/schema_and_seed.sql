@@ -418,16 +418,24 @@ gen AS (
          WHEN MOD(ABS(FARM_FINGERPRINT(CONCAT('ch', CAST(op.i AS STRING)))), 3) = 1 THEN 'app' ELSE 'store' END AS channel,
     ROUND(150 + (MOD(ABS(FARM_FINGERPRINT(CAST(op.i AS STRING))), 6000) / 10.0), 2) AS gross_pln,
     1 + MOD(ABS(FARM_FINGERPRINT(CONCAT('u', CAST(op.i AS STRING)))), 4) AS units,
-    CASE
-      WHEN op.peak_event IN ('Black Friday','Christmas','Cyber Monday') AND MOD(ABS(FARM_FINGERPRINT(CONCAT('p', CAST(op.i AS STRING)))), 100) < 55 THEN TRUE
-      WHEN op.peak_event IN ('Back to School','Summer Sales','Winter Sales') AND MOD(ABS(FARM_FINGERPRINT(CONCAT('p', CAST(op.i AS STRING)))), 100) < 42 THEN TRUE
-      WHEN op.segment_id IN (4, 5, 6) AND MOD(ABS(FARM_FINGERPRINT(CONCAT('p', CAST(op.i AS STRING)))), 100) < 72 THEN TRUE
-      WHEN op.segment_id IN (1, 2, 3) AND MOD(ABS(FARM_FINGERPRINT(CONCAT('p', CAST(op.i AS STRING)))), 100) < 14 THEN TRUE
-      /* Bias stabile per cliente (non per nome brand): varia promo share tra clienti */
-      WHEN MOD(ABS(FARM_FINGERPRINT(CONCAT('prcust', CAST(op.cust_id AS STRING), '|', CAST(op.segment_id AS STRING)))), 100) < 18 THEN TRUE
-      WHEN MOD(ABS(FARM_FINGERPRINT(CONCAT('p', CAST(op.i AS STRING)))), 100) < 26 THEN TRUE
-      ELSE FALSE
-    END AS promo_flag,
+    /* Promo: soglia da promo_sens (seg_behavior) + picchi + bias cliente [-7,+7]; niente 72% vs 14% fissi */
+    (
+      MOD(ABS(FARM_FINGERPRINT(CONCAT('p', CAST(op.i AS STRING)))), 100)
+      < LEAST(87, GREATEST(22,
+        CAST(ROUND(100 * (
+          CASE op.segment_id
+            WHEN 1 THEN 0.35 WHEN 2 THEN 0.42 WHEN 3 THEN 0.28
+            WHEN 4 THEN 0.58 WHEN 5 THEN 0.48 ELSE 0.52
+          END * 0.58 + 0.17
+        )) AS INT64)
+        + CASE
+            WHEN op.peak_event IN ('Black Friday','Christmas','Cyber Monday','New Year Sales') THEN 15
+            WHEN op.peak_event IN ('Back to School','Summer Sales','Winter Sales','Spring Cleaning') THEN 10
+            ELSE 0
+          END
+        + MOD(ABS(FARM_FINGERPRINT(CONCAT('prcust', CAST(op.cust_id AS STRING)))), 15) - 7
+      ))
+    ) AS promo_flag,
     CASE
       WHEN op.peak_event = 'Black Friday' THEN 9
       WHEN op.peak_event IN ('Christmas','New Year Sales') THEN 10
@@ -446,10 +454,13 @@ SELECT gen.order_id, gen.date, gen.customer_id, gen.channel,
   gen.promo_flag,
   IF(gen.promo_flag, LEAST(gen.promo_id_cand, 10), NULL) AS promo_id,
   CAST(IF(gen.promo_flag,
-    LEAST(30, GREATEST(5,
-      CASE WHEN gen.segment_id IN (4, 5, 6) THEN 14.0 + MOD(ABS(FARM_FINGERPRINT(CONCAT('dd', CAST(gen.order_id AS STRING)))), 12)
-      ELSE 8.0 + MOD(ABS(FARM_FINGERPRINT(CONCAT('dd', CAST(gen.order_id AS STRING)))), 10)
-      END + (MOD(ABS(FARM_FINGERPRINT(CONCAT('cat', CAST(gen.order_id AS STRING)))), 5) - 2) * 2
+    LEAST(28, GREATEST(6,
+      11.0 + MOD(ABS(FARM_FINGERPRINT(CONCAT('dd', CAST(gen.order_id AS STRING)))), 12)
+      + CASE gen.segment_id
+          WHEN 4 THEN 4.0 WHEN 5 THEN 3.0 WHEN 6 THEN 3.5
+          WHEN 1 THEN -1.5 WHEN 2 THEN -1.0 WHEN 3 THEN -0.5
+          ELSE 0.0
+        END
     )),
   NULL) AS NUMERIC) AS discount_depth_pct
 FROM gen;
@@ -460,11 +471,16 @@ WITH
 seg_pref AS (
   SELECT 1 AS segment_id, 8 AS parent_category_id
   UNION ALL SELECT 1, 9 UNION ALL SELECT 1, 3 UNION ALL SELECT 1, 2 UNION ALL SELECT 1, 6
+  UNION ALL SELECT 1, 1 UNION ALL SELECT 1, 7
   UNION ALL SELECT 2, 1 UNION ALL SELECT 2, 2 UNION ALL SELECT 2, 7 UNION ALL SELECT 2, 3 UNION ALL SELECT 2, 6 UNION ALL SELECT 2, 8
+  UNION ALL SELECT 2, 5 UNION ALL SELECT 2, 9
   UNION ALL SELECT 3, 3 UNION ALL SELECT 3, 2 UNION ALL SELECT 3, 7 UNION ALL SELECT 3, 1 UNION ALL SELECT 3, 6 UNION ALL SELECT 3, 8
+  UNION ALL SELECT 3, 4 UNION ALL SELECT 3, 9
   UNION ALL SELECT 4, 2 UNION ALL SELECT 4, 7 UNION ALL SELECT 4, 4 UNION ALL SELECT 4, 1 UNION ALL SELECT 4, 8 UNION ALL SELECT 4, 6
+  UNION ALL SELECT 4, 3 UNION ALL SELECT 4, 5
   UNION ALL SELECT 5, 5 UNION ALL SELECT 5, 6 UNION ALL SELECT 5, 1 UNION ALL SELECT 5, 2 UNION ALL SELECT 5, 9 UNION ALL SELECT 5, 8
   UNION ALL SELECT 6, 5 UNION ALL SELECT 6, 6 UNION ALL SELECT 6, 1 UNION ALL SELECT 6, 2 UNION ALL SELECT 6, 9 UNION ALL SELECT 6, 8
+  UNION ALL SELECT 6, 7
 ),
 ch_pref AS (
   SELECT 'store' AS channel, 5 AS parent_category_id
@@ -518,7 +534,7 @@ pool AS (
   SELECT segment_id, channel, gender, product_id,
     ROW_NUMBER() OVER (PARTITION BY segment_id, channel, gender ORDER BY ord_k) - 1 AS ix
   FROM (
-    /* Volume segmenti (4–6): niente premium nel pool → top SKU premium dominati da Liberals / Optimistic Doers / Go-Getters */
+    /* Volume segmenti (4–6): escluso premium dal blocco base; premium rientrano da UNION flagship/TV sotto */
     SELECT ap.segment_id, ap.channel, ap.gender, p.product_id,
       MOD(ABS(FARM_FINGERPRINT(CONCAT(CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(p.subcategory_id AS STRING)))), 1000003) AS ord_k
     FROM all_pref ap
@@ -541,13 +557,21 @@ pool AS (
     CROSS JOIN UNNEST(GENERATE_ARRAY(1, 12)) AS dup
     WHERE ap.segment_id IN (1, 2, 3) AND p.premium_flag AND p.subcategory_id IN (201, 202, 204)
     UNION ALL
-    /* Stesso flagship/foldable: quota minore (ma non zero) per 4–6 così il donut SKU non è solo tre segmenti */
+    /* Flagship/foldable: peso aumentato su 4–6 (cross-segment su SKU premium mobile) */
     SELECT ap.segment_id, ap.channel, ap.gender, p.product_id,
       MOD(ABS(FARM_FINGERPRINT(CONCAT('fp46', CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(dup AS STRING)))), 1000003) AS ord_k
     FROM all_pref ap
     JOIN mart.dim_product p ON p.category_id = ap.parent_category_id
-    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 5)) AS dup
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 12)) AS dup
     WHERE ap.segment_id IN (4, 5, 6) AND p.premium_flag AND p.subcategory_id IN (201, 202, 204)
+    UNION ALL
+    /* TV premium (OLED/QLED/soundbar): copertura 4–6 oltre solo smartphone */
+    SELECT ap.segment_id, ap.channel, ap.gender, p.product_id,
+      MOD(ABS(FARM_FINGERPRINT(CONCAT('tvp46', CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(dup AS STRING)))), 1000003) AS ord_k
+    FROM all_pref ap
+    JOIN mart.dim_product p ON p.category_id = ap.parent_category_id
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 10)) AS dup
+    WHERE ap.segment_id IN (4, 5, 6) AND p.premium_flag AND p.subcategory_id IN (102, 103, 105)
   )
 )
 SELECT segment_id, channel, gender, product_id, ix FROM pool;
@@ -603,7 +627,7 @@ lines_pick AS (
     lwp.h1,
     lwp.h2,
     CASE
-      WHEN MOD(ABS(lwp.h1), 100) < (76 + MOD(lwp.segment_id * 7, 15)) AND ARRAY_LENGTH(COALESCE(lwp.products, [])) > 0
+      WHEN MOD(ABS(lwp.h1), 100) < (82 + MOD(lwp.segment_id * 7, 15)) AND ARRAY_LENGTH(COALESCE(lwp.products, [])) > 0
       THEN lwp.products[SAFE_OFFSET(MOD(ABS(lwp.h2) + lwp.segment_id * 104729 + lwp.line_num * 7919, ARRAY_LENGTH(lwp.products)))]
     END AS pool_product_id
   FROM lines_with_product lwp
@@ -648,7 +672,7 @@ lines AS (
   FROM lines_base lb
   JOIN mart.dim_product p ON p.product_id = lb.product_id
 ),
-/* Garantisce zero righe premium per segmenti 4–6 (Outcasts/Contributors/Floaters) */
+/* Segmenti 4–6: premium non azzerato — swap parziale su premium + allowlist OLED/QLED/soundbar/smartphone flagship */
 lines_safe_pre AS (
   SELECT
     l.order_id,
@@ -669,7 +693,8 @@ lines_safe_resolved AS (
     lsp.h1,
     CASE
       WHEN lsp.premium_flag AND lsp.segment_id IN (4, 5, 6)
-        AND NOT (lsp.subcategory_id IN (201, 202, 204)) THEN (
+        AND NOT (lsp.subcategory_id IN (201, 202, 204, 102, 103, 105))
+        AND MOD(ABS(FARM_FINGERPRINT(CONCAT('premswap', CAST(lsp.order_id AS STRING), '|', CAST(lsp.line_num AS STRING)))), 100) < 55 THEN (
         SELECT q.product_id FROM (
           SELECT p2.product_id, ROW_NUMBER() OVER (ORDER BY p2.product_id) AS rn
           FROM mart.dim_product p2
@@ -706,7 +731,7 @@ lines_qty AS (
     CAST(GREATEST(1,
       ROUND(CAST(ls.quantity AS FLOAT64) * CASE
         WHEN p.premium_flag AND c.segment_id IN (1, 2, 3) THEN 1.08
-        WHEN p.premium_flag AND c.segment_id IN (4, 5, 6) THEN 0.72
+        WHEN p.premium_flag AND c.segment_id IN (4, 5, 6) THEN 0.90
         WHEN NOT p.premium_flag AND c.segment_id IN (4, 5, 6) THEN 1.52
         WHEN NOT p.premium_flag AND c.segment_id IN (1, 2, 3) THEN 0.80
         ELSE 1.0

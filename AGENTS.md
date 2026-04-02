@@ -118,6 +118,9 @@ python scripts/run_bigquery_schema.py
 # Aggiornare tabelle precalcolate (dopo cambio feed dati)
 python scripts/refresh_precalc_tables.py
 
+# Alternativa: una sola sequenza (generate_seed → schema + derive → precalc); poi svuotare cache admin
+# .\scripts\reseed_full_pipeline.ps1
+
 # Rigenerare prodotti (opzionale)
 python scripts/generate_seed_data.py
 python scripts/run_bigquery_schema.py

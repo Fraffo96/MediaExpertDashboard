@@ -7,6 +7,39 @@
 
 ---
 
+## Matrice segmento × categoria (coerenza vendite e needstates)
+
+Fonte di verità narrativa tra **`product_pool_seg_channel_gender.seg_pref`** in [`bigquery/schema_and_seed.sql`](../bigquery/schema_and_seed.sql) e i profili in [`app/static/data/needstates_hcg.json`](../app/static/data/needstates_hcg.json). Ogni segmento (1–6) deve avere **affinità non nulla** alle macro (1–10): mix premium/value e propensione promo derivano da `seg_behavior.promo_sens`, non da scarti binari tra gruppi.
+
+| Segment | Focus categoria (parent 1–10) | Premium vs value (seed) | Promo (`promo_sens`) |
+|---------|-------------------------------|-------------------------|----------------------|
+| 1 Liberals | Smart home, health tech, IT, mobile, small CE — anche TV/audio | Alto premium | 0.35 |
+| 2 Optimistic Doers | TV, mobile, audio, IT, small CE, smart home | Alto premium | 0.42 |
+| 3 Go-Getters | IT, mobile, audio, TV, small CE, smart home | Alto premium, omnichannel | 0.28 |
+| 4 Outcasts | Mobile, audio, gaming, TV, small CE — **anche** IT e large app | Medio (non zero premium) | 0.58 |
+| 5 Contributors | Large/small appliances, TV, mobile, health, smart home | Medio/value bias | 0.48 |
+| 6 Floaters | Large/small appliances, TV, mobile, health, smart home — **anche** audio | Medio/value bias | 0.52 |
+
+**Needstates:** per ogni `categories["k"]` in JSON, gli score per indice segmento 0..5 devono riflettere la riga sopra (es. dimensioni “value/deal” più alte su 4–6 dove il pool ha più mass-market; “premium/status” più alte su 1–3 senza azzerare gli altri).
+
+**Validazione BQ (post-seed):** share `gross_pln` per `(segment_id, parent_category_id)` non deve essere zero per combinazioni marcate in `seg_pref`; SKU top per `COUNT(DISTINCT segment_id)` idealmente ≥ 4 dove il prodotto non è specialist-only.
+
+---
+
+## Pipeline: rigenerazione completa dati + precalc + cache
+
+Eseguire **in ordine** dopo modifiche a `schema_and_seed.sql` / JSON needstates:
+
+1. (Opzionale) `python scripts/generate_seed_data.py` se cambia `dim_product`.
+2. `gcloud auth application-default login` se necessario.
+3. `python scripts/run_bigquery_schema.py` — carica seed + fase derive (`derive_sales_from_orders.sql`).
+4. `python scripts/refresh_precalc_tables.py` — ricalcola tutte le `precalc_*`.
+5. **Cache applicativa:** `POST /api/admin/clear-cache` (utente admin) oppure restart Cloud Run / svuota Redis; oppure `GET /internal/prewarm` (token) per ricaldo.
+
+Su Windows, vedi anche [`scripts/reseed_full_pipeline.ps1`](../scripts/reseed_full_pipeline.ps1).
+
+---
+
 ## Elenco valori (nomi completi)
 
 ### Brand (55)

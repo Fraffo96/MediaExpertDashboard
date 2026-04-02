@@ -9,18 +9,18 @@
   },
   "categories": {
     "1": [
-      {"label": "Premium cinema at home", "scores": [68, 82, 88, 45, 40, 30]},
+      {"label": "Premium cinema at home", "scores": [68, 82, 88, 52, 48, 38]},
       {"label": "Family viewing & shared moments", "scores": [52, 58, 44, 38, 86, 62]},
       {"label": "Gaming immersion & big-screen fun", "scores": [35, 54, 66, 90, 28, 22]},
       {"label": "Smart living-room hub", "scores": [79, 60, 58, 25, 46, 20]},
       {"label": "Reliable replacement TV", "scores": [40, 36, 28, 22, 55, 88]},
-      {"label": "Best value for screen size", "scores": [34, 49, 41, 72, 61, 84]},
+      {"label": "Best value for screen size", "scores": [40, 54, 46, 68, 58, 74]},
       {"label": "Design, prestige & statement living room", "scores": [46, 87, 83, 31, 24, 18]}
     ],
     "2": [
-      {"label": "Flagship status & prestige", "scores": [48, 88, 92, 36, 22, 16]},
+      {"label": "Flagship status & prestige", "scores": [52, 88, 92, 42, 28, 22]},
       {"label": "Everyday reliability & battery life", "scores": [62, 58, 55, 47, 74, 90]},
-      {"label": "Best deal for the money", "scores": [35, 52, 40, 86, 63, 84]},
+      {"label": "Best deal for the money", "scores": [38, 54, 44, 80, 60, 78]},
       {"label": "Productivity on the go", "scores": [58, 64, 95, 32, 30, 20]},
       {"label": "Photo, social and self-expression", "scores": [49, 78, 69, 71, 35, 24]},
       {"label": "Wearable ecosystem & smart routines", "scores": [75, 73, 81, 28, 33, 18]},
