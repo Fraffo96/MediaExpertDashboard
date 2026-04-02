@@ -102,6 +102,8 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 # Login gcloud con browser su Windows (finestra CMD dedicata, usa gcloud.cmd)
 # .\scripts\gcloud-browser-login.ps1
+# Rinnovo Application Default Credentials (ADC utente), senza conflitto col SA: 
+# .\scripts\gcloud-application-default-login.ps1
 
 # Verifica loghi GCS: python scripts/verify_brand_logo_env.py
 # Verifica HTML home (logo in topbar): $env:PYTHONPATH = (Get-Location).Path; python scripts/check_landing_logo_html.py
