@@ -11,9 +11,7 @@ from app.db.queries.brand_comparison import (
     query_promo_roi_brand_vs_competitor,
     query_promo_share_by_category_brand_vs_competitor,
     query_promo_share_by_subcategory_brand_vs_competitor,
-    query_sales_by_brand_in_all_categories_bc,
     query_sales_by_brand_in_all_categories_bc_all_channels,
-    query_sales_by_brand_in_all_subcategories_bc,
     query_sales_by_brand_in_all_subcategories_bc_all_channels,
 )
 from app.db.queries.market_intelligence import (
@@ -508,34 +506,35 @@ async def get_bc_sales_live(ps: str, pe: str, brand_id: int, competitor_id: int,
     sub_cat_id = sub_cat_id or (cat_ids[0] if cat_ids else None)
     cat_ids_int = [int(c) for c in cat_ids if c] if cat_ids else []
     sub_ids_int = [int(s) for s in sub_ids if s] if sub_ids else []
+    ps_prev, pe_prev = shift_period_years(ps, pe, -1)
 
-    cat_pie_all = []
-    sub_pie_all = []
-    if cat_ids_int and sub_ids_int:
-        cat_pie_all, sub_pie_all = await asyncio.gather(
+    async def cat_bundle():
+        if not cat_ids_int:
+            return [], []
+        pie, prev = await asyncio.gather(
             asyncio.to_thread(
                 query_sales_by_brand_in_all_categories_bc_all_channels, ps, pe, cat_ids_int, bid, cid
             ),
             asyncio.to_thread(
-                query_sales_by_brand_in_all_subcategories_bc_all_channels, ps, pe, sub_ids_int, bid, cid
+                query_sales_pct_by_brand_prev_year_categories_all_channels, ps_prev, pe_prev, cat_ids_int
             ),
         )
-        cat_pie_all = list(cat_pie_all or [])
-        sub_pie_all = list(sub_pie_all or [])
-    elif cat_ids_int:
-        cat_pie_all = list(
-            (await asyncio.to_thread(
-                query_sales_by_brand_in_all_categories_bc_all_channels, ps, pe, cat_ids_int, bid, cid
-            ))
-            or []
-        )
-    elif sub_ids_int:
-        sub_pie_all = list(
-            (await asyncio.to_thread(
+        return list(pie or []), list(prev or [])
+
+    async def sub_bundle():
+        if not sub_ids_int:
+            return [], []
+        pie, prev = await asyncio.gather(
+            asyncio.to_thread(
                 query_sales_by_brand_in_all_subcategories_bc_all_channels, ps, pe, sub_ids_int, bid, cid
-            ))
-            or []
+            ),
+            asyncio.to_thread(
+                query_sales_pct_by_brand_prev_year_subcategories_all_channels, ps_prev, pe_prev, sub_ids_int
+            ),
         )
+        return list(pie or []), list(prev or [])
+
+    (cat_pie_all, prev_cat_all), (sub_pie_all, prev_sub_all) = await asyncio.gather(cat_bundle(), sub_bundle())
 
     def _group_bc(rows):
         out = {ch: {} for ch in CHANNELS}
@@ -557,8 +556,8 @@ async def get_bc_sales_live(ps: str, pe: str, brand_id: int, competitor_id: int,
         "subcategory_category_id": sub_cat_id,
         "category_pie_brands_map_channel": _group_bc(cat_pie_all),
         "subcategory_pie_brands_map_channel": _group_bc(sub_pie_all),
-        "category_pie_brands_prev_map_channel": {},
-        "subcategory_pie_brands_prev_map_channel": {},
+        "category_pie_brands_prev_map_channel": _group_prev_by_channel(prev_cat_all) if prev_cat_all else {c: {} for c in CHANNELS},
+        "subcategory_pie_brands_prev_map_channel": _group_prev_by_channel(prev_sub_all) if prev_sub_all else {c: {} for c in CHANNELS},
     }
 
 

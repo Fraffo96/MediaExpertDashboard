@@ -34,6 +34,8 @@ from app.db.queries.precalc import (
     query_brand_all_subcategories_from_precalc,
     query_brand_categories_from_precalc,
     query_competitors_in_scope_from_precalc,
+    query_sales_pct_by_brand_prev_year_categories_all_channels_from_precalc,
+    query_sales_pct_by_brand_prev_year_subcategories_all_channels_from_precalc,
     query_sales_pie_bc_categories_all_channels_from_precalc,
     query_sales_pie_bc_subcategories_all_channels_from_precalc,
     query_promo_share_bc_all_channels_from_precalc,
@@ -53,6 +55,22 @@ from app.services.mi_bc_live import (
     get_bc_promo_live,
     get_bc_sales_live,
 )
+
+
+def _group_bc_prev_by_channel(rows):
+    """Stessa forma di _group_prev_by_channel in mi_bc_live (pct_value_prev per slice YoY)."""
+    out_map = {ch: {} for ch in CHANNELS}
+    for r in rows or []:
+        ch = (r.get("channel") or "").strip()
+        if ch not in out_map:
+            out_map[ch] = {}
+        cid = str(r.get("category_id", ""))
+        bid = str(r.get("brand_id", ""))
+        if cid and bid:
+            if cid not in out_map[ch]:
+                out_map[ch][cid] = {}
+            out_map[ch][cid][bid] = r.get("pct_value_prev")
+    return out_map
 
 
 def intersect_brand_category_trees(year: int, brand_id: int, competitor_id: int) -> tuple[list[dict], dict[str, list]]:
@@ -207,7 +225,7 @@ async def get_bc_sales(ps, pe, brand_id, competitor_id, cat_ids, sub_ids, sub_ca
     if not brand_id or not competitor_id:
         return {"error": "Brand and competitor required"}
     key = cache_key(
-        "bc_sales",
+        "bc_sales_v2_prev",
         ps=ps,
         pe=pe,
         brand=brand_id,
@@ -241,15 +259,31 @@ async def get_bc_sales(ps, pe, brand_id, competitor_id, cat_ids, sub_ids, sub_ca
             out[ch][cat_id].append({k: v for k, v in r.items() if k != "channel"})
         return out
 
-    cat_pie_all, sub_pie_all = [], []
-    if cat_ids:
+    async def cat_bundle():
+        if not cat_ids:
+            return [], []
         cat_ids_int = [int(c) for c in cat_ids if c]
-        cat_pie_all = await asyncio.to_thread(query_sales_pie_bc_categories_all_channels_from_precalc, year, cat_ids_int, bid, cid)
-        cat_pie_all = list(cat_pie_all) if cat_pie_all else []
-    if sub_ids:
+        pie, prev = await asyncio.gather(
+            asyncio.to_thread(query_sales_pie_bc_categories_all_channels_from_precalc, year, cat_ids_int, bid, cid),
+            asyncio.to_thread(
+                query_sales_pct_by_brand_prev_year_categories_all_channels_from_precalc, year - 1, cat_ids_int
+            ),
+        )
+        return list(pie or []), list(prev or [])
+
+    async def sub_bundle():
+        if not sub_ids:
+            return [], []
         sub_ids_int = [int(s) for s in sub_ids if s]
-        sub_pie_all = await asyncio.to_thread(query_sales_pie_bc_subcategories_all_channels_from_precalc, year, sub_ids_int, bid, cid)
-        sub_pie_all = list(sub_pie_all) if sub_pie_all else []
+        pie, prev = await asyncio.gather(
+            asyncio.to_thread(query_sales_pie_bc_subcategories_all_channels_from_precalc, year, sub_ids_int, bid, cid),
+            asyncio.to_thread(
+                query_sales_pct_by_brand_prev_year_subcategories_all_channels_from_precalc, year - 1, sub_ids_int
+            ),
+        )
+        return list(pie or []), list(prev or [])
+
+    (cat_pie_all, prev_cat_all), (sub_pie_all, prev_sub_all) = await asyncio.gather(cat_bundle(), sub_bundle())
 
     category_pie_brands_map_channel = _group_pie_by_channel(cat_pie_all) if cat_pie_all else {ch: {} for ch in CHANNELS}
     subcategory_pie_brands_map_channel = _group_pie_by_channel(sub_pie_all) if sub_pie_all else {ch: {} for ch in CHANNELS}
@@ -262,8 +296,8 @@ async def get_bc_sales(ps, pe, brand_id, competitor_id, cat_ids, sub_ids, sub_ca
         "subcategory_category_id": sub_cat_id,
         "category_pie_brands_map_channel": category_pie_brands_map_channel,
         "subcategory_pie_brands_map_channel": subcategory_pie_brands_map_channel,
-        "category_pie_brands_prev_map_channel": {},
-        "subcategory_pie_brands_prev_map_channel": {},
+        "category_pie_brands_prev_map_channel": _group_bc_prev_by_channel(prev_cat_all) if prev_cat_all else {ch: {} for ch in CHANNELS},
+        "subcategory_pie_brands_prev_map_channel": _group_bc_prev_by_channel(prev_sub_all) if prev_sub_all else {ch: {} for ch in CHANNELS},
     }
     set_cached(key, out)
     return copy.deepcopy(out)

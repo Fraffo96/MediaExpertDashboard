@@ -189,7 +189,7 @@
         else shareText = 'Unchanged';
       }
       var shareColor = delta > 0 ? 'var(--green)' : (delta < 0 ? 'var(--red)' : 'var(--text-muted)');
-      shareChangeHtml = '<div class="mi-info-row"><span class="mi-info-label">Market share vs prev year</span><span class="mi-info-value mi-wrap" style="color:' + shareColor + ';">' + shareText + '</span></div>';
+      shareChangeHtml = '<div class="mi-info-row"><span class="mi-info-label">Market share vs prior period</span><span class="mi-info-value mi-wrap" style="color:' + shareColor + ';">' + shareText + '</span></div>';
     }
 
     var scopeLabel = scope === 'subcategory' ? 'subcategory' : 'category';
