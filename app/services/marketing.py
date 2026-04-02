@@ -150,18 +150,28 @@ def get_segment_by_category(
     return out
 
 _NEEDSTATES_HCG_CACHE: dict | None = None
+_NEEDSTATES_HCG_MTIME: float | None = None
 
 
 def _load_needstates_hcg() -> dict:
-    """Load HCG needstates (7 per category, scores 0-100 per segment). Cached at module level."""
-    global _NEEDSTATES_HCG_CACHE
-    if _NEEDSTATES_HCG_CACHE is not None:
+    """Load HCG needstates (7 per category, scores 0-100 per segment). Reload if file mtime changes."""
+    global _NEEDSTATES_HCG_CACHE, _NEEDSTATES_HCG_MTIME, _NEEDSTATES_SPIDER_PRECALC
+    try:
+        mtime = float(_NEEDSTATES_HCG_PATH.stat().st_mtime)
+    except OSError:
+        mtime = -1.0
+    if _NEEDSTATES_HCG_CACHE is not None and _NEEDSTATES_HCG_MTIME == mtime:
         return _NEEDSTATES_HCG_CACHE
     try:
         with open(_NEEDSTATES_HCG_PATH, encoding="utf-8") as f:
             _NEEDSTATES_HCG_CACHE = json.load(f)
+        _NEEDSTATES_HCG_MTIME = mtime
+        _NEEDSTATES_SPIDER_PRECALC = None
         return _NEEDSTATES_HCG_CACHE
     except Exception:
+        _NEEDSTATES_HCG_CACHE = {}
+        _NEEDSTATES_HCG_MTIME = mtime
+        _NEEDSTATES_SPIDER_PRECALC = None
         return {}
 
 
