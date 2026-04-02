@@ -31,24 +31,29 @@
 
   function renderSpider(data) {
     var dimensions = data.dimensions || [];
-    var scores = data.scores || [];
-    var categoryAvg = data.scores_category_avg;
-    if (!categoryAvg || !categoryAvg.length) {
-      categoryAvg = dimensions.map(function() { return 0; });
+    var scoresMix = data.scores || [];
+    var scoresRaw = data.scores_raw;
+    if (!scoresRaw || !scoresRaw.length) scoresRaw = [];
+    var chartSegment = scoresRaw.length === dimensions.length ? scoresRaw : scoresMix;
+    var categoryAvgRaw = data.scores_category_avg_raw;
+    if (!categoryAvgRaw || !categoryAvgRaw.length) {
+      categoryAvgRaw = dimensions.map(function() { return 0; });
     }
+    var categoryAvgMix = data.scores_category_avg;
+    if (!categoryAvgMix || !categoryAvgMix.length) {
+      categoryAvgMix = dimensions.map(function() { return 0; });
+    }
+    var chartCategoryAvg = categoryAvgRaw.length === dimensions.length ? categoryAvgRaw : categoryAvgMix;
     var segmentName = data.segment_name || 'Segment';
 
-    if (!dimensions.length || !scores.length) return;
+    if (!dimensions.length || !chartSegment.length) return;
 
     var wrap = document.getElementById('mkt-needstates-charts');
     var loading = document.getElementById('mkt-needstates-loading');
     var noData = document.getElementById('mkt-needstates-no-data');
     var canvas = document.getElementById('mkt-needstates-chart');
-    var subtitle = document.getElementById('mkt-needstates-subtitle');
 
     if (!canvas || typeof Chart === 'undefined') return;
-
-    if (subtitle) subtitle.textContent = 'Share of needstates for ' + segmentName + ' in this category (%)';
 
     var rMax = 100;
 
@@ -71,7 +76,7 @@
               callback: function(value) {
                 var n = typeof value === 'number' ? value : parseFloat(value);
                 if (!isFinite(n)) return '';
-                return Math.round(n) + '%';
+                return Math.round(n);
               }
             },
             grid: { color: 'rgba(255,255,255,0.1)' },
@@ -94,16 +99,15 @@
               font: { size: 15, weight: '500' }
             }
           },
-          tooltip: typeof CHART_TOOLTIP !== 'undefined' ? CHART_TOOLTIP : {
+          tooltip: Object.assign({}, typeof CHART_TOOLTIP !== 'undefined' ? CHART_TOOLTIP : {}, {
             callbacks: {
               label: function(ctx) {
                 var v = ctx.raw;
-                var pct = typeof v === 'number' ? Math.round(v * 10) / 10 : v;
-                if (ctx.datasetIndex === 1) return 'Category average: ' + pct + '%';
-                return ctx.dataset.label + ': ' + pct + '%';
+                var num = typeof v === 'number' ? Math.round(v * 10) / 10 : v;
+                return (ctx.dataset.label || '') + ': ' + num;
               }
             }
-          }
+          })
         }
       };
       spiderChart = new Chart(canvas.getContext('2d'), {
@@ -121,7 +125,7 @@
     spiderChart.data.datasets = [
       {
         label: segmentName,
-        data: scores,
+        data: chartSegment,
         backgroundColor: 'rgba(255, 215, 0, 0.25)',
         borderColor: '#FFD700',
         borderWidth: 2,
@@ -147,7 +151,8 @@
 
     var takeoutsEl = document.getElementById('mkt-needstates-takeouts');
     if (takeoutsEl) {
-      var pairs = dimensions.map(function(d, i) { return { label: d, score: scores[i] || 0 }; });
+      var takeScores = scoresRaw.length === dimensions.length ? scoresRaw : scoresMix;
+      var pairs = dimensions.map(function(d, i) { return { label: d, score: takeScores[i] || 0 }; });
       pairs.sort(function(a, b) { return b.score - a.score; });
       var top3 = pairs.slice(0, 3);
       var rows = top3.map(function(p, i) {
@@ -158,15 +163,11 @@
               '<span class="mkt-takeout-rank">' + (i + 1) + '</span>' +
               '<span class="mkt-takeout-label">' + p.label + '</span>' +
             '</div>' +
-            '<span class="mkt-takeout-score">' + ix + '%</span>' +
+            '<span class="mkt-takeout-score">' + ix + '</span>' +
           '</div>'
         );
       }).join('');
-      var top1 = top3[0];
-      var foot = top1
-        ? ('<p class="mkt-takeout-foot">Lead with <strong>' + top1.label + '</strong> in this category.</p>')
-        : '';
-      takeoutsEl.innerHTML = '<div class="mkt-takeouts-inner">' + rows + foot + '</div>';
+      takeoutsEl.innerHTML = '<div class="mkt-takeouts-inner">' + rows + '</div>';
     }
 
     loading.classList.add('hidden');
@@ -180,7 +181,8 @@
     var noData = document.getElementById('mkt-needstates-no-data');
 
     var inlined = readPrecalcPayload();
-    if (inlined && inlined.dimensions && inlined.dimensions.length && inlined.scores && inlined.scores.length) {
+    if (inlined && inlined.dimensions && inlined.dimensions.length &&
+        ((inlined.scores_raw && inlined.scores_raw.length) || (inlined.scores && inlined.scores.length))) {
       renderSpider(inlined);
       return;
     }

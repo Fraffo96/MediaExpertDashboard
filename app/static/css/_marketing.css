@@ -259,6 +259,9 @@
 .mkt-needstates-page .mkt-takeout-score {
   font-size: 1.35rem;
 }
+.mkt-needstates-page .mkt-takeout-unit {
+  font-size: 0.75em;
+}
 .mkt-needstates-page .mkt-takeout-foot {
   font-size: 1rem;
   line-height: 1.5;

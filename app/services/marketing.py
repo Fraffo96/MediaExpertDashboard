@@ -31,7 +31,7 @@ _NEEDSTATES_SPIDER_PRECALC: dict[str, dict] | None = None
 def _spider_payload_from_hcg(
     cat_id: int, seg_id: int, segments_map: dict, needstates: list,
 ) -> dict:
-    """Costruisce il payload API spider da righe HCG (percentuali 0–100, non indice)."""
+    """Spider payload from HCG JSON (scores_raw 0–100 per axis for radar; scores = mix shares legacy)."""
     seg_name = segments_map.get(str(seg_id), f"Segment {seg_id}")
     if not needstates:
         return {
@@ -42,6 +42,7 @@ def _spider_payload_from_hcg(
             "scores": [],
             "scores_category_avg": [],
             "scores_raw": [],
+            "scores_category_avg_raw": [],
         }
     seg_idx = max(0, min(5, seg_id - 1))
     dimensions = [n["label"] for n in needstates]
@@ -64,6 +65,11 @@ def _spider_payload_from_hcg(
     selected = seg_pcts[seg_idx]
     segment_pct = [round(x, 1) for x in selected]
 
+    category_avg_raw: list[float] = []
+    for i in range(n_dim):
+        col_raw = [float(needstates[i]["scores"][s]) for s in range(6)]
+        category_avg_raw.append(round(sum(col_raw) / 6.0, 1))
+
     return {
         "category_id": cat_id,
         "segment_id": seg_id,
@@ -72,6 +78,7 @@ def _spider_payload_from_hcg(
         "scores": segment_pct,
         "scores_category_avg": category_avg,
         "scores_raw": scores_raw,
+        "scores_category_avg_raw": category_avg_raw,
     }
 
 
