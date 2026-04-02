@@ -70,12 +70,14 @@ _CACHE: dict[str, tuple[dict, float]] = {}
 # Prefissi cache_key(...) usati dall'app (per SCAN/delete su Redis senza FLUSHDB).
 _CACHE_KEY_PREFIXES: tuple[str, ...] = (
     "bc_all_years",
+    "bc_all_years_v2_duel_prev",
     "bc_base",
     "bc_competitors",
     "bc_discount",
     "bc_peak",
     "bc_promo",
     "bc_sales",
+    "bc_sales_v3_duel_prev",
     "basic",
     "basic_granular",
     "clp_active",

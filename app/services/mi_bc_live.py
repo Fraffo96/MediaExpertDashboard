@@ -508,31 +508,43 @@ async def get_bc_sales_live(ps: str, pe: str, brand_id: int, competitor_id: int,
     sub_ids_int = [int(s) for s in sub_ids if s] if sub_ids else []
     ps_prev, pe_prev = shift_period_years(ps, pe, -1)
 
+    def _duel_prev_rows(rows):
+        """Allinea YoY al grafico BC: quota sul duetto (solo i due brand), non sull'intera categoria."""
+        return [
+            {
+                "channel": r.get("channel"),
+                "category_id": r.get("category_id"),
+                "brand_id": r.get("brand_id"),
+                "pct_value_prev": r.get("pct_value"),
+            }
+            for r in (rows or [])
+        ]
+
     async def cat_bundle():
         if not cat_ids_int:
             return [], []
-        pie, prev = await asyncio.gather(
+        pie, prev_raw = await asyncio.gather(
             asyncio.to_thread(
                 query_sales_by_brand_in_all_categories_bc_all_channels, ps, pe, cat_ids_int, bid, cid
             ),
             asyncio.to_thread(
-                query_sales_pct_by_brand_prev_year_categories_all_channels, ps_prev, pe_prev, cat_ids_int
+                query_sales_by_brand_in_all_categories_bc_all_channels, ps_prev, pe_prev, cat_ids_int, bid, cid
             ),
         )
-        return list(pie or []), list(prev or [])
+        return list(pie or []), _duel_prev_rows(prev_raw)
 
     async def sub_bundle():
         if not sub_ids_int:
             return [], []
-        pie, prev = await asyncio.gather(
+        pie, prev_raw = await asyncio.gather(
             asyncio.to_thread(
                 query_sales_by_brand_in_all_subcategories_bc_all_channels, ps, pe, sub_ids_int, bid, cid
             ),
             asyncio.to_thread(
-                query_sales_pct_by_brand_prev_year_subcategories_all_channels, ps_prev, pe_prev, sub_ids_int
+                query_sales_by_brand_in_all_subcategories_bc_all_channels, ps_prev, pe_prev, sub_ids_int, bid, cid
             ),
         )
-        return list(pie or []), list(prev or [])
+        return list(pie or []), _duel_prev_rows(prev_raw)
 
     (cat_pie_all, prev_cat_all), (sub_pie_all, prev_sub_all) = await asyncio.gather(cat_bundle(), sub_bundle())
 

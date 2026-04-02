@@ -34,8 +34,6 @@ from app.db.queries.precalc import (
     query_brand_all_subcategories_from_precalc,
     query_brand_categories_from_precalc,
     query_competitors_in_scope_from_precalc,
-    query_sales_pct_by_brand_prev_year_categories_all_channels_from_precalc,
-    query_sales_pct_by_brand_prev_year_subcategories_all_channels_from_precalc,
     query_sales_pie_bc_categories_all_channels_from_precalc,
     query_sales_pie_bc_subcategories_all_channels_from_precalc,
     query_promo_share_bc_all_channels_from_precalc,
@@ -71,6 +69,19 @@ def _group_bc_prev_by_channel(rows):
                 out_map[ch][cid] = {}
             out_map[ch][cid][bid] = r.get("pct_value_prev")
     return out_map
+
+
+def _bc_duel_pie_rows_as_prev(rows):
+    """Righe pie BC (duello 2 brand): pct_value → pct_value_prev per mappa YoY allineata al grafico."""
+    out = []
+    for r in rows or []:
+        out.append({
+            "channel": r.get("channel"),
+            "category_id": r.get("category_id"),
+            "brand_id": r.get("brand_id"),
+            "pct_value_prev": r.get("pct_value"),
+        })
+    return out
 
 
 def intersect_brand_category_trees(year: int, brand_id: int, competitor_id: int) -> tuple[list[dict], dict[str, list]]:
@@ -225,7 +236,7 @@ async def get_bc_sales(ps, pe, brand_id, competitor_id, cat_ids, sub_ids, sub_ca
     if not brand_id or not competitor_id:
         return {"error": "Brand and competitor required"}
     key = cache_key(
-        "bc_sales_v2_prev",
+        "bc_sales_v3_duel_prev",
         ps=ps,
         pe=pe,
         brand=brand_id,
@@ -263,25 +274,25 @@ async def get_bc_sales(ps, pe, brand_id, competitor_id, cat_ids, sub_ids, sub_ca
         if not cat_ids:
             return [], []
         cat_ids_int = [int(c) for c in cat_ids if c]
-        pie, prev = await asyncio.gather(
+        pie, prev_raw = await asyncio.gather(
             asyncio.to_thread(query_sales_pie_bc_categories_all_channels_from_precalc, year, cat_ids_int, bid, cid),
             asyncio.to_thread(
-                query_sales_pct_by_brand_prev_year_categories_all_channels_from_precalc, year - 1, cat_ids_int
+                query_sales_pie_bc_categories_all_channels_from_precalc, year - 1, cat_ids_int, bid, cid
             ),
         )
-        return list(pie or []), list(prev or [])
+        return list(pie or []), _bc_duel_pie_rows_as_prev(prev_raw)
 
     async def sub_bundle():
         if not sub_ids:
             return [], []
         sub_ids_int = [int(s) for s in sub_ids if s]
-        pie, prev = await asyncio.gather(
+        pie, prev_raw = await asyncio.gather(
             asyncio.to_thread(query_sales_pie_bc_subcategories_all_channels_from_precalc, year, sub_ids_int, bid, cid),
             asyncio.to_thread(
-                query_sales_pct_by_brand_prev_year_subcategories_all_channels_from_precalc, year - 1, sub_ids_int
+                query_sales_pie_bc_subcategories_all_channels_from_precalc, year - 1, sub_ids_int, bid, cid
             ),
         )
-        return list(pie or []), list(prev or [])
+        return list(pie or []), _bc_duel_pie_rows_as_prev(prev_raw)
 
     (cat_pie_all, prev_cat_all), (sub_pie_all, prev_sub_all) = await asyncio.gather(cat_bundle(), sub_bundle())
 
@@ -656,7 +667,7 @@ async def get_bc_all_years(brand_id, competitor_id, discount_cat=None, discount_
     if not competitor_id:
         return {"error": "Competitor required"}
 
-    key = cache_key("bc_all_years", brand=brand_id, comp=competitor_id)
+    key = cache_key("bc_all_years_v2_duel_prev", brand=brand_id, comp=competitor_id)
     cached = get_cached(key, ttl=TTL_LONG)
     if cached is not None:
         return copy.deepcopy(cached)

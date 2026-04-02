@@ -606,6 +606,104 @@
     }
   }
 
+  function bcPromoShareGapVsPriorYearHtml(brandAvg, mediaAvg, compLabel) {
+    if (window._bcCustomPeriod) return '';
+    var st = window.MIScopeState;
+    if (!st || String(st.period_mode_promo_share) !== 'year') return '';
+    var yKey = st.year_promo_share;
+    var by = window._miDataByYear;
+    if (!by || yKey == null || String(yKey) === '' || String(yKey) === 'custom') return '';
+    var yNum = parseInt(String(yKey), 10);
+    if (!yNum) return '';
+    var prev = by[String(yNum - 1)];
+    if (!prev || !prev.promo_share_by_category || !prev.promo_share_by_category.length) return '';
+    var pps = prev.promo_share_by_category;
+    var pb = pps.reduce(function(s, r) { return s + (Number(r.brand_promo_share_pct) || 0); }, 0) / pps.length;
+    var pm = pps.reduce(function(s, r) { return s + (Number(r.media_promo_share_pct) || 0); }, 0) / pps.length;
+    var gapNow = brandAvg - mediaAvg;
+    var gapPrev = pb - pm;
+    var shift = gapNow - gapPrev;
+    var EPS = 0.05;
+    var bl = (typeof window.MI_BRAND_NAME !== 'undefined' && window.MI_BRAND_NAME) ? window.MI_BRAND_NAME : 'Your brand';
+    var cname = compLabel || 'Competitor';
+    var gn = (gapNow >= 0 ? '+' : '') + gapNow.toFixed(1);
+    var gp = (gapPrev >= 0 ? '+' : '') + gapPrev.toFixed(1);
+    var text;
+    if (Math.abs(shift) < EPS) {
+      text = 'Avg gap (' + bl + ' − ' + cname + '): ' + gn + ' pp now vs ' + gp + ' pp in ' + (yNum - 1) + ' — little change.';
+    } else if (shift > 0) {
+      text = 'Avg gap (' + bl + ' − ' + cname + '): ' + gn + ' pp now vs ' + gp + ' pp in ' + (yNum - 1) + ' — net +' + shift.toFixed(1) + ' pp in ' + bl + '\'s favour.';
+    } else {
+      text = 'Avg gap (' + bl + ' − ' + cname + '): ' + gn + ' pp now vs ' + gp + ' pp in ' + (yNum - 1) + ' — net ' + shift.toFixed(1) + ' pp in ' + cname + '\'s favour.';
+    }
+    var col = shift > EPS ? 'var(--green)' : (shift < -EPS ? 'var(--red)' : 'var(--text-muted)');
+    return '<div class="mi-info-row"><span class="mi-info-label">Gap vs prior year (two-brand)</span><span class="mi-info-value mi-wrap" style="color:' + col + ';">' + text + '</span></div>';
+  }
+
+  function bcRoiAvgGapVsPriorYearHtml(roi, compLabel) {
+    if (window._bcCustomPeriod || !roi || !roi.length) return '';
+    var st = window.MIScopeState;
+    if (!st || String(st.period_mode_promo_roi) !== 'year') return '';
+    var yKey = st.year_promo_roi;
+    var by = window._miDataByYear;
+    if (!by || yKey == null || String(yKey) === '' || String(yKey) === 'custom') return '';
+    var yNum = parseInt(String(yKey), 10);
+    if (!yNum) return '';
+    var prev = by[String(yNum - 1)];
+    var prevRoi = prev && prev.promo_roi;
+    if (!prevRoi || !prevRoi.length) return '';
+    var gapNow = roi.reduce(function(s, r) { return s + ((Number(r.brand_avg_roi) || 0) - (Number(r.media_avg_roi) || 0)); }, 0) / roi.length;
+    var gapPrev = prevRoi.reduce(function(s, r) { return s + ((Number(r.brand_avg_roi) || 0) - (Number(r.media_avg_roi) || 0)); }, 0) / prevRoi.length;
+    var shift = gapNow - gapPrev;
+    var EPS = 0.02;
+    var bl = (typeof window.MI_BRAND_NAME !== 'undefined' && window.MI_BRAND_NAME) ? window.MI_BRAND_NAME : 'Your brand';
+    var cname = compLabel || 'Competitor';
+    var gn = (gapNow >= 0 ? '+' : '') + gapNow.toFixed(2);
+    var gp = (gapPrev >= 0 ? '+' : '') + gapPrev.toFixed(2);
+    var text;
+    if (Math.abs(shift) < EPS) {
+      text = 'Mean ROI gap (' + bl + ' − ' + cname + '): ' + gn + ' vs ' + gp + ' in ' + (yNum - 1) + ' — little change.';
+    } else if (shift > 0) {
+      text = 'Mean ROI gap (' + bl + ' − ' + cname + '): ' + gn + ' vs ' + gp + ' in ' + (yNum - 1) + ' — net +' + shift.toFixed(2) + ' in ' + bl + '\'s favour.';
+    } else {
+      text = 'Mean ROI gap (' + bl + ' − ' + cname + '): ' + gn + ' vs ' + gp + ' in ' + (yNum - 1) + ' — net ' + shift.toFixed(2) + ' in ' + cname + '\'s favour.';
+    }
+    var col = shift > EPS ? 'var(--green)' : (shift < -EPS ? 'var(--red)' : 'var(--text-muted)');
+    return '<div class="mi-info-row"><span class="mi-info-label">ROI gap vs prior year (two-brand)</span><span class="mi-info-value mi-wrap" style="color:' + col + ';">' + text + '</span></div>';
+  }
+
+  function bcPeakAvgGapVsPriorYearHtml(peak, compLabel) {
+    if (window._bcCustomPeriod || !peak || !peak.length) return '';
+    var st = window.MIScopeState;
+    if (!st || String(st.period_mode_peak) !== 'year') return '';
+    var yKey = st.year_peak;
+    var by = window._miDataByYear;
+    if (!by || yKey == null || String(yKey) === '' || String(yKey) === 'custom') return '';
+    var yNum = parseInt(String(yKey), 10);
+    if (!yNum) return '';
+    var prev = by[String(yNum - 1)];
+    var prevPeak = prev && prev.peak_events;
+    if (!prevPeak || !prevPeak.length) return '';
+    var gapNow = peak.reduce(function(s, r) { return s + ((Number(r.brand_pct_of_annual) || 0) - (Number(r.media_pct_of_annual) || 0)); }, 0) / peak.length;
+    var gapPrev = prevPeak.reduce(function(s, r) { return s + ((Number(r.brand_pct_of_annual) || 0) - (Number(r.media_pct_of_annual) || 0)); }, 0) / prevPeak.length;
+    var shift = gapNow - gapPrev;
+    var EPS = 0.05;
+    var bl = (typeof window.MI_BRAND_NAME !== 'undefined' && window.MI_BRAND_NAME) ? window.MI_BRAND_NAME : 'Your brand';
+    var cname = compLabel || 'Competitor';
+    var gn = (gapNow >= 0 ? '+' : '') + gapNow.toFixed(1);
+    var gp = (gapPrev >= 0 ? '+' : '') + gapPrev.toFixed(1);
+    var text;
+    if (Math.abs(shift) < EPS) {
+      text = 'Mean peak gap (% of annual, ' + bl + ' − ' + cname + '): ' + gn + ' pp vs ' + gp + ' pp in ' + (yNum - 1) + ' — little change.';
+    } else if (shift > 0) {
+      text = 'Mean peak gap: ' + gn + ' pp now vs ' + gp + ' pp in ' + (yNum - 1) + ' — net +' + shift.toFixed(1) + ' pp in ' + bl + '\'s favour.';
+    } else {
+      text = 'Mean peak gap: ' + gn + ' pp now vs ' + gp + ' pp in ' + (yNum - 1) + ' — net ' + shift.toFixed(1) + ' pp in ' + cname + '\'s favour.';
+    }
+    var col = shift > EPS ? 'var(--green)' : (shift < -EPS ? 'var(--red)' : 'var(--text-muted)');
+    return '<div class="mi-info-row"><span class="mi-info-label">Peak gap vs prior year (two-brand)</span><span class="mi-info-value mi-wrap" style="color:' + col + ';">' + text + '</span></div>';
+  }
+
   function updatePromoShareKeyInsight(d) {
     var brandLabel = (typeof window.MI_BRAND_NAME !== 'undefined' && window.MI_BRAND_NAME) ? window.MI_BRAND_NAME : 'Your Brand';
     var compLabel = (d.competitor_name || d.second_series_label) || 'Competitor';
@@ -623,10 +721,11 @@
     var topRow = ps.reduce(function(a, b) { return (Number(b.brand_promo_share_pct) || 0) > (Number(a.brand_promo_share_pct) || 0) ? b : a; }, ps[0]);
     var rows = '<div class="mi-info-row"><span class="mi-info-label">' + brandSpan + ' avg promo share</span><span class="mi-info-value">' + brandAvg.toFixed(1) + '%</span></div>' +
       '<div class="mi-info-row"><span class="mi-info-label">' + compLabel + '</span><span class="mi-info-value">' + mediaAvg.toFixed(1) + '%</span></div>' +
-      '<div class="mi-info-row"><span class="mi-info-label">Gap vs ' + compLabel + '</span><span class="mi-info-value">' + (diff > 0 ? '+' : '') + diff + ' pp</span></div>' +
+      '<div class="mi-info-row"><span class="mi-info-label">Gap vs ' + compLabel + '</span><span class="mi-info-value">' + (parseFloat(diff) > 0 ? '+' : '') + diff + ' pp</span></div>' +
       '<div class="mi-info-row"><span class="mi-info-label">Top for ' + brandSpan + '</span><span class="mi-info-value">' + (topRow.category_name || '—') + ' (' + (Number(topRow.brand_promo_share_pct) || 0).toFixed(1) + '%)</span></div>';
-    var msg = diff > 0 ? brandSpan + ' exceeds ' + compLabel + ' by ' + Math.abs(diff) + ' pp.' : (diff < 0 ? brandSpan + ' is below ' + compLabel + ' by ' + Math.abs(diff) + ' pp.' : 'Promo share in line with ' + compLabel + '.');
-    psEl.innerHTML = rows + '<div class="mi-ranking">' + msg + '</div>';
+    var msg = parseFloat(diff) > 0 ? brandSpan + ' exceeds ' + compLabel + ' by ' + Math.abs(parseFloat(diff)).toFixed(1) + ' pp.' : (parseFloat(diff) < 0 ? brandSpan + ' is below ' + compLabel + ' by ' + Math.abs(parseFloat(diff)).toFixed(1) + ' pp.' : 'Promo share in line with ' + compLabel + '.');
+    var yoyRow = bcPromoShareGapVsPriorYearHtml(brandAvg, mediaAvg, compLabel);
+    psEl.innerHTML = rows + yoyRow + '<div class="mi-ranking">' + msg + '</div>';
   }
 
   function updatePromoRoiKeyInsight(d) {
@@ -650,7 +749,8 @@
       return '<div class="mi-info-row"><span class="mi-info-label">' + (r.promo_type || '—') + '</span><span class="mi-info-value">' + (Number(r.brand_avg_roi) || 0).toFixed(2) + ' / ' + (Number(r.media_avg_roi) || 0).toFixed(2) + '</span></div>';
     }).join('');
     var msg = 'Highest ROI for ' + brandSpan + ': ' + (best.promo_type || '—') + ' (' + (best.brand_avg_roi != null ? Number(best.brand_avg_roi).toFixed(2) : '—') + ').';
-    roiEl.innerHTML = rows + '<div class="mi-info-label" style="margin-top:.5rem;">Top 3 (' + brandSpan + ' / ' + compLabel + ')</div>' + tableRows + '<div class="mi-ranking">' + msg + '</div>';
+    var roiYoy = bcRoiAvgGapVsPriorYearHtml(roi, compLabel);
+    roiEl.innerHTML = rows + roiYoy + '<div class="mi-info-label" style="margin-top:.5rem;">Top 3 (' + brandSpan + ' / ' + compLabel + ')</div>' + tableRows + '<div class="mi-ranking">' + msg + '</div>';
   }
 
   function updatePromoKeyInsights(d) {
@@ -679,7 +779,8 @@
       return '<div class="mi-info-row"><span class="mi-info-label">' + (r.peak_event || '—') + '</span><span class="mi-info-value">' + (Number(r.brand_pct_of_annual) || 0).toFixed(1) + '% / ' + (Number(r.media_pct_of_annual) || 0).toFixed(1) + '%</span></div>';
     }).join('');
     var msg = 'Highest share for ' + brandSpan + ': ' + (best.peak_event || '—') + ' (' + (best.brand_pct_of_annual != null ? Number(best.brand_pct_of_annual).toFixed(1) : '—') + '% of annual).';
-    peakEl.innerHTML = rows + '<div class="mi-info-label" style="margin-top:.5rem;">Top 3 (' + brandSpan + ' / ' + compLabel + ')</div>' + tableRows + '<div class="mi-ranking">' + msg + '</div>';
+    var peakYoy = bcPeakAvgGapVsPriorYearHtml(peak, compLabel);
+    peakEl.innerHTML = rows + peakYoy + '<div class="mi-info-label" style="margin-top:.5rem;">Top 3 (' + brandSpan + ' / ' + compLabel + ')</div>' + tableRows + '<div class="mi-ranking">' + msg + '</div>';
   }
 
   function updateSummaryRow(d, scope) {

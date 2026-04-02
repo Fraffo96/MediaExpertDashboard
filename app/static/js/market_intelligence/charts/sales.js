@@ -168,28 +168,61 @@
     function fmtNum(n) { return (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
     function fmtPct(n) { return (Number(n) || 0).toFixed(1) + '%'; }
 
+    var compRow = null;
+    if (isBC && pieData.length === 2) {
+      compRow = pieData.find(function(x) { return Number(x.brand_id) !== brandId; });
+    }
+    var compPctValForEdge = compRow && compRow.pct_value != null ? Number(compRow.pct_value) : 0;
+
     var pctValPrev = null;
-    if (prevMap && scopeId && brandId) {
-      var scopePrev = prevMap[String(scopeId)];
-      if (scopePrev) pctValPrev = scopePrev[String(brandId)];
+    if (!isBC && prevMap && scopeId && brandId) {
+      var scopePrevMi = prevMap[String(scopeId)];
+      if (scopePrevMi) pctValPrev = scopePrevMi[String(brandId)];
     }
     var INSIGHTS = (typeof ChartStyles !== 'undefined' && ChartStyles.INSIGHTS) ? ChartStyles.INSIGHTS : null;
     var shareChangeHtml = '';
-    if (pctValPrev != null && pctValPrev !== '') {
+    var GAP_EPS = 0.05;
+    if (isBC && compRow && prevMap && scopeId && brandId) {
+      var spBc = prevMap[String(scopeId)];
+      var pvMine = spBc && spBc[String(brandId)];
+      var pvComp = spBc && spBc[String(compRow.brand_id)];
+      if (pvMine != null && pvMine !== '' && pvComp != null && pvComp !== '') {
+        var edgeNow = (Number(pctVal) || 0) - (Number(compPctValForEdge) || 0);
+        var edgePrev = (Number(pvMine) || 0) - (Number(pvComp) || 0);
+        var shift = edgeNow - edgePrev;
+        var compName = competitorName || compRow.brand_name || 'Competitor';
+        var bl = brandLabel || 'Your brand';
+        var edgeNowStr = (edgeNow >= 0 ? '+' : '') + edgeNow.toFixed(1);
+        var edgePrevStr = (edgePrev >= 0 ? '+' : '') + edgePrev.toFixed(1);
+        var shareText;
+        if (Math.abs(shift) < GAP_EPS) {
+          shareText = 'Duel edge (' + bl + ' − ' + compName + ', value) stable vs prior period — now '
+            + edgeNowStr + ' pp vs ' + edgePrevStr + ' pp before (your duel share minus their duel share).';
+        } else if (shift > 0) {
+          shareText = 'Duel edge (' + bl + ' − ' + compName + ', value): ' + edgeNowStr + ' pp now vs '
+            + edgePrevStr + ' pp before — net +' + shift.toFixed(1) + ' pp in ' + bl + '\'s favour.';
+        } else {
+          shareText = 'Duel edge (' + bl + ' − ' + compName + ', value): ' + edgeNowStr + ' pp now vs '
+            + edgePrevStr + ' pp before — net ' + shift.toFixed(1) + ' pp in ' + compName + '\'s favour.';
+        }
+        var shareColor = shift > GAP_EPS ? 'var(--green)' : (shift < -GAP_EPS ? 'var(--red)' : 'var(--text-muted)');
+        shareChangeHtml = '<div class="mi-info-row"><span class="mi-info-label">Duel vs prior period (value)</span><span class="mi-info-value mi-wrap" style="color:' + shareColor + ';">' + shareText + '</span></div>';
+      }
+    } else if (!isBC && pctValPrev != null && pctValPrev !== '') {
       var delta = (Number(pctVal) || 0) - (Number(pctValPrev) || 0);
       var deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(1) + 'pp';
-      var shareText = '';
+      var shareTextMi = '';
       if (INSIGHTS) {
-        if (delta > 0) shareText = INSIGHTS.shareUp(delta.toFixed(1));
-        else if (delta < 0) shareText = INSIGHTS.shareDown(Math.abs(delta).toFixed(1));
-        else shareText = INSIGHTS.shareFlat();
+        if (delta > 0) shareTextMi = INSIGHTS.shareUp(delta.toFixed(1));
+        else if (delta < 0) shareTextMi = INSIGHTS.shareDown(Math.abs(delta).toFixed(1));
+        else shareTextMi = INSIGHTS.shareFlat();
       } else {
-        if (delta > 0) shareText = 'Gained ' + deltaStr;
-        else if (delta < 0) shareText = 'Lost ' + deltaStr;
-        else shareText = 'Unchanged';
+        if (delta > 0) shareTextMi = 'Gained ' + deltaStr;
+        else if (delta < 0) shareTextMi = 'Lost ' + deltaStr;
+        else shareTextMi = 'Unchanged';
       }
-      var shareColor = delta > 0 ? 'var(--green)' : (delta < 0 ? 'var(--red)' : 'var(--text-muted)');
-      shareChangeHtml = '<div class="mi-info-row"><span class="mi-info-label">Market share vs prior period</span><span class="mi-info-value mi-wrap" style="color:' + shareColor + ';">' + shareText + '</span></div>';
+      var shareColorMi = delta > 0 ? 'var(--green)' : (delta < 0 ? 'var(--red)' : 'var(--text-muted)');
+      shareChangeHtml = '<div class="mi-info-row"><span class="mi-info-label">Market share vs prior period</span><span class="mi-info-value mi-wrap" style="color:' + shareColorMi + ';">' + shareTextMi + '</span></div>';
     }
 
     var scopeLabel = scope === 'subcategory' ? 'subcategory' : 'category';
@@ -208,8 +241,7 @@
     }
 
     var rowsHtml;
-    if (isBC && pieData.length === 2) {
-      var compRow = pieData.find(function(x) { return Number(x.brand_id) !== brandId; });
+    if (isBC && pieData.length === 2 && compRow) {
       var compLabel = (competitorName || (compRow && compRow.brand_name) || 'Competitor');
       var compValue = compRow ? (Number(compRow.gross_pln) || 0) : 0;
       var compUnits = compRow ? (Number(compRow.units) || 0) : 0;
