@@ -1,19 +1,23 @@
-<form id="filter-form" class="marketing-filter-bar" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
-  <label title="Category">Category
-    <select name="category_id" id="f-category-id">
+<form id="filter-form" class="marketing-filter-bar mkt-filter-needstates" onsubmit="event.preventDefault(); if(typeof loadData==='function')loadData();">
+  <div class="mkt-filter-field">
+    <label class="mkt-filter-label" for="f-category-id">Category</label>
+    <select name="category_id" id="f-category-id" class="mkt-filter-select" title="">
       {% for c in categories %}
       {% if c.level == 1 %}
       <option value="{{ c.category_id }}">{{ c.category_name }}</option>
       {% endif %}
       {% endfor %}
     </select>
-  </label>
-  <label title="Segment">Segment
-    <select name="segment_id" id="f-segment-id">
+    <span id="f-category-preview" class="mkt-filter-value-preview" aria-hidden="true"></span>
+  </div>
+  <div class="mkt-filter-field">
+    <label class="mkt-filter-label" for="f-segment-id">Segment</label>
+    <select name="segment_id" id="f-segment-id" class="mkt-filter-select" title="">
       {% for s in segments %}
       <option value="{{ s.segment_id }}">{{ s.segment_name }}</option>
       {% endfor %}
     </select>
-  </label>
+    <span id="f-segment-preview" class="mkt-filter-value-preview" aria-hidden="true"></span>
+  </div>
   <button type="submit" class="filter-apply-btn">Apply</button>
 </form>

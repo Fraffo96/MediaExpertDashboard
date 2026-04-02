@@ -27,6 +27,44 @@
   font-size: 0.9rem;
 }
 
+/* Needstates: full category/segment name sotto il select (il native select tronca) */
+.mkt-filter-needstates {
+  align-items: flex-start;
+}
+.mkt-filter-needstates .mkt-filter-field {
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: min(100%, 24rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.mkt-filter-needstates .mkt-filter-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.mkt-filter-needstates .mkt-filter-select {
+  width: 100%;
+  max-width: 100%;
+}
+.mkt-filter-needstates .mkt-filter-value-preview {
+  display: block;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text);
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  padding: 0.15rem 0 0.25rem;
+  border-bottom: 1px solid var(--border);
+  min-height: 1.4em;
+}
+.mkt-filter-needstates .filter-apply-btn {
+  align-self: flex-end;
+  margin-top: 1.25rem;
+}
+
 /* Segment Summary – cards with charts */
 .mkt-segments-grid {
   min-height: 200px;
@@ -258,9 +296,6 @@
 }
 .mkt-needstates-page .mkt-takeout-score {
   font-size: 1.35rem;
-}
-.mkt-needstates-page .mkt-takeout-unit {
-  font-size: 0.75em;
 }
 .mkt-needstates-page .mkt-takeout-foot {
   font-size: 1rem;

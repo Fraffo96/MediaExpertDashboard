@@ -29,7 +29,28 @@
     return pc[cat + ':' + seg] || null;
   }
 
+  function syncNeedstatesFilterPreview() {
+    var cat = document.getElementById('f-category-id');
+    var seg = document.getElementById('f-segment-id');
+    var catPrev = document.getElementById('f-category-preview');
+    var segPrev = document.getElementById('f-segment-preview');
+    if (cat && catPrev && cat.selectedIndex >= 0) {
+      var ct = cat.options[cat.selectedIndex].text || '';
+      catPrev.textContent = ct;
+      cat.title = ct;
+    }
+    if (seg && segPrev && seg.selectedIndex >= 0) {
+      var st = seg.options[seg.selectedIndex].text || '';
+      segPrev.textContent = st;
+      seg.title = st;
+    }
+  }
+
   function renderSpider(data) {
+    var wrap = document.getElementById('mkt-needstates-charts');
+    var loading = document.getElementById('mkt-needstates-loading');
+    var noData = document.getElementById('mkt-needstates-no-data');
+    try {
     var dimensions = data.dimensions || [];
     var scoresMix = data.scores || [];
     var scoresRaw = data.scores_raw;
@@ -46,14 +67,24 @@
     var chartCategoryAvg = categoryAvgRaw.length === dimensions.length ? categoryAvgRaw : categoryAvgMix;
     var segmentName = data.segment_name || 'Segment';
 
-    if (!dimensions.length || !chartSegment.length) return;
+    if (!dimensions.length || !chartSegment.length) {
+      if (loading) loading.classList.add('hidden');
+      if (wrap) wrap.style.display = 'none';
+      if (noData) noData.style.display = 'block';
+      return;
+    }
 
-    var wrap = document.getElementById('mkt-needstates-charts');
-    var loading = document.getElementById('mkt-needstates-loading');
-    var noData = document.getElementById('mkt-needstates-no-data');
     var canvas = document.getElementById('mkt-needstates-chart');
 
-    if (!canvas || typeof Chart === 'undefined') return;
+    if (!canvas || typeof Chart === 'undefined') {
+      if (loading) loading.classList.add('hidden');
+      if (wrap) wrap.style.display = 'none';
+      if (noData) {
+        noData.style.display = 'block';
+        noData.textContent = 'Chart library not available.';
+      }
+      return;
+    }
 
     var rMax = 100;
 
@@ -137,7 +168,7 @@
       },
       {
         label: 'Category average',
-        data: categoryAvg,
+        data: chartCategoryAvg,
         backgroundColor: 'rgba(128, 128, 128, 0.08)',
         borderColor: 'rgba(160, 160, 160, 0.9)',
         borderWidth: 2.5,
@@ -173,6 +204,16 @@
     loading.classList.add('hidden');
     wrap.style.display = '';
     noData.style.display = 'none';
+    syncNeedstatesFilterPreview();
+    } catch (e) {
+      console.error('needstates renderSpider', e);
+      if (loading) loading.classList.add('hidden');
+      if (wrap) wrap.style.display = 'none';
+      if (noData) {
+        noData.style.display = 'block';
+        noData.textContent = 'Unable to render chart. Try again or refresh.';
+      }
+    }
   }
 
   async function loadData() {
@@ -206,7 +247,8 @@
         data = { error: r.status === 401 ? 'Please sign in' : r.status === 403 ? 'Access denied' : 'Server error (' + r.status + ')' };
       }
       if (r.ok) {
-        if (!data.dimensions || !data.scores) {
+        var hasScores = (data.scores && data.scores.length) || (data.scores_raw && data.scores_raw.length);
+        if (!data.dimensions || !data.dimensions.length || !hasScores) {
           loading.classList.add('hidden');
           noData.style.display = 'block';
         } else {
@@ -225,10 +267,21 @@
   window.loadData = loadData;
 
   document.addEventListener('DOMContentLoaded', function() {
+    syncNeedstatesFilterPreview();
     loadData();
     var catSelect = document.getElementById('f-category-id');
     var segSelect = document.getElementById('f-segment-id');
-    if (catSelect) catSelect.addEventListener('change', loadData);
-    if (segSelect) segSelect.addEventListener('change', loadData);
+    if (catSelect) {
+      catSelect.addEventListener('change', function() {
+        syncNeedstatesFilterPreview();
+        loadData();
+      });
+    }
+    if (segSelect) {
+      segSelect.addEventListener('change', function() {
+        syncNeedstatesFilterPreview();
+        loadData();
+      });
+    }
   });
 })();
