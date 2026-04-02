@@ -1,5 +1,6 @@
 <div class="pc-form-section">
   <h3>Promo draft</h3>
+  <p class="pc-form-hint">Promo type, discount depth (%), and category are required to run the simulator.</p>
   <form id="pc-form" class="pc-form">
     <div class="admin-form-row">
       <label for="pc-promo-type">Promo type</label>
@@ -17,7 +18,7 @@
     <div class="admin-form-row">
       <label for="pc-category">Category</label>
       <select id="pc-category" name="category_id">
-        <option value="">All</option>
+        <option value="">— Select —</option>
         {% for c in categories %}
         <option value="{{ c.category_id }}">{{ c.category_name }}</option>
         {% endfor %}

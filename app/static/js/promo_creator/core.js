@@ -22,8 +22,29 @@
     return '/api/promo-creator?' + q.join('&');
   }
 
+  /** Category (parent), promo type, and discount depth are required before calling the API. */
+  function validatePromoDraft() {
+    var p = getParams();
+    var missing = [];
+    if (!p.promo_type || !String(p.promo_type).trim()) missing.push('promo type');
+    if (p.discount_depth === undefined || p.discount_depth === null || String(p.discount_depth).trim() === '') {
+      missing.push('discount depth (%)');
+    } else {
+      var dd = Number(String(p.discount_depth).trim());
+      if (isNaN(dd) || dd < 0 || dd > 100) {
+        return { ok: false, message: 'Discount depth must be a number from 0 to 100.' };
+      }
+    }
+    if (!p.category_id || !String(p.category_id).trim()) missing.push('category');
+    if (missing.length) {
+      return { ok: false, message: 'Please select ' + missing.join(', ') + ' to get suggestions.' };
+    }
+    return { ok: true, message: '' };
+  }
+
   window.PCCore = {
     getParams: getParams,
-    buildUrl: buildUrl
+    buildUrl: buildUrl,
+    validatePromoDraft: validatePromoDraft
   };
 })();

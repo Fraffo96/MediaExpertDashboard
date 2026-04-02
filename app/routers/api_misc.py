@@ -42,6 +42,32 @@ async def api_promo_creator(
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.brand_id:
         return JSONResponse({"error": "Brand required for Promo Simulator"}, status_code=400)
+    if (
+        not category_id
+        or not str(category_id).strip()
+        or not str(category_id).strip().isdigit()
+        or not (1 <= int(str(category_id).strip()) <= 10)
+    ):
+        return JSONResponse(
+            {"error": "Choose a parent category. Promo Simulator needs category, promo type, and discount depth (%)."},
+            status_code=400,
+        )
+    if not promo_type or not str(promo_type).strip():
+        return JSONResponse(
+            {"error": "Select a promo type. Promo Simulator needs category, promo type, and discount depth (%)."},
+            status_code=400,
+        )
+    if discount_depth is None or not str(discount_depth).strip():
+        return JSONResponse(
+            {"error": "Enter discount depth (%). Promo Simulator needs category, promo type, and discount depth."},
+            status_code=400,
+        )
+    try:
+        dd = float(str(discount_depth).strip())
+        if dd < 0 or dd > 100:
+            return JSONResponse({"error": "Discount depth must be between 0 and 100."}, status_code=400)
+    except ValueError:
+        return JSONResponse({"error": "Discount depth must be a number."}, status_code=400)
     bad = reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
     if bad:
         return bad

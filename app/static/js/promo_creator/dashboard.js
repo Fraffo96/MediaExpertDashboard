@@ -39,8 +39,11 @@
       var gp = core.getParams && core.getParams();
       var ptyp = gp && gp.promo_type ? String(gp.promo_type).trim() : '';
       var segMeta = ptyp
-        ? ('Category sales on ' + escapeHtml(ptyp) + ' promos: ' + pcts)
-        : ('Promo share (all promo types): ' + pcts);
+        ? (
+            'Same order as names: each value is that segment’s % of its gross sales in this category on days tagged as '
+            + escapeHtml(ptyp) + ' promos. Values: ' + pcts
+          )
+        : ('Share of each segment’s category gross from any promo (all types): ' + pcts);
       cards.push('<div class="pc-card pc-card-segments">' +
         '<div class="pc-card-title">Most reactive segments</div>' +
         '<div class="pc-card-value">' + names + '</div>' +
@@ -67,6 +70,16 @@
   }
 
   btn.onclick = async function() {
+    var cardsEl0 = document.getElementById('pc-suggestions-cards');
+    var listEl0 = document.getElementById('pc-suggestions-list');
+    if (core.validatePromoDraft) {
+      var check = core.validatePromoDraft();
+      if (!check.ok) {
+        if (cardsEl0) cardsEl0.innerHTML = '';
+        if (listEl0) listEl0.innerHTML = '<p class="pc-suggestions-error">' + escapeHtml(check.message) + '</p>';
+        return;
+      }
+    }
     setPcLoading(true);
     try {
       var r = await fetch(core.buildUrl(), { credentials: 'include' });
