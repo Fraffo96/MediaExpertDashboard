@@ -1,6 +1,6 @@
 /**
  * Marketing – Needstates by Category: spider/radar chart.
- * API scores: affinità 0–100 per needstate (assi indipendenti, non sommano a 100).
+ * API scores: affinità per needstate (rimappate lato server, picco ~65–70%).
  */
 (function() {
   var spiderChart = null;

@@ -26,12 +26,31 @@ _MEDIA_PREFS_CACHE: dict | None = None
 _DEFAULT_PERIOD = ("2024-01-01", "2024-12-31")
 # Needstates spider: tutte le 10×6 combinazioni precompute da JSON (O(1) lato server e opzionale embed in pagina)
 _NEEDSTATES_SPIDER_PRECALC: dict[str, dict] | None = None
+# Dopo i pesi grezzi HCG, il profilo mostrato ha picco ~65–70% e coda più bassa (più credibile del 90+ su tutti gli assi).
+_NEEDSTATE_DISPLAY_TOP = 68.0
+_NEEDSTATE_DISPLAY_BOTTOM = 23.0
+
+
+def _stretch_needstate_vector(vals: list[float], *, top: float, bottom: float) -> list[float]:
+    """Rimapa linearmente i 7 punteggi tra bottom e top conservando ordinalità e spread relativo."""
+    if not vals:
+        return []
+    mn = min(vals)
+    mx = max(vals)
+    if mx <= mn:
+        mid = round((top + bottom) / 2.0, 1)
+        return [mid] * len(vals)
+    span = mx - mn
+    out: list[float] = []
+    for v in vals:
+        out.append(round(bottom + (float(v) - mn) / span * (top - bottom), 1))
+    return out
 
 
 def _spider_payload_from_hcg(
     cat_id: int, seg_id: int, segments_map: dict, needstates: list,
 ) -> dict:
-    """Spider payload: JSON scores are affinità 0–100 per asse (indipendenti, non sommano a 100)."""
+    """Spider: JSON = pesi grezzi; API scores = affinità per asse rimappate (picco ~68%, min ~23%)."""
     seg_name = segments_map.get(str(seg_id), f"Segment {seg_id}")
     if not needstates:
         return {
@@ -48,11 +67,22 @@ def _spider_payload_from_hcg(
     dimensions = [n["label"] for n in needstates]
     scores_raw = [int(n["scores"][seg_idx]) for n in needstates]
     n_dim = len(dimensions)
-    segment_scores = [round(float(needstates[i]["scores"][seg_idx]), 1) for i in range(n_dim)]
-    category_avg: list[float] = []
+    segment_pre = [round(float(needstates[i]["scores"][seg_idx]), 1) for i in range(n_dim)]
+    category_avg_raw: list[float] = []
     for i in range(n_dim):
         col = [float(needstates[i]["scores"][s]) for s in range(6)]
-        category_avg.append(round(sum(col) / 6.0, 1))
+        category_avg_raw.append(round(sum(col) / 6.0, 1))
+
+    segment_scores = _stretch_needstate_vector(
+        segment_pre,
+        top=_NEEDSTATE_DISPLAY_TOP,
+        bottom=_NEEDSTATE_DISPLAY_BOTTOM,
+    )
+    category_avg = _stretch_needstate_vector(
+        category_avg_raw,
+        top=_NEEDSTATE_DISPLAY_TOP,
+        bottom=_NEEDSTATE_DISPLAY_BOTTOM,
+    )
 
     return {
         "category_id": cat_id,
@@ -62,7 +92,7 @@ def _spider_payload_from_hcg(
         "scores": segment_scores,
         "scores_category_avg": category_avg,
         "scores_raw": scores_raw,
-        "scores_category_avg_raw": list(category_avg),
+        "scores_category_avg_raw": list(category_avg_raw),
     }
 
 
@@ -286,7 +316,7 @@ def get_segment_summary(
 
 
 def get_needstates_spider(category_id: int | None = None, segment_id: int | None = None) -> dict:
-    """Spider chart: 7 needstates per category. scores = affinità 0–100 per asse (non un mix che somma 100)."""
+    """Spider: 7 needstates per category; scores rimappati (picco ~68%, fondo ~23%) da pesi HCG."""
     cat_id = category_id or 1
     seg_id = segment_id or 1
     row = _ensure_needstates_spider_precalc().get(f"{cat_id}:{seg_id}")
