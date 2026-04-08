@@ -5,9 +5,13 @@
 - BC: primo competitor da get_bc_competitors(DP) poi get_bc_all_years (TTL_LONG).
 - Marketing: media preferences, purchasing, needstates spider (es. segmento/categoria 1).
 - CLP: get_active_promos ultimi 7g (TTL 300s) come primo fetch della pagina.
-Serve Redis (REDIS_URL) per condividere cache tra istanze e sessioni."""
+Serve Redis (REDIS_URL) per condividere cache tra istanze e sessioni.
+
+Env opzionale PREWARM_BRAND_IDS=1,2,8 : elenco brand da riscaldare (salta lettura Firestore).
+Utile dopo clear-cache senza attendere login utenti."""
 import asyncio
 import logging
+import os
 from datetime import date, datetime, timedelta
 
 from app.auth.firestore_store import list_users_active_with_brand
@@ -54,18 +58,34 @@ async def prewarm_cache():
     from app.services.filters import get_filters
     from app.services.market_intelligence import get_mi_all_years
 
-    def _brand_ids():
+    def _brand_ids_explicit():
+        raw = os.getenv("PREWARM_BRAND_IDS", "").strip()
+        if not raw:
+            return None
+        out: list[int] = []
+        for part in raw.split(","):
+            p = part.strip()
+            if p.isdigit():
+                out.append(int(p))
+        return sorted(set(out)) if out else None
+
+    def _brand_ids_from_firestore():
         users = list_users_active_with_brand()
         return sorted({u.brand_id for u in users if u.brand_id})
 
-    try:
-        brand_ids = await asyncio.to_thread(_brand_ids)
-    except Exception as e:
-        logger.warning("Prewarm: Firestore user list failed (%s), fallback brand_id=1", e)
-        brand_ids = []
-    if not brand_ids:
-        brand_ids = [1]
-        logger.info("Prewarm: no brand users, warming brand_id=1")
+    explicit = _brand_ids_explicit()
+    if explicit is not None:
+        brand_ids = explicit
+        logger.info("Prewarm: using PREWARM_BRAND_IDS=%s", brand_ids)
+    else:
+        try:
+            brand_ids = await asyncio.to_thread(_brand_ids_from_firestore)
+        except Exception as e:
+            logger.warning("Prewarm: Firestore user list failed (%s), fallback brand_id=1", e)
+            brand_ids = []
+        if not brand_ids:
+            brand_ids = [1]
+            logger.info("Prewarm: no brand users, warming brand_id=1")
 
     async def _warm_mi_all_years(bid: int):
         async with _MI_PREWARM_SEM:
