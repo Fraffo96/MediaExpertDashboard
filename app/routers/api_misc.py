@@ -5,7 +5,7 @@ import os
 from typing import Optional
 from unittest.mock import MagicMock
 
-from fastapi import APIRouter, Cookie, Header, HTTPException
+from fastapi import APIRouter, Body, Cookie, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from app.constants import DEFAULT_GCS_BRAND_LOGOS_BASE, DP, PC_DEFAULT_PERIOD
@@ -161,8 +161,16 @@ async def api_admin_brand_logo_debug(
 
 
 @router.post("/api/admin/clear-cache", tags=["Admin"])
-async def api_admin_clear_cache(access_token: Optional[str] = Cookie(None)):
-    """Svuota Redis + cache in-memory dei servizi dashboard (MI, BC, CLP, ecc.). Solo admin."""
+async def api_admin_clear_cache(
+    access_token: Optional[str] = Cookie(None),
+    body: Optional[dict] = Body(default=None),
+):
+    """Svuota Redis + cache in-memory (MI, BC, CLP, marketing, ecc.). Solo admin.
+
+    Corpo JSON opzionale: {"flush_redis_db": true} esegue FLUSHDB sull'istanza Redis
+    (solo se ENABLE_ADMIN_REDIS_FLUSHDB=1 sul servizio). Usare solo con Memorystore dedicato alla dashboard.
+    Senza flag: DELETE per tutti i prefissi noti (inclusi legacy es. mi_all_years_v3).
+    """
     user = get_user(access_token)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -170,7 +178,14 @@ async def api_admin_clear_cache(access_token: Optional[str] = Cookie(None)):
         raise HTTPException(status_code=403, detail="Admin only")
     from app.services._cache import clear_service_cache
 
-    return clear_service_cache()
+    want_flush = bool((body or {}).get("flush_redis_db"))
+    allow_flush = os.getenv("ENABLE_ADMIN_REDIS_FLUSHDB", "").strip().lower() in ("1", "true", "yes")
+    if want_flush and not allow_flush:
+        raise HTTPException(
+            status_code=400,
+            detail="flush_redis_db richiede ENABLE_ADMIN_REDIS_FLUSHDB=1 sull'istanza (Cloud Run / .env).",
+        )
+    return clear_service_cache(flush_redis_db=bool(want_flush and allow_flush))
 
 
 @router.post("/api/admin/recalculate", tags=["Admin"])

@@ -68,6 +68,7 @@ def _get_redis():
 _CACHE: dict[str, tuple[dict, float]] = {}
 
 # Prefissi cache_key(...) usati dall'app (per SCAN/delete su Redis senza FLUSHDB).
+# Inclusi prefissi legacy (vecchie revisioni) per evitare chiavi orfane.
 _CACHE_KEY_PREFIXES: tuple[str, ...] = (
     "bc_all_years",
     "bc_all_years_v2_duel_prev",
@@ -84,6 +85,8 @@ _CACHE_KEY_PREFIXES: tuple[str, ...] = (
     "clp_seg",
     "clp_sku",
     "customer",
+    "mi_all_years",
+    "mi_all_years_v2",
     "mi_all_years_v3",
     "mi_all_years_v4",
     "mi_base",
@@ -154,25 +157,34 @@ def set_cached(key: str, data: dict, ttl: int | None = None):
 TTL_LONG = _TTL_LONG
 
 
-def clear_service_cache() -> dict:
-    """Svuota cache RAM dell'app e, se Redis è configurato, elimina le chiavi conosciute.
-    Ritorna conteggi per logging/monitoraggio."""
+def clear_service_cache(*, flush_redis_db: bool = False) -> dict:
+    """Svuota cache RAM dell'app e, se Redis è configurato, elimina le chiavi dashboard.
+
+    - Default: SCAN + DELETE per ogni prefisso in ``_CACHE_KEY_PREFIXES`` (senza FLUSHDB).
+    - ``flush_redis_db=True``: esegue FLUSHDB sull'istanza (solo Redis dedicato alla dashboard).
+    """
     global _CACHE
     n_mem = len(_CACHE)
     _CACHE.clear()
     redis_deleted = 0
+    redis_flushed = False
     r = _get_redis()
     if r:
         try:
-            for prefix in _CACHE_KEY_PREFIXES:
-                pattern = f"{prefix}:*"
-                cursor = 0
-                while True:
-                    cursor, keys = r.scan(cursor=cursor, match=pattern, count=500)
-                    if keys:
-                        redis_deleted += int(r.delete(*keys))
-                    if cursor == 0:
-                        break
+            if flush_redis_db:
+                r.flushdb()
+                redis_flushed = True
+                logger.warning("clear_service_cache: Redis FLUSHDB eseguito (istanza intera).")
+            else:
+                for prefix in _CACHE_KEY_PREFIXES:
+                    pattern = f"{prefix}:*"
+                    cursor = 0
+                    while True:
+                        cursor, keys = r.scan(cursor=cursor, match=pattern, count=500)
+                        if keys:
+                            redis_deleted += int(r.delete(*keys))
+                        if cursor == 0:
+                            break
         except Exception as e:
             logger.warning("Redis cache clear failed: %s", e)
     try:
@@ -181,8 +193,17 @@ def clear_service_cache() -> dict:
         clear_available_years_cache()
     except Exception as e:
         logger.warning("clear_available_years_cache: %s", e)
-    logger.info("clear_service_cache: memory=%s redis_keys_deleted=%s", n_mem, redis_deleted)
-    return {"memory_entries_cleared": n_mem, "redis_keys_deleted": redis_deleted}
+    logger.info(
+        "clear_service_cache: memory=%s redis_keys_deleted=%s redis_flushed_db=%s",
+        n_mem,
+        redis_deleted,
+        redis_flushed,
+    )
+    return {
+        "memory_entries_cleared": n_mem,
+        "redis_keys_deleted": redis_deleted,
+        "redis_flushed_db": redis_flushed,
+    }
 
 
 def safe(fn, *a, **kw):
