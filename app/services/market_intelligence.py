@@ -5,7 +5,10 @@ Solo tabelle precalcolate (precalc_*). Periodo deve essere anno intero (YYYY-01-
 PRECALC_ONLY_ERR = "Precalc tables only. Use full year period (YYYY-01-01 to YYYY-12-31)."
 import asyncio
 import copy
+import logging
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 
 from app.db.queries.market_intelligence.shared import CHANNELS
 from app.db.queries.precalc import (
@@ -694,8 +697,9 @@ async def get_mi_all_years(brand_id, discount_cat=None, discount_subcat=None):
     """Carica tutti gli anni in parallelo sul server. Una sola chiamata = tutti i dati pronti per dropdown year istantanei."""
     if not brand_id or not str(brand_id).strip():
         return {"error": "Brand required"}
+    # v4: invalida cache Redis corrotte (by_year vuoto) e non ripersiste risposte vuote.
     key = cache_key(
-        "mi_all_years_v3",
+        "mi_all_years_v4",
         brand=brand_id,
         disc_cat=discount_cat or "",
         disc_sub=discount_subcat or "",
@@ -737,18 +741,28 @@ async def get_mi_all_years(brand_id, discount_cat=None, discount_subcat=None):
     by_year = {}
     for r in results:
         if isinstance(r, Exception):
+            logger.warning("get_mi_all_years: year load failed brand=%s: %s", brand_id, r, exc_info=r)
             continue
         if isinstance(r, tuple) and len(r) == 2:
             y, payload = r
-            if not (isinstance(payload, dict) and payload.get("error")):
-                by_year[str(y)] = payload
+            if isinstance(payload, dict) and payload.get("error"):
+                logger.warning("get_mi_all_years: get_mi_all error for year=%s brand=%s: %s", y, brand_id, payload.get("error"))
+                continue
+            by_year[str(y)] = payload
 
     incr_yoy = await incr_task
 
     out = {"by_year": by_year, "available_years": [str(y) for y in years]}
     if incr_yoy:
         out.update(incr_yoy)
-    set_cached(key, out, ttl=TTL_LONG)
+    if years and not by_year:
+        logger.error(
+            "get_mi_all_years: empty by_year for brand=%s years=%s — not caching (check BQ/logs).",
+            brand_id,
+            years,
+        )
+    else:
+        set_cached(key, out, ttl=TTL_LONG)
     return out
 
 

@@ -85,6 +85,7 @@ _CACHE_KEY_PREFIXES: tuple[str, ...] = (
     "clp_sku",
     "customer",
     "mi_all_years_v3",
+    "mi_all_years_v4",
     "mi_base",
     "mi_discount_v2_excl_brand",
     "mi_incr_yoy_v2_dedup_ch",
