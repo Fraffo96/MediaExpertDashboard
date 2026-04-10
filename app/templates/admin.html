@@ -75,10 +75,14 @@
   <!-- DATA OPS -->
   <section id="admin-data-ops" class="admin-section">
     <p class="admin-intro">BigQuery <code>mart</code>, cache, job lunghi (precalc / full seed) e profili seed su Firestore.</p>
+    <p class="admin-hint" style="margin:-0.25rem 0 0.75rem 0;padding:0.6rem 0.75rem;border-left:3px solid var(--accent, #6b9bd1);background:rgba(255,255,255,0.04);">
+      <strong>Cache vs dati.</strong> «Svuota cache» elimina solo le risposte in Redis/RAM dell’app: <em>non</em> cancella ordini, clienti o tabelle su BigQuery. I grafici dopo il login rileggono BQ tramite le API (a volte ancora in cache). Per vedere numeri allineati al dataset dopo un seed, svuota cache o attendi il TTL. Per <em>sostituire</em> i dati serve un job <strong>full seed</strong> (o script che ricrea le tabelle). Il riepilogo sotto elenca le <strong>tabelle</strong> nel dataset (nome, righe, peso stimato in storage): non sono file sul PC.
+    </p>
     <div class="admin-section-header">
       <h2>Dataset &amp; pipeline</h2>
       <div class="admin-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
         <button type="button" class="admin-btn secondary" id="do-load-tables">Aggiorna tabelle</button>
+        <button type="button" class="admin-btn secondary" id="do-load-summary">Riepilogo dataset</button>
         <button type="button" class="admin-btn secondary" id="do-load-schema">Carica schema</button>
         <button type="button" class="admin-btn secondary" id="do-clear-cache">Svuota cache</button>
         <button type="button" class="admin-btn secondary" id="do-prewarm">Prewarm</button>
@@ -97,8 +101,8 @@
       </table>
     </div>
     <div class="admin-form-section" style="margin-bottom:1.5rem;">
-      <h4>Riepilogo dataset</h4>
-      <div id="do-bq-summary" class="admin-hint">Clicca «Aggiorna tabelle» per caricare anche il riepilogo.</div>
+      <h4>Riepilogo dataset (BigQuery)</h4>
+      <div id="do-bq-summary" class="admin-hint">Si aggiorna automaticamente aprendo questo tab; oppure usa «Riepilogo dataset».</div>
       <div class="admin-table-wrap" style="margin-top:0.75rem;">
         <table class="admin-table" role="grid">
           <thead><tr><th>Famiglia</th><th>Tabelle</th><th>Righe</th><th>Dimensione</th><th>Ultima modifica</th></tr></thead>

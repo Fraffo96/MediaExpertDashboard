@@ -87,8 +87,7 @@
       });
       if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="4">Nessuna tabella.</td></tr>';
       toast('Tabelle aggiornate');
-      // carica anche riepilogo/qualità
-      loadSummaryAndQuality();
+      loadSummaryAndQuality(true);
     } catch (e) {
       tbody.innerHTML = '<tr><td colspan="4">' + e.message + '</td></tr>';
       toast(e.message, 'error');
@@ -104,7 +103,20 @@
     }
   }
 
-  async function loadSummaryAndQuality() {
+  function fmtBytes(n) {
+    if (n == null || n === '') return '';
+    var x = Number(n);
+    if (isNaN(x) || x < 0) return '';
+    if (x < 1024) return x.toFixed(0) + ' B';
+    x /= 1024;
+    if (x < 1024) return x.toFixed(1) + ' KiB';
+    x /= 1024;
+    if (x < 1024) return x.toFixed(1) + ' MiB';
+    x /= 1024;
+    return x.toFixed(2) + ' GiB';
+  }
+
+  async function loadSummaryAndQuality(silent) {
     var box = document.getElementById('do-bq-summary');
     var famBody = document.getElementById('do-bq-summary-families');
     var topBody = document.getElementById('do-bq-summary-top');
@@ -119,13 +131,21 @@
       var d = await r.json();
       if (!r.ok) throw new Error(d.detail || r.statusText);
       var totals = d.totals || {};
-      box.textContent =
-        'Totale: ' +
+      var sz = fmtBytes(totals.size_bytes);
+      box.innerHTML =
+        '<strong>' +
+        (d.project_id || '') +
+        '</strong> · dataset <code>' +
+        (d.dataset || 'mart') +
+        '</code><br>' +
+        'Totale: <strong>' +
         fmtNum(totals.table_count) +
-        ' tabelle, ' +
+        '</strong> tabelle, <strong>' +
         fmtNum(totals.row_count) +
-        ' righe, ' +
-        (totals.size_bytes != null ? (Number(totals.size_bytes) / (1024 * 1024)).toFixed(1) + ' MiB' : '');
+        '</strong> righe, storage stimato <strong>' +
+        (sz || '—') +
+        '</strong> · ultima modifica (max): ' +
+        (totals.last_modified_time || '—');
 
       famBody.innerHTML = '';
       (d.families || []).forEach(function (f) {
@@ -138,7 +158,7 @@
           '</td><td>' +
           fmtNum(f.row_count) +
           '</td><td>' +
-          (f.size_bytes != null ? (Number(f.size_bytes) / (1024 * 1024)).toFixed(1) + ' MiB' : '') +
+          fmtBytes(f.size_bytes) +
           '</td><td>' +
           (f.last_modified_time || '') +
           '</td>';
@@ -155,15 +175,17 @@
           '</code></td><td>' +
           fmtNum(t.row_count) +
           '</td><td>' +
-          (t.size_bytes != null ? (Number(t.size_bytes) / (1024 * 1024)).toFixed(1) + ' MiB' : '') +
+          fmtBytes(t.size_bytes) +
           '</td><td>' +
           (t.last_modified_time || '') +
           '</td>';
         topBody.appendChild(tr);
       });
       if (!topBody.children.length) topBody.innerHTML = '<tr><td colspan="4">Nessun dato.</td></tr>';
+      if (!silent) toast('Riepilogo dataset aggiornato');
     } catch (e) {
-      box.textContent = e.message;
+      box.textContent = '';
+      box.innerHTML = '<span class="admin-hint" style="color:#f66;">' + e.message + '</span>';
       famBody.innerHTML = '<tr><td colspan="5">' + e.message + '</td></tr>';
       topBody.innerHTML = '<tr><td colspan="4">' + e.message + '</td></tr>';
     }
@@ -382,10 +404,12 @@
   function onTabDataOps() {
     loadLinks();
     refreshProfiles();
+    loadSummaryAndQuality(true);
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     var btnTables = document.getElementById('do-load-tables');
+    var btnSummary = document.getElementById('do-load-summary');
     var btnSchema = document.getElementById('do-load-schema');
     var btnCache = document.getElementById('do-clear-cache');
     var btnPrewarm = document.getElementById('do-prewarm');
@@ -395,6 +419,7 @@
     if (!btnTables) return;
 
     btnTables.addEventListener('click', loadTables);
+    if (btnSummary) btnSummary.addEventListener('click', function () { loadSummaryAndQuality(false); });
     btnSchema.addEventListener('click', loadSchema);
     btnCache.addEventListener('click', clearCache);
     btnPrewarm.addEventListener('click', prewarm);
