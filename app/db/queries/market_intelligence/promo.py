@@ -199,41 +199,52 @@ def query_promo_roi_brand_vs_media(ps, pe, brand_id, cat=None, subcat=None):
         ]
         q = """
         WITH pcfg AS (
-          SELECT 1 AS pid, 1.80 AS br UNION ALL SELECT 2, 1.30 UNION ALL SELECT 3, 0.85
-          UNION ALL SELECT 4, 1.60 UNION ALL SELECT 5, 1.40 UNION ALL SELECT 6, 2.10
-          UNION ALL SELECT 7, 1.70 UNION ALL SELECT 8, 1.20 UNION ALL SELECT 9, 1.10 UNION ALL SELECT 10, 1.00
+          SELECT 1 AS pid, 1.52 AS br UNION ALL SELECT 2 AS pid, 1.02 AS br UNION ALL SELECT 3 AS pid, 0.68 AS br
+          UNION ALL SELECT 4 AS pid, 1.38 AS br UNION ALL SELECT 5 AS pid, 1.18 AS br UNION ALL SELECT 6 AS pid, 1.92 AS br
+          UNION ALL SELECT 7 AS pid, 1.48 AS br UNION ALL SELECT 8 AS pid, 1.02 AS br UNION ALL SELECT 9 AS pid, 0.88 AS br UNION ALL SELECT 10 AS pid, 0.82 AS br
         ),
-        yadj AS (SELECT 2023 AS yr, 1.15 AS ra UNION ALL SELECT 2024, 1.00 UNION ALL SELECT 2025, 0.85),
+        yadj AS (
+          SELECT 2023 AS yr, 1.15 AS ra UNION ALL SELECT 2024, 1.00 UNION ALL SELECT 2025, 0.85 UNION ALL SELECT 2026, 0.85
+        ),
         agg AS (
-          SELECT f.promo_id, f.brand_id, f.category_id, f.date, SUM(f.gross_pln) AS att
+          SELECT f.promo_id, f.brand_id, f.date,
+            ANY_VALUE(f.parent_category_id) AS pcat,
+            SUM(f.gross_pln) AS att
           FROM mart.fact_sales_daily f
           WHERE f.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
             AND f.promo_flag AND f.promo_id IS NOT NULL AND f.category_id = @subcat
-          GROUP BY f.promo_id, f.brand_id, f.category_id, f.date
+          GROUP BY f.promo_id, f.brand_id, f.date
         ),
         non_promo AS (
           SELECT brand_id, category_id, date, SUM(gross_pln) AS gross
-          FROM mart.fact_sales_daily WHERE NOT promo_flag AND category_id = @subcat
+          FROM mart.fact_sales_daily
+          WHERE NOT promo_flag AND category_id = @subcat
+            AND date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
           GROUP BY brand_id, category_id, date
         ),
         baseline AS (
-          SELECT a.promo_id, a.brand_id, a.date, a.att,
+          SELECT a.promo_id, a.brand_id, a.date, a.pcat, a.att,
             AVG(np.gross) AS bl
           FROM agg a
           LEFT JOIN non_promo np ON np.brand_id = a.brand_id
             AND np.date BETWEEN DATE_SUB(a.date, INTERVAL 28 DAY) AND DATE_SUB(a.date, INTERVAL 1 DAY)
-          GROUP BY a.promo_id, a.brand_id, a.date, a.att
+          GROUP BY a.promo_id, a.brand_id, a.date, a.pcat, a.att
         ),
         roi_computed AS (
           SELECT b.promo_id, b.brand_id,
             ROUND(
-              (p.br * y.ra + 0.04 * (MOD(ABS(FARM_FINGERPRINT(CONCAT(CAST(b.date AS STRING), CAST(b.promo_id AS STRING), CAST(b.brand_id AS STRING)))), 21) - 10) / 10.0)
-              * (0.84 + 0.32 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('bmul', CAST(b.brand_id AS STRING)))), 1000) / 1000.0))
-              + 0.20 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('padj', CAST(b.brand_id AS STRING), '|', CAST(b.promo_id AS STRING)))), 21) - 10) / 10.0,
+              (
+                (p.br * y.ra + 0.04 * (MOD(ABS(FARM_FINGERPRINT(CONCAT(CAST(b.date AS STRING), CAST(b.promo_id AS STRING), CAST(b.brand_id AS STRING)))), 21) - 10) / 10.0)
+                * (0.76 + 0.42 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('bmul', CAST(b.brand_id AS STRING)))), 1000) / 1000.0))
+                + 0.28 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('padj', CAST(b.brand_id AS STRING), '|', CAST(b.promo_id AS STRING)))), 21) - 10) / 10.0
+              )
+              * (0.80 + 0.42 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('pcat', CAST(b.pcat AS STRING)))), 1000) / 1000.0))
+              * (0.74 + 0.48 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('ptype', COALESCE(dm.promo_type, 'na'), '|', CAST(b.pcat AS STRING)))), 1000) / 1000.0)),
               4) AS roi
           FROM baseline b
           JOIN pcfg p ON p.pid = b.promo_id
           JOIN yadj y ON y.yr = EXTRACT(YEAR FROM b.date)
+          JOIN mart.dim_promo dm ON dm.promo_id = b.promo_id
         ),
         brand_data AS (
           SELECT p.promo_type, ROUND(AVG(r.roi), 2) AS avg_roi

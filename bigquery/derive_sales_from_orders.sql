@@ -38,7 +38,8 @@ JOIN mart.dim_brand b ON b.brand_id = p.brand_id
 JOIN mart.dim_customer c ON c.customer_id = o.customer_id
 CROSS JOIN UNNEST([STRUCT(
   (0.93 + 0.14 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('chx', CAST(p.brand_id AS STRING), '|', o.channel))), 1000) / 1000.0)) AS ch_f,
-  (0.87 + 0.26 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('ddp', CAST(p.brand_id AS STRING)))), 1000) / 1000.0)) AS dd_f
+  (0.87 + 0.26 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('ddp', CAST(p.brand_id AS STRING)))), 1000) / 1000.0))
+    * (0.92 + 0.14 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('dds', CAST(p.subcategory_id AS STRING)))), 1000) / 1000.0)) AS dd_f
 )]) AS feed_w
 GROUP BY o.date, p.brand_id, b.brand_name, p.subcategory_id, p.category_id, c.segment_id, c.gender, o.channel;
 
@@ -91,10 +92,10 @@ INSERT mart.fact_promo_performance
    attributed_sales_pln, incremental_sales_pln, discount_cost_pln, media_cost_pln, roi)
 WITH
 pcfg AS (
-  SELECT 1 AS pid,0.10 AS dr,0.02 AS mr,1.80 AS br UNION ALL SELECT 2,0.20,0.02,1.30 UNION ALL
-  SELECT 3,0.30,0.03,0.85 UNION ALL SELECT 4,0.15,0.01,1.60 UNION ALL SELECT 5,0.15,0.02,1.40 UNION ALL
-  SELECT 6,0.12,0.05,2.10 UNION ALL SELECT 7,0.08,0.01,1.70 UNION ALL SELECT 8,0.18,0.01,1.20 UNION ALL
-  SELECT 9,0.22,0.08,1.10 UNION ALL SELECT 10,0.20,0.06,1.00
+  SELECT 1 AS pid,0.10 AS dr,0.02 AS mr,1.52 AS br UNION ALL SELECT 2,0.20,0.02,1.02 UNION ALL
+  SELECT 3,0.30,0.03,0.68 UNION ALL SELECT 4,0.15,0.01,1.38 UNION ALL SELECT 5,0.15,0.02,1.18 UNION ALL
+  SELECT 6,0.12,0.05,1.92 UNION ALL SELECT 7,0.08,0.01,1.48 UNION ALL SELECT 8,0.18,0.01,1.02 UNION ALL
+  SELECT 9,0.22,0.08,0.88 UNION ALL SELECT 10,0.20,0.06,0.82
 ),
 non_promo_daily AS (
   SELECT brand_id, parent_category_id, date, SUM(gross_pln) AS gross
@@ -133,7 +134,8 @@ wc AS (
         * (0.76 + 0.42 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('bmul', CAST(b.brand_id AS STRING)))), 1000) / 1000.0))
         + 0.28 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('padj', CAST(b.brand_id AS STRING), '|', CAST(b.promo_id AS STRING)))), 21) - 10) / 10.0
       )
-      * (0.78 + 0.44 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('pt', COALESCE(dm.promo_type, 'na'), '|', CAST(b.brand_id AS STRING)))), 1000) / 1000.0)),
+      * (0.80 + 0.42 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('pcat', CAST(b.cid AS STRING)))), 1000) / 1000.0))
+      * (0.74 + 0.48 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('ptype', COALESCE(dm.promo_type, 'na'), '|', CAST(b.cid AS STRING)))), 1000) / 1000.0)),
       4) AS roi
   FROM baseline b
   JOIN pcfg p ON p.pid = b.promo_id
