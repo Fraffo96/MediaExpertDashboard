@@ -71,6 +71,21 @@ async def api_promo_creator(
     bad = reject_if_cat_sub_out_of_scope(user, category_id, subcategory_id)
     if bad:
         return bad
+    if subcategory_id and str(subcategory_id).strip():
+        try:
+            sid = int(str(subcategory_id).strip())
+        except ValueError:
+            return JSONResponse({"error": "Invalid subcategory_id"}, status_code=400)
+        if sid >= 100:
+            parent_from_sub = sid // 100
+            if int(str(category_id).strip()) != parent_from_sub:
+                return JSONResponse(
+                    {
+                        "error": "La sottocategoria non appartiene alla categoria selezionata. "
+                        "Scegli una subcoerente (es. LED TV sotto TV & Home Entertainment)."
+                    },
+                    status_code=400,
+                )
     return await _svc().get_promo_creator_suggestions(
         period_start, period_end, user.brand_id, promo_type, discount_depth, category_id, subcategory_id
     )
@@ -116,6 +131,31 @@ async def api_prewarm(x_prewarm_token: Optional[str] = Header(None, alias="X-Pre
         raise HTTPException(status_code=401, detail="Unauthorized")
     result = await prewarm_cache()
     return result
+
+
+@router.post("/internal/clear-cache", tags=["Internal"])
+async def api_internal_clear_cache(
+    x_prewarm_token: Optional[str] = Header(None, alias="X-Prewarm-Token"),
+    body: Optional[dict] = Body(default=None),
+):
+    """Svuota cache (Redis + RAM) come admin clear-cache, senza cookie: stesso ``PREWARM_TOKEN`` di ``/internal/prewarm``.
+
+    Body JSON opzionale: ``{"flush_redis_db": true}`` (richiede ``ENABLE_ADMIN_REDIS_FLUSHDB=1`` sul servizio).
+    Dopo un refresh BigQuery, chiamare questo endpoint poi ``GET /internal/prewarm`` per ripopolare.
+    """
+    token = os.getenv("PREWARM_TOKEN", "").strip()
+    if not token or x_prewarm_token != token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    from app.services._cache import clear_service_cache
+
+    want_flush = bool((body or {}).get("flush_redis_db"))
+    allow_flush = os.getenv("ENABLE_ADMIN_REDIS_FLUSHDB", "").strip().lower() in ("1", "true", "yes")
+    if want_flush and not allow_flush:
+        raise HTTPException(
+            status_code=400,
+            detail="flush_redis_db richiede ENABLE_ADMIN_REDIS_FLUSHDB=1 sull'istanza Cloud Run.",
+        )
+    return clear_service_cache(flush_redis_db=bool(want_flush and allow_flush))
 
 
 @router.get("/api/admin/brand-logo-debug", tags=["Admin"])

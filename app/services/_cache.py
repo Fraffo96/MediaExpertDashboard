@@ -105,6 +105,7 @@ _CACHE_KEY_PREFIXES: tuple[str, ...] = (
     "pc_v3_fast_ui",
     "pc_v4_subcat_roi",
     "pc_v5_realistic",
+    "pc_v6_benchfix",
     "products",
     "promo",
     "simulation",

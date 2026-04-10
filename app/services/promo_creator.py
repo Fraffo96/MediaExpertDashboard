@@ -11,19 +11,45 @@ from app.db.queries.precalc import (
     query_roi_benchmark_by_type_from_precalc,
     query_top_competitor_roi_from_precalc,
 )
-from app.services._cache import cache_key, get_cached, set_cached, safe
+from app.services._cache import TTL_LONG, cache_key, get_cached, set_cached, safe
+
+# Sotto questa soglia il benchmark sconto è poco affidabile (dati sparsi / arrotondamenti): non penalizzare ROI.
+_MIN_RELIABLE_MEDIA_DISCOUNT = 3.0
+
+
+def _pc_discount_cache_key(discount_depth) -> str:
+    if discount_depth is None or not str(discount_depth).strip():
+        return ""
+    try:
+        return f"{float(str(discount_depth).strip()):g}"
+    except (ValueError, TypeError):
+        return str(discount_depth).strip()
+
+
+def _parse_merged_roi_competitor(rows) -> tuple[list, object]:
+    """Da query_roi_and_top_competitor_* → (roi_benchmark list, top_competitor dict|None)."""
+    if not rows:
+        return [], None
+    r0 = rows[0]
+    n = int(r0.get("n_promos") or 0)
+    roi_bench = [{"avg_roi": r0.get("avg_roi"), "n_promos": n}] if n > 0 else []
+    name = r0.get("top_competitor_name")
+    if not name:
+        return roi_bench, None
+    tc = {"brand_name": name, "avg_roi": float(r0.get("top_competitor_avg_roi") or 0)}
+    return roi_bench, tc
 
 
 async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, discount_depth=None, cat=None, subcat=None):
     if not brand_id or not str(brand_id).strip():
         return {"error": "Brand required", "suggestions": []}
     key = cache_key(
-        "pc_v5_realistic",
+        "pc_v6_benchfix",
         ps=ps,
         pe=pe,
         brand=brand_id,
         pt=promo_type or "",
-        dd=discount_depth or "",
+        dd=_pc_discount_cache_key(discount_depth),
         cat=cat or "",
         subcat=subcat or "",
     )
@@ -41,65 +67,68 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
     use_subcat_roi = subcat_int is not None and subcat_int >= 100
 
     use_discount_filter = discount_depth is not None and str(discount_depth).strip()
-    if use_subcat_roi and use_discount_filter:
-        roi_task = asyncio.to_thread(
-            safe,
-            promo_creator.query_roi_benchmark_by_type_and_discount_subcat,
-            ps,
-            pe,
-            promo_type,
-            subcat_int,
-            discount_depth,
-        )
-    elif use_subcat_roi:
-        roi_task = asyncio.to_thread(
-            safe, promo_creator.query_roi_benchmark_by_type_subcat, ps, pe, promo_type, subcat_int
-        )
-    elif use_discount_filter:
-        roi_task = asyncio.to_thread(
-            safe, promo_creator.query_roi_benchmark_by_type_and_discount, ps, pe, promo_type, roi_c, discount_depth
-        )
-    else:
-        roi_task = asyncio.to_thread(safe, query_roi_benchmark_by_type_from_precalc, year, promo_type, roi_c, None)
+    use_subcat_merge = use_subcat_roi and promo_type and str(promo_type).strip()
 
-    if use_subcat_roi and use_discount_filter and promo_type:
-        competitor_task = asyncio.to_thread(
-            safe,
-            promo_creator.query_top_competitor_by_discount_subcat,
-            ps,
-            pe,
-            subcat_int,
-            promo_type,
-            discount_depth,
-            int(brand_id),
-        )
-    elif use_subcat_roi and promo_type:
-        competitor_task = asyncio.to_thread(
-            safe,
-            promo_creator.query_top_competitor_by_type_subcat,
-            ps,
-            pe,
-            subcat_int,
-            promo_type,
-            int(brand_id),
-        )
-    elif use_discount_filter and roi_c is not None and promo_type:
-        competitor_task = asyncio.to_thread(
-            safe,
-            promo_creator.query_top_competitor_by_discount,
-            ps,
-            pe,
-            roi_c,
-            promo_type,
-            discount_depth,
-            int(brand_id),
-        )
-    elif roi_c is not None and promo_type:
-        competitor_task = asyncio.to_thread(
-            safe, query_top_competitor_roi_from_precalc, year, roi_c, promo_type, int(brand_id)
-        )
-    else:
-        competitor_task = asyncio.to_thread(lambda: [])
+    if not use_subcat_merge:
+        if use_subcat_roi and use_discount_filter:
+            roi_task = asyncio.to_thread(
+                safe,
+                promo_creator.query_roi_benchmark_by_type_and_discount_subcat,
+                ps,
+                pe,
+                promo_type,
+                subcat_int,
+                discount_depth,
+            )
+        elif use_subcat_roi:
+            roi_task = asyncio.to_thread(
+                safe, promo_creator.query_roi_benchmark_by_type_subcat, ps, pe, promo_type, subcat_int
+            )
+        elif use_discount_filter:
+            roi_task = asyncio.to_thread(
+                safe, promo_creator.query_roi_benchmark_by_type_and_discount, ps, pe, promo_type, roi_c, discount_depth
+            )
+        else:
+            roi_task = asyncio.to_thread(safe, query_roi_benchmark_by_type_from_precalc, year, promo_type, roi_c, None)
+
+        if use_subcat_roi and use_discount_filter and promo_type:
+            competitor_task = asyncio.to_thread(
+                safe,
+                promo_creator.query_top_competitor_by_discount_subcat,
+                ps,
+                pe,
+                subcat_int,
+                promo_type,
+                discount_depth,
+                int(brand_id),
+            )
+        elif use_subcat_roi and promo_type:
+            competitor_task = asyncio.to_thread(
+                safe,
+                promo_creator.query_top_competitor_by_type_subcat,
+                ps,
+                pe,
+                subcat_int,
+                promo_type,
+                int(brand_id),
+            )
+        elif use_discount_filter and roi_c is not None and promo_type:
+            competitor_task = asyncio.to_thread(
+                safe,
+                promo_creator.query_top_competitor_by_discount,
+                ps,
+                pe,
+                roi_c,
+                promo_type,
+                discount_depth,
+                int(brand_id),
+            )
+        elif roi_c is not None and promo_type:
+            competitor_task = asyncio.to_thread(
+                safe, query_top_competitor_roi_from_precalc, year, roi_c, promo_type, int(brand_id)
+            )
+        else:
+            competitor_task = asyncio.to_thread(lambda: [])
 
     if use_subcat_roi:
         discount_bench_task = asyncio.to_thread(
@@ -116,18 +145,53 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
             safe, query_category_discount_benchmark_from_precalc, year, int(brand_id), roi_c
         )
 
-    tasks = [
-        discount_bench_task,
-        roi_task,
-        asyncio.to_thread(safe, promo_creator.query_segment_promo_responsiveness, ps, pe, cat, subcat, promo_type),
-        competitor_task,
-    ]
+    segment_task = asyncio.to_thread(
+        safe, promo_creator.query_segment_promo_responsiveness, ps, pe, cat, subcat, promo_type
+    )
 
-    discount_bench, roi_bench, top_segments, top_competitor = await asyncio.gather(*tasks)
+    if use_subcat_merge:
+        if use_discount_filter:
+            merged_task = asyncio.to_thread(
+                safe,
+                promo_creator.query_roi_and_top_competitor_discount_subcat,
+                ps,
+                pe,
+                promo_type,
+                subcat_int,
+                discount_depth,
+                int(brand_id),
+            )
+        else:
+            merged_task = asyncio.to_thread(
+                safe,
+                promo_creator.query_roi_and_top_competitor_subcat,
+                ps,
+                pe,
+                promo_type,
+                subcat_int,
+                int(brand_id),
+            )
+        discount_bench, merged_rows, top_segments = await asyncio.gather(
+            discount_bench_task,
+            merged_task,
+            segment_task,
+        )
+        discount_bench = list(discount_bench) if discount_bench else []
+        top_segments = list(top_segments) if top_segments else []
+        roi_bench, top_competitor = _parse_merged_roi_competitor(merged_rows)
+    else:
+        tasks = [
+            discount_bench_task,
+            roi_task,
+            segment_task,
+            competitor_task,
+        ]
+        discount_bench, roi_bench, top_segments, top_competitor = await asyncio.gather(*tasks)
 
-    discount_bench = list(discount_bench) if discount_bench else []
-    top_segments = list(top_segments) if top_segments else []
-    top_competitor = list(top_competitor)[0] if top_competitor and len(top_competitor) > 0 else None
+        discount_bench = list(discount_bench) if discount_bench else []
+        top_segments = list(top_segments) if top_segments else []
+        roi_bench = list(roi_bench) if roi_bench else []
+        top_competitor = list(top_competitor)[0] if top_competitor and len(top_competitor) > 0 else None
 
     if use_discount_filter and (not roi_bench or len(roi_bench) == 0 or int((roi_bench or [{}])[0].get("n_promos") or 0) == 0):
         if use_subcat_roi:
@@ -162,7 +226,7 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
         if discount_depth is not None:
             try:
                 dd = float(discount_depth)
-                if media_d > 0:
+                if media_d >= _MIN_RELIABLE_MEDIA_DISCOUNT:
                     diff = dd - media_d
                     if diff > 5:
                         suggestions.append({"type": "info", "text": f"Your discount ({dd}%) is {diff:.0f}pp above category average ({media_d}%)."})
@@ -170,6 +234,15 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
                         suggestions.append({"type": "info", "text": f"Your discount ({dd}%) is {-diff:.0f}pp below category average ({media_d}%)."})
             except (ValueError, TypeError):
                 pass
+
+    if (media_avg_discount is None or float(media_avg_discount or 0) < _MIN_RELIABLE_MEDIA_DISCOUNT) and roi_c is not None:
+        fb = await asyncio.to_thread(
+            safe, query_category_discount_benchmark_from_precalc, year, int(brand_id), roi_c
+        )
+        if fb and len(fb) > 0:
+            alt = float(fb[0].get("media_avg_discount") or 0)
+            if alt >= _MIN_RELIABLE_MEDIA_DISCOUNT:
+                media_avg_discount = alt
     if roi_bench and len(roi_bench) > 0:
         row = roi_bench[0]
         avg_roi = float(row.get("avg_roi") or 0)
@@ -181,33 +254,36 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
             else:
                 suggestions.append({"type": "benchmark", "text": f"Similar promos in category: avg ROI {avg_roi:.2f}x (n={n})."})
 
-    # Penalità monotona: sconti molto sopra la media categoria → expected ROI più realistico (anche negativo)
+    # Penalità monotona solo se la media sconto categoria è attendibile (evita "~0% avg" artefatti).
     if expected_roi is not None and discount_depth is not None and str(discount_depth).strip():
         try:
             dd = float(discount_depth)
-            media_ref = float(media_avg_discount) if media_avg_discount is not None else 18.0
-            delta = dd - media_ref
-            threshold_pp = 10.0
-            excess = max(0.0, delta - threshold_pp)
-            penalty = 0.09 * excess + 0.0018 * (excess**2)
-            if delta > 22:
-                penalty += 0.35
-            base_roi = float(expected_roi)
-            adj = base_roi - penalty
-            if adj < -3.0:
-                adj = -3.0
-            if penalty >= 0.05:
-                expected_roi = adj
-                if adj < 0.0 or penalty >= 0.2:
-                    suggestions.append(
-                        {
-                            "type": "warning",
-                            "text": (
-                                "Expected ROI adjusted vs historical benchmark: deep discounts "
-                                f"({dd:.0f}% vs ~{media_ref:.0f}% category avg) often erode incremental return."
-                            ),
-                        }
-                    )
+            if media_avg_discount is None or float(media_avg_discount) < _MIN_RELIABLE_MEDIA_DISCOUNT:
+                pass
+            else:
+                media_ref = float(media_avg_discount)
+                delta = dd - media_ref
+                threshold_pp = 10.0
+                excess = max(0.0, delta - threshold_pp)
+                penalty = 0.09 * excess + 0.0018 * (excess**2)
+                if delta > 22:
+                    penalty += 0.35
+                base_roi = float(expected_roi)
+                adj = base_roi - penalty
+                if adj < -3.0:
+                    adj = -3.0
+                if penalty >= 0.05:
+                    expected_roi = adj
+                    if adj < 0.0 or penalty >= 0.2:
+                        suggestions.append(
+                            {
+                                "type": "warning",
+                                "text": (
+                                    "ROI atteso ribassato rispetto al benchmark: sconti molto sopra la media storica "
+                                    f"nel periodo ({dd:.0f}% vs ~{media_ref:.0f}% media categoria) spesso riducono il rendimento incrementale."
+                                ),
+                            }
+                        )
         except (ValueError, TypeError):
             pass
 
@@ -222,5 +298,5 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
         "discount_depth_used": float(discount_depth) if use_discount_filter else None,
         "benchmark_scope": "subcategory" if use_subcat_roi else "parent_category",
     }
-    set_cached(key, out)
+    set_cached(key, out, TTL_LONG)
     return out

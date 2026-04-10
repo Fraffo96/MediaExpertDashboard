@@ -13,9 +13,14 @@
         if (o.value === '') { o.style.display = ''; return; }
         o.style.display = (!cat || o.getAttribute('data-parent') === cat) ? '' : 'none';
       });
+      var sel = subcatSel.options[subcatSel.selectedIndex];
+      if (sel && sel.value && cat && sel.getAttribute('data-parent') !== cat) {
+        subcatSel.value = '';
+      }
     }
 
     catSel.addEventListener('change', filterSubcategoryOptions);
+    filterSubcategoryOptions();
   }
 
   if (document.readyState === 'loading') {

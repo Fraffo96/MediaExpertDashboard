@@ -25,12 +25,16 @@ SELECT
   SUM(oi.quantity) AS units,
   LOGICAL_OR(o.promo_flag) AS promo_flag,
   ANY_VALUE(o.promo_id) AS promo_id,
-  ROUND(LEAST(100, COALESCE(
-    SUM(CASE WHEN o.promo_flag THEN
-      o.discount_depth_pct * feed_w.dd_f * oi.gross_pln * feed_w.ch_f
-    ELSE 0 END)
-    / NULLIF(SUM(CASE WHEN o.promo_flag THEN oi.gross_pln * feed_w.ch_f ELSE 0 END), 0)
-  , 0)), 1) AS discount_depth_pct
+  ROUND(IF(
+    SUM(CASE WHEN o.promo_flag THEN oi.gross_pln * feed_w.ch_f ELSE 0 END) > 0,
+    LEAST(100, GREATEST(4.0, COALESCE(
+      SUM(CASE WHEN o.promo_flag THEN
+        o.discount_depth_pct * feed_w.dd_f * oi.gross_pln * feed_w.ch_f
+      ELSE 0 END)
+      / NULLIF(SUM(CASE WHEN o.promo_flag THEN oi.gross_pln * feed_w.ch_f ELSE 0 END), 0)
+    , 0))),
+    0
+  ), 1) AS discount_depth_pct
 FROM mart.fact_order_items oi
 JOIN mart.fact_orders o ON o.order_id = oi.order_id
 JOIN mart.dim_product p ON p.product_id = oi.product_id
@@ -66,10 +70,14 @@ SELECT
   SUM(units) AS units,
   LOGICAL_OR(promo_flag) AS promo_flag,
   ANY_VALUE(promo_id) AS promo_id,
-  ROUND(LEAST(100, COALESCE(
-    SUM(CASE WHEN promo_flag THEN discount_depth_pct * gross_pln ELSE 0 END)
-    / NULLIF(SUM(CASE WHEN promo_flag THEN gross_pln ELSE 0 END), 0)
-  , 0)), 1) AS discount_depth_pct
+  IF(
+    LOGICAL_OR(promo_flag),
+    ROUND(LEAST(100, GREATEST(4.0, COALESCE(
+      SUM(CASE WHEN promo_flag THEN discount_depth_pct * gross_pln ELSE 0 END)
+      / NULLIF(SUM(CASE WHEN promo_flag THEN gross_pln ELSE 0 END), 0)
+    , 0))), 1),
+    CAST(0 AS NUMERIC)
+  ) AS discount_depth_pct
 FROM mart.v_sales_daily_by_channel
 GROUP BY date, brand_id, brand_name, category_id, parent_category_id, segment_id, gender;
 

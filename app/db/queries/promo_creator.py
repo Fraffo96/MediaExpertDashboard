@@ -6,8 +6,18 @@ from app.db.client import run_query
 def query_category_discount_benchmark(ps, pe, brand_id, cat=None, subcat=None):
     """Average discount depth in category for benchmark."""
     roi_cat = int(cat) if cat and 1 <= int(cat) <= 10 else (int(subcat) // 100 if subcat and int(subcat) >= 100 else None)
-    where_cat = "AND (@cat IS NULL OR f.parent_category_id = @cat OR f.category_id = @cat)"
-    where_subcat = "AND (@subcat IS NULL OR f.category_id = @subcat)"
+    # Con categoria + sottocategoria: solo righe coerenti (parent = cat e category_id = subcat).
+    try:
+        c_int = int(cat) if cat and str(cat).strip() and 1 <= int(cat) <= 10 else None
+        s_int = int(subcat) if subcat and str(subcat).strip() and int(subcat) >= 100 else None
+    except (TypeError, ValueError):
+        c_int, s_int = None, None
+    if c_int is not None and s_int is not None:
+        where_cat = "AND f.parent_category_id = @cat AND f.category_id = @subcat"
+        where_subcat = ""
+    else:
+        where_cat = "AND (@cat IS NULL OR f.parent_category_id = @cat OR f.category_id = @cat)"
+        where_subcat = "AND (@subcat IS NULL OR f.category_id = @subcat)"
     q = f"""
     SELECT
       ROUND(COALESCE(SUM(CASE WHEN f.promo_flag THEN f.discount_depth_pct * f.gross_pln ELSE 0 END)
@@ -30,7 +40,7 @@ def query_category_discount_benchmark(ps, pe, brand_id, cat=None, subcat=None):
 
 
 # promo_id -> nominal discount % (from derive pcfg)
-_PROMO_DISCOUNT_MAP = {1: 10, 2: 20, 3: 30, 4: 15, 5: 15, 6: 12, 7: 8, 8: 18, 9: 22, 10: 20}
+_PROMO_DISCOUNT_MAP = {1: 10, 2: 20, 3: 30, 4: 15, 5: 15, 6: 12, 7: 8, 8: 18, 9: 25, 10: 20}
 
 # ROI da fact_sales_daily per subcategoria (stessa logica di market_intelligence/promo.py query_promo_roi_brand_vs_media).
 # fact_promo_performance è solo a livello parent 1–10; qui il benchmark dipende dalla subcategory scelta.
@@ -180,6 +190,19 @@ def query_roi_benchmark_by_type_and_discount_subcat(
     ps, pe, promo_type, subcat, discount_depth, dd_tolerance=7
 ):
     """ROI medio su subcategoria + tipo promo + promo_id con profondità sconto simile (da sales daily, non parent)."""
+    rows = query_roi_and_top_competitor_discount_subcat(
+        ps, pe, promo_type, subcat, discount_depth, exclude_brand_id=-1, dd_tolerance=dd_tolerance
+    )
+    if not rows:
+        return []
+    r = rows[0]
+    return [{"avg_roi": r.get("avg_roi"), "n_promos": r.get("n_promos")}]
+
+
+def query_roi_and_top_competitor_discount_subcat(
+    ps, pe, promo_type, subcat, discount_depth, exclude_brand_id, dd_tolerance=7
+):
+    """Stesso CTE ROI con filtro promo_id per bucket sconto; benchmark + top competitor in una query."""
     try:
         sid = int(subcat)
         if sid < 100:
@@ -192,49 +215,106 @@ def query_roi_benchmark_by_type_and_discount_subcat(
     promo_ids = [pid for pid, d in _PROMO_DISCOUNT_MAP.items() if dd_min <= d <= dd_max]
     if not promo_ids or not (promo_type and str(promo_type).strip()):
         return []
+    excl = int(exclude_brand_id)
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("subcat", "INT64", sid),
+        bigquery.ScalarQueryParameter("pt", "STRING", promo_type),
+        bigquery.ArrayQueryParameter("pids", "INT64", promo_ids),
+    ]
+    if excl >= 0:
+        competitor_sql = """
+, topc AS (
+  SELECT b.brand_name AS top_competitor_name, ROUND(AVG(r.roi), 2) AS top_competitor_avg_roi
+  FROM roi_computed r
+  JOIN mart.dim_brand b ON b.brand_id = r.brand_id
+  WHERE r.brand_id != @exclude
+  GROUP BY r.brand_id, b.brand_name
+  ORDER BY AVG(r.roi) DESC
+  LIMIT 1
+)
+SELECT o.avg_roi, o.n_promos, t.top_competitor_name, t.top_competitor_avg_roi
+FROM overall o
+LEFT JOIN topc t ON TRUE
+"""
+        params.append(bigquery.ScalarQueryParameter("exclude", "INT64", excl))
+    else:
+        competitor_sql = """
+SELECT o.avg_roi, o.n_promos, CAST(NULL AS STRING) AS top_competitor_name, CAST(NULL AS FLOAT64) AS top_competitor_avg_roi
+FROM overall o
+"""
     q = (
         _ROI_SUBCAT_CTE.format(agg_promo_filter="AND f.promo_id IN UNNEST(@pids)")
         + """
-SELECT ROUND(AVG(roi), 2) AS avg_roi, COUNT(*) AS n_promos
-FROM roi_computed
+, overall AS (
+  SELECT ROUND(AVG(roi), 2) AS avg_roi, COUNT(*) AS n_promos FROM roi_computed
+)
 """
+        + competitor_sql
     )
-    return run_query(
-        q,
-        [
-            bigquery.ScalarQueryParameter("ps", "STRING", ps),
-            bigquery.ScalarQueryParameter("pe", "STRING", pe),
-            bigquery.ScalarQueryParameter("subcat", "INT64", sid),
-            bigquery.ScalarQueryParameter("pt", "STRING", promo_type),
-            bigquery.ArrayQueryParameter("pids", "INT64", promo_ids),
-        ],
-    )
+    return run_query(q, params)
 
 
 def query_roi_benchmark_by_type_subcat(ps, pe, promo_type, subcat):
     """ROI medio subcategoria + tipo promo (tutti i promo_id con vendite promo in quel periodo/subcat)."""
+    rows = query_roi_and_top_competitor_subcat(ps, pe, promo_type, subcat, exclude_brand_id=-1)
+    if not rows:
+        return []
+    r = rows[0]
+    return [{"avg_roi": r.get("avg_roi"), "n_promos": r.get("n_promos")}]
+
+
+def query_roi_and_top_competitor_subcat(ps, pe, promo_type, subcat, exclude_brand_id):
+    """Una sola passata sul CTE ROI: benchmark globale + top competitor (esclude brand utente).
+
+    exclude_brand_id=-1 disabilita il ramo competitor (solo avg_roi / n_promos significativi).
+    """
     try:
         sid = int(subcat)
         if sid < 100 or not (promo_type and str(promo_type).strip()):
             return []
     except (TypeError, ValueError):
         return []
+    excl = int(exclude_brand_id)
+    competitor_sql = ""
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("subcat", "INT64", sid),
+        bigquery.ScalarQueryParameter("pt", "STRING", promo_type),
+    ]
+    if excl >= 0:
+        competitor_sql = """
+, topc AS (
+  SELECT b.brand_name AS top_competitor_name, ROUND(AVG(r.roi), 2) AS top_competitor_avg_roi
+  FROM roi_computed r
+  JOIN mart.dim_brand b ON b.brand_id = r.brand_id
+  WHERE r.brand_id != @exclude
+  GROUP BY r.brand_id, b.brand_name
+  ORDER BY AVG(r.roi) DESC
+  LIMIT 1
+)
+SELECT o.avg_roi, o.n_promos, t.top_competitor_name, t.top_competitor_avg_roi
+FROM overall o
+LEFT JOIN topc t ON TRUE
+"""
+        params.append(bigquery.ScalarQueryParameter("exclude", "INT64", excl))
+    else:
+        competitor_sql = """
+SELECT o.avg_roi, o.n_promos, CAST(NULL AS STRING) AS top_competitor_name, CAST(NULL AS FLOAT64) AS top_competitor_avg_roi
+FROM overall o
+"""
     q = (
         _ROI_SUBCAT_CTE.format(agg_promo_filter="")
         + """
-SELECT ROUND(AVG(roi), 2) AS avg_roi, COUNT(*) AS n_promos
-FROM roi_computed
+, overall AS (
+  SELECT ROUND(AVG(roi), 2) AS avg_roi, COUNT(*) AS n_promos FROM roi_computed
+)
 """
+        + competitor_sql
     )
-    return run_query(
-        q,
-        [
-            bigquery.ScalarQueryParameter("ps", "STRING", ps),
-            bigquery.ScalarQueryParameter("pe", "STRING", pe),
-            bigquery.ScalarQueryParameter("subcat", "INT64", sid),
-            bigquery.ScalarQueryParameter("pt", "STRING", promo_type),
-        ],
-    )
+    return run_query(q, params)
 
 
 def query_top_competitor_by_discount_subcat(
