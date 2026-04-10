@@ -24,7 +24,12 @@ def _fs():
     return get_firestore_client()
 
 
-def create_data_job(job_type: str, seed_profile_id: Optional[str] = None, payload: Optional[dict] = None) -> dict:
+def create_data_job(
+    job_type: str,
+    seed_profile_id: Optional[str] = None,
+    payload: Optional[dict] = None,
+    profile_inline: Optional[dict] = None,
+) -> dict:
     """Crea documento job in stato queued. Ritorna dict serializzabile (include id)."""
     jid = uuid.uuid4().hex
     now = _utc_now()
@@ -39,6 +44,8 @@ def create_data_job(job_type: str, seed_profile_id: Optional[str] = None, payloa
         "updated_at": now,
         "finished_at": None,
     }
+    if profile_inline is not None:
+        to_set["profile_inline"] = profile_inline
     _fs().collection(COL_JOBS).document(jid).set(to_set)
     return {
         "id": jid,
@@ -51,6 +58,7 @@ def update_data_job(
     status: str,
     message: str = "",
     error_snippet: str = "",
+    verify_report: Optional[dict] = None,
 ) -> None:
     ref = _fs().collection(COL_JOBS).document(jid)
     patch: dict[str, Any] = {
@@ -59,6 +67,8 @@ def update_data_job(
         "error_snippet": error_snippet or "",
         "updated_at": _utc_now(),
     }
+    if verify_report is not None:
+        patch["verify_report"] = verify_report
     if status in ("ok", "error"):
         patch["finished_at"] = _utc_now()
     ref.update(patch)
@@ -119,12 +129,24 @@ def delete_seed_profile(profile_id: str) -> None:
 
 def profile_to_env(profile: Optional[dict]) -> dict[str, str]:
     """Variabili d'ambiente per worker / run_bigquery_schema / generate_seed_data."""
+    return profile_volumes_to_env(profile)
+
+
+def profile_volumes_to_env(profile: Optional[dict]) -> dict[str, str]:
+    """Estrae volumi da profilo v1 (flat) o v2 (global.*)."""
     if not profile:
         return {}
+    if profile.get("profile_version") == 2:
+        g = profile.get("global") or {}
+        return {
+            "SEED_NUM_ORDERS": str(int(g.get("num_orders") or 380000)),
+            "SEED_NUM_CUSTOMERS": str(int(g.get("num_customers") or 24000)),
+            "SEED_NUM_PRODUCTS": str(int(g.get("num_products") or g.get("product_count") or 1200)),
+        }
     return {
         "SEED_NUM_ORDERS": str(int(profile.get("num_orders") or 380000)),
         "SEED_NUM_CUSTOMERS": str(int(profile.get("num_customers") or 24000)),
-        "SEED_NUM_PRODUCTS": str(int(profile.get("product_count") or 1200)),
+        "SEED_NUM_PRODUCTS": str(int(profile.get("product_count") or profile.get("num_products") or 1200)),
     }
 
 
@@ -147,7 +169,11 @@ def trigger_cloud_run_job(
     job_type: str,
     seed_profile_json: Optional[str] = None,
 ) -> bool:
-    """Esegue RunJob con override env. Ritorna True se invocato."""
+    """Esegue RunJob con override env. Ritorna True se invocato.
+
+    Il worker legge `profile_inline` dal documento Firestore del job (evita limiti env).
+    `seed_profile_json` è legacy: usato solo se non vuoto e molto corto (<28k).
+    """
     name = (os.environ.get("CLOUD_RUN_DATA_JOB_NAME") or "").strip()
     region = (os.environ.get("GCP_REGION") or os.environ.get("CLOUD_RUN_REGION") or "europe-west1").strip()
     project = (os.environ.get("GCP_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT") or "").strip()
@@ -164,7 +190,7 @@ def trigger_cloud_run_job(
             EnvVar(name="DATA_JOB_ID", value=job_id),
             EnvVar(name="DATA_JOB_TYPE", value=job_type),
         ]
-        if seed_profile_json:
+        if seed_profile_json and len(seed_profile_json) < 28000:
             env.append(EnvVar(name="SEED_PROFILE_JSON", value=seed_profile_json))
         overrides = RunJobRequest.Overrides(
             container_overrides=[
@@ -192,8 +218,13 @@ def spawn_local_worker(job_id: str, job_type: str, seed_profile: Optional[dict])
         return False
     env = {**os.environ, "DATA_JOB_ID": job_id, "DATA_JOB_TYPE": job_type}
     if seed_profile:
-        env.update(profile_to_env(seed_profile))
-        env["SEED_PROFILE_JSON"] = json.dumps(seed_profile)
+        env.update(profile_volumes_to_env(seed_profile))
+        try:
+            sj = json.dumps(seed_profile)
+            if len(sj) < 28000:
+                env["SEED_PROFILE_JSON"] = sj
+        except (TypeError, ValueError):
+            pass
     try:
         subprocess.Popen(
             [sys.executable, str(worker)],

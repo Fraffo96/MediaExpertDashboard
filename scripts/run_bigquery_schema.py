@@ -14,6 +14,7 @@ from google.cloud import bigquery
 
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "mediaexpertdashboard")
 SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
 SQL_FILE = SCRIPT_DIR.parent / "bigquery" / "schema_and_seed.sql"
 
 
@@ -91,6 +92,15 @@ def main():
         print(f"File non trovato: {SQL_FILE}", file=sys.stderr)
         sys.exit(1)
     content = apply_seed_numeric_overrides(SQL_FILE.read_text(encoding="utf-8"))
+    try:
+        from seed_planner.sql_patch import apply_compiled_to_sql_content, load_compiled_from_env
+
+        compiled = load_compiled_from_env()
+        if compiled:
+            content = apply_compiled_to_sql_content(content, compiled)
+            print("Seed: applicato profilo compilato (SEED_COMPILED_PATH / SEED_COMPILED_JSON).")
+    except Exception as e:
+        print(f"Seed compiled: skip o errore ({e})", file=sys.stderr)
     statements = split_sql(content)
     raw_blocks = extract_raw_blocks(content)
     client = bigquery.Client(project=PROJECT_ID)

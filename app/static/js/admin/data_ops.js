@@ -39,11 +39,19 @@
           el.textContent = j.detail || 'Errore job';
           return;
         }
+        var vr = j.verify_report;
+        var vrTxt = '';
+        if (vr && typeof vr === 'object') {
+          try {
+            vrTxt = ' | verify: ' + JSON.stringify(vr).slice(0, 400);
+          } catch (e) {}
+        }
         el.textContent =
           'Stato: ' +
           j.status +
           (j.message ? ' — ' + j.message : '') +
-          (j.error_snippet ? ' — ' + j.error_snippet : '');
+          (j.error_snippet ? ' — ' + j.error_snippet : '') +
+          vrTxt;
         if (j.status === 'ok' || j.status === 'error') {
           stopPoll();
           toast(j.status === 'ok' ? 'Job completato' : 'Job fallito', j.status === 'ok' ? 'success' : 'error');
@@ -79,9 +87,106 @@
       });
       if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="4">Nessuna tabella.</td></tr>';
       toast('Tabelle aggiornate');
+      // carica anche riepilogo/qualità
+      loadSummaryAndQuality();
     } catch (e) {
       tbody.innerHTML = '<tr><td colspan="4">' + e.message + '</td></tr>';
       toast(e.message, 'error');
+    }
+  }
+
+  function fmtNum(x) {
+    if (x == null) return '';
+    try {
+      return Number(x).toLocaleString();
+    } catch (e) {
+      return String(x);
+    }
+  }
+
+  async function loadSummaryAndQuality() {
+    var box = document.getElementById('do-bq-summary');
+    var famBody = document.getElementById('do-bq-summary-families');
+    var topBody = document.getElementById('do-bq-summary-top');
+    var qBox = document.getElementById('do-bq-quality');
+    if (!box || !famBody || !topBody || !qBox) return;
+    box.textContent = 'Caricamento…';
+    famBody.innerHTML = '<tr><td colspan="5">Caricamento…</td></tr>';
+    topBody.innerHTML = '<tr><td colspan="4">Caricamento…</td></tr>';
+    qBox.textContent = 'Caricamento…';
+    try {
+      var r = await fetch('/api/admin/bq/summary');
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.detail || r.statusText);
+      var totals = d.totals || {};
+      box.textContent =
+        'Totale: ' +
+        fmtNum(totals.table_count) +
+        ' tabelle, ' +
+        fmtNum(totals.row_count) +
+        ' righe, ' +
+        (totals.size_bytes != null ? (Number(totals.size_bytes) / (1024 * 1024)).toFixed(1) + ' MiB' : '');
+
+      famBody.innerHTML = '';
+      (d.families || []).forEach(function (f) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><code>' +
+          (f.family || '') +
+          '</code></td><td>' +
+          fmtNum(f.table_count) +
+          '</td><td>' +
+          fmtNum(f.row_count) +
+          '</td><td>' +
+          (f.size_bytes != null ? (Number(f.size_bytes) / (1024 * 1024)).toFixed(1) + ' MiB' : '') +
+          '</td><td>' +
+          (f.last_modified_time || '') +
+          '</td>';
+        famBody.appendChild(tr);
+      });
+      if (!famBody.children.length) famBody.innerHTML = '<tr><td colspan="5">Nessun dato.</td></tr>';
+
+      topBody.innerHTML = '';
+      (d.top_tables || []).forEach(function (t) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><code>' +
+          (t.table_id || '') +
+          '</code></td><td>' +
+          fmtNum(t.row_count) +
+          '</td><td>' +
+          (t.size_bytes != null ? (Number(t.size_bytes) / (1024 * 1024)).toFixed(1) + ' MiB' : '') +
+          '</td><td>' +
+          (t.last_modified_time || '') +
+          '</td>';
+        topBody.appendChild(tr);
+      });
+      if (!topBody.children.length) topBody.innerHTML = '<tr><td colspan="4">Nessun dato.</td></tr>';
+    } catch (e) {
+      box.textContent = e.message;
+      famBody.innerHTML = '<tr><td colspan="5">' + e.message + '</td></tr>';
+      topBody.innerHTML = '<tr><td colspan="4">' + e.message + '</td></tr>';
+    }
+    try {
+      var rq = await fetch('/api/admin/bq/quality');
+      var dq = await rq.json();
+      if (!rq.ok) throw new Error(dq.detail || rq.statusText);
+      var q = (dq || {}).quality || {};
+      qBox.textContent =
+        'customers=' +
+        fmtNum(q.customers) +
+        ', segments=' +
+        fmtNum(q.segments_distinct) +
+        ', orders=' +
+        fmtNum(q.orders) +
+        ', promo_rate=' +
+        (q.orders_promo_rate != null ? (Number(q.orders_promo_rate) * 100).toFixed(1) + '%' : '') +
+        ', items=' +
+        fmtNum(q.order_items) +
+        ', distinct_products_in_items=' +
+        fmtNum(q.order_items_distinct_products);
+    } catch (e) {
+      qBox.textContent = e.message;
     }
   }
 
@@ -202,10 +307,59 @@
     }
   }
 
-  async function startJob(jobType) {
+  function defaultProfileV2() {
+    return {
+      profile_version: 2,
+      global: { num_orders: 380000, num_customers: 24000, num_products: 1200 },
+      segment_rules: {
+        customer_share_by_segment: { '1': 1, '2': 1, '3': 1, '4': 1, '5': 1, '6': 1 },
+      },
+    };
+  }
+
+  function readDcProfile() {
+    var ta = document.getElementById('dc-profile-json');
+    var raw = (ta && ta.value) || '';
+    return JSON.parse(raw);
+  }
+
+  function applySharesToJson() {
+    var ta = document.getElementById('dc-profile-json');
+    var o;
+    try {
+      o = readDcProfile();
+    } catch (e) {
+      toast('JSON non valido', 'error');
+      return;
+    }
+    o.segment_rules = o.segment_rules || {};
+    var shares = {};
+    var i;
+    var sum = 0;
+    for (i = 1; i <= 6; i++) {
+      var el = document.getElementById('dc-share-' + i);
+      var w = el ? parseInt(el.value, 10) || 0 : 0;
+      shares[String(i)] = w;
+      sum += w;
+    }
+    if (sum <= 0) {
+      toast('Somma quote = 0', 'error');
+      return;
+    }
+    o.segment_rules.customer_share_by_segment = shares;
+    ta.value = JSON.stringify(o, null, 2);
+    toast('Quote applicate');
+  }
+
+  async function startJob(jobType, extraBody) {
     var sel = document.getElementById('do-seed-profile');
     var body = { job_type: jobType };
-    if (sel && sel.value) body.seed_profile_id = sel.value;
+    if (extraBody) {
+      Object.keys(extraBody).forEach(function (k) {
+        body[k] = extraBody[k];
+      });
+    }
+    if (sel && sel.value && !body.profile_v2) body.seed_profile_id = sel.value;
     var st = document.getElementById('do-job-status');
     st.textContent = 'Avvio…';
     try {
@@ -251,6 +405,109 @@
       if (!confirm('Full seed riscrive molti dati su BigQuery e può durare molto. Continuare?')) return;
       startJob('full_seed');
     });
+
+    var dcPreset = document.getElementById('dc-preset');
+    var dcApply = document.getElementById('dc-apply-shares');
+    var dcVal = document.getElementById('dc-validate');
+    var dcPrev = document.getElementById('dc-preview');
+    var dcComp = document.getElementById('dc-compile');
+    var dcFull = document.getElementById('dc-full-seed');
+    if (dcPreset) {
+      dcPreset.addEventListener('click', function () {
+        var ta = document.getElementById('dc-profile-json');
+        if (ta) ta.value = JSON.stringify(defaultProfileV2(), null, 2);
+        toast('Preset caricato');
+      });
+    }
+    if (dcApply) dcApply.addEventListener('click', applySharesToJson);
+    if (dcVal) {
+      dcVal.addEventListener('click', async function () {
+        var out = document.getElementById('dc-out');
+        try {
+          var prof = readDcProfile();
+          var r = await fetch('/api/admin/seed/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(prof),
+          });
+          var d = await r.json();
+          out.textContent = JSON.stringify(d, null, 2);
+          if (!r.ok) toast('Validazione fallita', 'error');
+          else toast('OK');
+        } catch (e) {
+          out.textContent = String(e);
+          toast(e.message, 'error');
+        }
+      });
+    }
+    if (dcPrev) {
+      dcPrev.addEventListener('click', async function () {
+        var out = document.getElementById('dc-out');
+        try {
+          var prof = readDcProfile();
+          var r = await fetch('/api/admin/seed/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile: prof, compile: true }),
+          });
+          var d = await r.json();
+          out.textContent = JSON.stringify(d, null, 2);
+          if (!r.ok) toast('Anteprima fallita', 'error');
+        } catch (e) {
+          out.textContent = String(e);
+          toast(e.message, 'error');
+        }
+      });
+    }
+    if (dcComp) {
+      dcComp.addEventListener('click', async function () {
+        var out = document.getElementById('dc-out');
+        try {
+          var prof = readDcProfile();
+          var r = await fetch('/api/admin/seed/compile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile: prof, include_sql: false }),
+          });
+          var d = await r.json();
+          out.textContent = JSON.stringify(d, null, 2);
+          if (!r.ok) toast('Compile fallito', 'error');
+          else toast('Compilato');
+        } catch (e) {
+          out.textContent = String(e);
+          toast(e.message, 'error');
+        }
+      });
+    }
+    if (dcFull) {
+      dcFull.addEventListener('click', async function () {
+        if (!confirm('Full seed con profilo v2: riscrive dati su BigQuery. Continuare?')) return;
+        var prof;
+        try {
+          prof = readDcProfile();
+        } catch (e) {
+          toast('JSON non valido', 'error');
+          return;
+        }
+        var st = document.getElementById('do-job-status');
+        st.textContent = 'Avvio…';
+        try {
+          var r = await fetch('/api/admin/data-jobs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ job_type: 'full_seed', profile_v2: prof }),
+          });
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.detail || d.error || r.statusText);
+          st.textContent = 'Job ' + d.id + ' — runner: ' + (d.runner || '?');
+          pollJob(d.id);
+          toast('Job in coda');
+        } catch (e) {
+          st.textContent = e.message;
+          toast(e.message, 'error');
+        }
+      });
+    }
     btnSaveProf.addEventListener('click', async function () {
       var id = (document.getElementById('sp-id').value || '').trim();
       if (!id) {

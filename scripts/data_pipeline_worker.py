@@ -26,20 +26,44 @@ def main() -> None:
         print("DATA_JOB_ID mancante", file=sys.stderr)
         sys.exit(2)
 
-    profile: dict = {}
-    raw_prof = os.environ.get("SEED_PROFILE_JSON", "").strip()
-    if raw_prof:
-        try:
-            profile = json.loads(raw_prof)
-        except json.JSONDecodeError:
-            profile = {}
+    from app.services.data_jobs import get_data_job, profile_volumes_to_env, update_data_job
 
-    from app.services.data_jobs import profile_to_env, update_data_job
+    job_doc = get_data_job(job_id) or {}
+    profile: dict = {}
+    inline = job_doc.get("profile_inline")
+    if isinstance(inline, dict) and inline:
+        profile = inline
+    else:
+        raw_prof = os.environ.get("SEED_PROFILE_JSON", "").strip()
+        if raw_prof:
+            try:
+                profile = json.loads(raw_prof)
+            except json.JSONDecodeError:
+                profile = {}
 
     update_data_job(job_id, "running", message="started")
     env = {**os.environ}
-    if profile:
-        env.update(profile_to_env(profile))
+    env.update(profile_volumes_to_env(profile))
+
+    compiled_path: Path | None = None
+    if isinstance(profile, dict) and profile.get("profile_version") == 2:
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        from seed_planner.compiler import compile_seed_profile
+
+        compiled = compile_seed_profile(profile)
+        cache = REPO_ROOT / ".seed_cache"
+        cache.mkdir(exist_ok=True)
+        compiled_path = cache / f"{job_id}_compiled.json"
+        compiled_path.write_text(json.dumps(compiled, indent=2), encoding="utf-8")
+        env["SEED_COMPILED_PATH"] = str(compiled_path)
+        g = compiled.get("global") or {}
+        env["SEED_NUM_CUSTOMERS"] = str(int(g.get("num_customers", 24000)))
+        env["SEED_NUM_ORDERS"] = str(int(g.get("num_orders", 380000)))
+        env["SEED_NUM_PRODUCTS"] = str(int(g.get("num_products", 1200)))
+        for k, v in (compiled.get("env") or {}).items():
+            if v:
+                env[str(k)] = str(v)
+
     try:
         if job_type == "precalc":
             r = subprocess.run(
@@ -85,7 +109,17 @@ def main() -> None:
                 raise RuntimeError(r3.stderr or r3.stdout or "refresh_precalc failed")
         else:
             raise ValueError(f"job_type sconosciuto: {job_type}")
-        update_data_job(job_id, "ok", message="completato")
+
+        verify_report = None
+        if job_type == "full_seed":
+            try:
+                from app.services.seed_verify import bq_seed_verify_report
+
+                verify_report = bq_seed_verify_report()
+            except Exception as ve:
+                verify_report = {"error": str(ve)[:500]}
+
+        update_data_job(job_id, "ok", message="completato", verify_report=verify_report)
     except Exception as e:
         err = (str(e) or type(e).__name__)[:2000]
         update_data_job(job_id, "error", message="fallito", error_snippet=err)

@@ -6,6 +6,9 @@ Mantiene ESATTAMENTE brand 1-55, category 1-10, subcategory ids, promo 1-10, seg
 """
 from __future__ import annotations
 
+import json
+import os
+
 # Brand focus: brand_id -> [parent_category_ids]
 BRAND_FOCUS: dict[int, list[int]] = {
     23: [3, 8],     # TP-Link: Computers, Smart Home
@@ -114,9 +117,25 @@ MASS_BRANDS = {9, 32, 34}  # Xiaomi, Beko, Amica
 VARIANTS = ["", " Pro", " Plus", " Ultra", " Max", " Mini", " 55in", " 65in", " 75in", " Standard", " Premium", " Basic", " Lite"]
 
 
+def effective_brand_focus() -> dict[int, list[int]]:
+    raw = (os.environ.get("SEED_BRAND_FOCUS_JSON") or "").strip()
+    if not raw:
+        return BRAND_FOCUS
+    try:
+        d = json.loads(raw)
+        out = dict(BRAND_FOCUS)
+        for k, v in d.items():
+            bid = int(k)
+            if isinstance(v, list):
+                out[bid] = [int(x) for x in v]
+        return out
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return BRAND_FOCUS
+
+
 def build_brand_subcat_pairs() -> list[tuple[int, int]]:
     pairs = []
-    for bid, parents in BRAND_FOCUS.items():
+    for bid, parents in effective_brand_focus().items():
         for p in parents:
             for sid in PARENT_TO_SUB.get(p, []):
                 pairs.append((bid, sid))
