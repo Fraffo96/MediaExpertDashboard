@@ -63,33 +63,91 @@
     }, 2000);
   }
 
-  async function loadTables() {
+  async function dropBqTable(tableId) {
+    if (!tableId) return;
+    if (
+      !window.confirm(
+        'Eliminare definitivamente la tabella «' + tableId + '» nel dataset BigQuery mart? Operazione irreversibile.'
+      )
+    ) {
+      return;
+    }
+    var again = window.prompt('Digita di nuovo il nome esatto della tabella per confermare:');
+    if (again !== tableId) {
+      toast('Annullato', 'error');
+      return;
+    }
+    var safe = tableId.indexOf('precalc_') === 0 || tableId.indexOf('mv_') === 0;
+    var force = !safe;
+    if (
+      force &&
+      !window.confirm(
+        'Questa tabella non è precalc_/mv_. Sul server deve essere impostato ENABLE_ADMIN_BQ_DROP_ANY=1. Continuare? (fallisce se non abilitato)'
+      )
+    ) {
+      return;
+    }
+    try {
+      var r = await fetch('/api/admin/bq/drop-table', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table_id: tableId, confirm: tableId, force: force }),
+      });
+      var d = await r.json();
+      if (!r.ok) {
+        var msg = d.detail != null ? (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail)) : r.statusText;
+        throw new Error(msg);
+      }
+      toast('Tabella eliminata: ' + tableId);
+      loadSummaryAndQuality(true);
+      loadTables({ quiet: true });
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  async function loadTables(opts) {
+    opts = opts || {};
+    var quiet = !!opts.quiet;
     var tbody = document.getElementById('do-bq-tables');
-    tbody.innerHTML = '<tr><td colspan="4">Caricamento…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Caricamento…</td></tr>';
     try {
       var r = await fetch('/api/admin/bq/tables');
       var d = await r.json();
       if (!r.ok) throw new Error(d.detail || r.statusText);
       tbody.innerHTML = '';
       (d.tables || []).forEach(function (t) {
+        var tid = String(t.table_id || '');
         var tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td><code>' +
-          (t.table_id || '') +
-          '</code></td><td>' +
-          (t.row_count != null ? t.row_count : '') +
-          '</td><td>' +
-          (t.size_human || '') +
-          '</td><td>' +
-          (t.last_modified_time || '') +
-          '</td>';
+        var td0 = document.createElement('td');
+        var code = document.createElement('code');
+        code.textContent = tid;
+        td0.appendChild(code);
+        tr.appendChild(td0);
+        var td1 = document.createElement('td');
+        td1.textContent = t.row_count != null ? String(t.row_count) : '';
+        tr.appendChild(td1);
+        var td2 = document.createElement('td');
+        td2.textContent = t.size_human != null ? String(t.size_human) : '';
+        tr.appendChild(td2);
+        var td3 = document.createElement('td');
+        td3.textContent = t.last_modified_time != null ? String(t.last_modified_time) : '';
+        tr.appendChild(td3);
+        var td4 = document.createElement('td');
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'admin-btn small danger';
+        btn.textContent = 'Elimina';
+        btn.setAttribute('data-bq-drop', tid);
+        td4.appendChild(btn);
+        tr.appendChild(td4);
         tbody.appendChild(tr);
       });
-      if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="4">Nessuna tabella.</td></tr>';
-      toast('Tabelle aggiornate');
+      if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="5">Nessuna tabella.</td></tr>';
+      if (!quiet) toast('Tabelle aggiornate');
       loadSummaryAndQuality(true);
     } catch (e) {
-      tbody.innerHTML = '<tr><td colspan="4">' + e.message + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5">' + e.message + '</td></tr>';
       toast(e.message, 'error');
     }
   }
@@ -168,26 +226,39 @@
 
       topBody.innerHTML = '';
       (d.top_tables || []).forEach(function (t) {
+        var tid = String(t.table_id || '');
         var tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td><code>' +
-          (t.table_id || '') +
-          '</code></td><td>' +
-          fmtNum(t.row_count) +
-          '</td><td>' +
-          fmtBytes(t.size_bytes) +
-          '</td><td>' +
-          (t.last_modified_time || '') +
-          '</td>';
+        var td0 = document.createElement('td');
+        var code = document.createElement('code');
+        code.textContent = tid;
+        td0.appendChild(code);
+        tr.appendChild(td0);
+        var td1 = document.createElement('td');
+        td1.textContent = fmtNum(t.row_count);
+        tr.appendChild(td1);
+        var td2 = document.createElement('td');
+        td2.textContent = fmtBytes(t.size_bytes);
+        tr.appendChild(td2);
+        var td3 = document.createElement('td');
+        td3.textContent = t.last_modified_time != null ? String(t.last_modified_time) : '';
+        tr.appendChild(td3);
+        var td4 = document.createElement('td');
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'admin-btn small danger';
+        btn.textContent = 'Elimina';
+        btn.setAttribute('data-bq-drop', tid);
+        td4.appendChild(btn);
+        tr.appendChild(td4);
         topBody.appendChild(tr);
       });
-      if (!topBody.children.length) topBody.innerHTML = '<tr><td colspan="4">Nessun dato.</td></tr>';
+      if (!topBody.children.length) topBody.innerHTML = '<tr><td colspan="5">Nessun dato.</td></tr>';
       if (!silent) toast('Riepilogo dataset aggiornato');
     } catch (e) {
       box.textContent = '';
       box.innerHTML = '<span class="admin-hint" style="color:#f66;">' + e.message + '</span>';
       famBody.innerHTML = '<tr><td colspan="5">' + e.message + '</td></tr>';
-      topBody.innerHTML = '<tr><td colspan="4">' + e.message + '</td></tr>';
+      topBody.innerHTML = '<tr><td colspan="5">' + e.message + '</td></tr>';
     }
     try {
       var rq = await fetch('/api/admin/bq/quality');
@@ -408,6 +479,16 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    var dataOps = document.getElementById('admin-data-ops');
+    if (dataOps) {
+      dataOps.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('[data-bq-drop]');
+        if (!btn) return;
+        ev.preventDefault();
+        var tid = btn.getAttribute('data-bq-drop');
+        if (tid) dropBqTable(tid);
+      });
+    }
     var btnTables = document.getElementById('do-load-tables');
     var btnSummary = document.getElementById('do-load-summary');
     var btnSchema = document.getElementById('do-load-schema');

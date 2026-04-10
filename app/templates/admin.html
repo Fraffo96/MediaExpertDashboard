@@ -9,7 +9,6 @@
 <div class="admin-panel">
   <div class="admin-tabs">
     <button type="button" class="admin-tab active" data-tab="users" aria-selected="true">Users</button>
-    <button type="button" class="admin-tab" data-tab="ecosystems" aria-selected="false">Ecosystems</button>
     <button type="button" class="admin-tab" data-tab="data-ops" aria-selected="false">Data ops</button>
   </div>
   <div id="data-ops-meta" data-project="{{ gcp_project_id }}" data-region="{{ gcp_region }}" hidden></div>
@@ -44,34 +43,6 @@
     </div>
   </section>
 
-  <!-- ECOSYSTEMS SECTION -->
-  <section id="admin-ecosystems" class="admin-section">
-    <div class="admin-section-header">
-      <h2>Ecosystems</h2>
-      <button type="button" class="admin-btn primary" id="btn-new-eco" aria-label="Create new ecosystem">
-        <span class="btn-icon">+</span> New Ecosystem
-      </button>
-    </div>
-
-    <div class="admin-search">
-      <input type="search" id="eco-search" placeholder="Search ecosystems…" aria-label="Search ecosystems">
-    </div>
-
-    <div class="admin-table-wrap">
-      <table class="admin-table" role="grid">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Scope</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="eco-list"></tbody>
-      </table>
-    </div>
-  </section>
-
   <!-- DATA OPS -->
   <section id="admin-data-ops" class="admin-section">
     <p class="admin-intro">BigQuery <code>mart</code>, cache, job lunghi (precalc / full seed) e profili seed su Firestore.</p>
@@ -92,14 +63,18 @@
       <h4>Console GCP</h4>
       <p id="do-console-links" class="admin-hint" style="margin:0;">—</p>
     </div>
-    <div class="admin-table-wrap" style="margin-bottom:1.5rem;">
-      <table class="admin-table" role="grid">
-        <thead>
-          <tr><th>Tabella</th><th>Righe</th><th>Dimensione</th><th>Ultima modifica</th></tr>
-        </thead>
-        <tbody id="do-bq-tables"><tr><td colspan="4">Clicca «Aggiorna tabelle».</td></tr></tbody>
-      </table>
-    </div>
+    <details class="admin-form-section" style="margin-bottom:1.5rem;">
+      <summary style="cursor:pointer;font-weight:600;">Elenco completo tabelle (BigQuery)</summary>
+      <p class="admin-hint" style="margin:0.5rem 0;">Apri per vedere tutte le tabelle con azione <strong>Elimina</strong> (DROP). Le righe sotto sono solo le prime per dimensione.</p>
+      <div class="admin-table-wrap" style="margin-top:0.5rem;">
+        <table class="admin-table" role="grid">
+          <thead>
+            <tr><th>Tabella</th><th>Righe</th><th>Dimensione</th><th>Ultima modifica</th><th></th></tr>
+          </thead>
+          <tbody id="do-bq-tables"><tr><td colspan="5">Clicca «Aggiorna tabelle».</td></tr></tbody>
+        </table>
+      </div>
+    </details>
     <div class="admin-form-section" style="margin-bottom:1.5rem;">
       <h4>Riepilogo dataset (BigQuery)</h4>
       <div id="do-bq-summary" class="admin-hint">Si aggiorna automaticamente aprendo questo tab; oppure usa «Riepilogo dataset».</div>
@@ -109,9 +84,10 @@
           <tbody id="do-bq-summary-families"></tbody>
         </table>
       </div>
+      <p class="admin-hint" style="margin:0.35rem 0 0 0;">Ogni riga può essere eliminata con <strong>Elimina</strong> (DROP su BigQuery). Senza variabile d’ambiente aggiuntiva sono consentite solo <code>precalc_*</code> e <code>mv_*</code>; per <code>dim_</code>/<code>fact_</code> serve <code>ENABLE_ADMIN_BQ_DROP_ANY=1</code> sul servizio.</p>
       <div class="admin-table-wrap" style="margin-top:0.75rem;">
         <table class="admin-table" role="grid">
-          <thead><tr><th>Top tabelle (size)</th><th>Righe</th><th>Dimensione</th><th>Ultima modifica</th></tr></thead>
+          <thead><tr><th>Top tabelle (size)</th><th>Righe</th><th>Dimensione</th><th>Ultima modifica</th><th></th></tr></thead>
           <tbody id="do-bq-summary-top"></tbody>
         </table>
       </div>
@@ -266,47 +242,6 @@
   </div>
 </div>
 
-<!-- Modal: Create Ecosystem -->
-<div id="eco-modal" class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="eco-modal-title" aria-hidden="true">
-  <div class="admin-modal-backdrop"></div>
-  <div class="admin-modal-dialog admin-modal-lg">
-    <div class="admin-modal-header">
-      <h3 id="eco-modal-title">Create Ecosystem</h3>
-      <button type="button" class="admin-modal-close" aria-label="Close">&times;</button>
-    </div>
-    <form id="eco-form" class="admin-modal-body">
-      <div class="admin-form-row">
-        <label for="ne-name">Name</label>
-        <input type="text" id="ne-name" name="name" required placeholder="Kitchen">
-      </div>
-      <div class="admin-form-row">
-        <label for="ne-desc">Description</label>
-        <input type="text" id="ne-desc" name="description" placeholder="Small kitchen appliances">
-      </div>
-      <div class="admin-form-section">
-        <h4>Categories</h4>
-        <div class="admin-checkbox-grid grid-3" id="ne-categories">
-          {% for c in categories %}
-          <label><input type="checkbox" value="{{ c.category_id }}"> {{ c.category_name }}</label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="admin-form-section">
-        <h4>Brands</h4>
-        <div class="admin-checkbox-grid grid-3" id="ne-brands">
-          {% for b in brands %}
-          <label><input type="checkbox" value="{{ b.brand_id }}"> {{ b.brand_name }}</label>
-          {% endfor %}
-        </div>
-      </div>
-    </form>
-    <div class="admin-modal-footer">
-      <button type="button" class="admin-btn secondary admin-modal-cancel">Cancel</button>
-      <button type="submit" form="eco-form" class="admin-btn primary">Create Ecosystem</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal: Confirm Delete -->
 <div id="confirm-modal" class="admin-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-hidden="true">
   <div class="admin-modal-backdrop"></div>
@@ -325,7 +260,6 @@
 <script>window.ADMIN_BRANDS = {{ brands_json | safe }};</script>
 <script>
 (function() {
-  var allEcosystems = [];
   var brandMap = {};
   (window.ADMIN_BRANDS || []).forEach(function(b) { brandMap[b.brand_id] = b.brand_name; });
 
@@ -407,20 +341,6 @@
         '<td>' + access + '</td>' +
         '<td><div class="admin-actions"><button type="button" class="admin-btn small" onclick="window.editUser(' + u.id + ')">Edit</button>' +
         '<button type="button" class="admin-btn small danger" onclick="window.confirmDeleteUser(' + u.id + ',\'' + (u.username || '').replace(/'/g, "\\'") + '\')">Delete</button></div></td></tr>';
-    }).join('');
-  }
-
-  async function loadEcosystems() {
-    var r = await fetch('/api/admin/ecosystems');
-    var allEcosystems = await r.json();
-    var tbody = document.getElementById('eco-list');
-    tbody.innerHTML = allEcosystems.map(function(e) {
-      var scope = (e.category_ids || []).length + ' cats · ' + (e.brand_ids || []).length + ' brands';
-      return '<tr data-name="' + (e.name || '').toLowerCase() + '">' +
-        '<td><strong>' + e.name + '</strong></td>' +
-        '<td>' + (e.description || '—') + '</td>' +
-        '<td>' + scope + '</td>' +
-        '<td><button type="button" class="admin-btn small danger" onclick="window.confirmDeleteEco(' + e.id + ',\'' + (e.name || '').replace(/'/g, "\\'") + '\')">Delete</button></td></tr>';
     }).join('');
   }
 
@@ -529,42 +449,6 @@
     openModal('confirm-modal');
   };
 
-  document.getElementById('btn-new-eco').onclick = function() {
-    document.getElementById('eco-form').reset();
-    openModal('eco-modal');
-  };
-
-  document.getElementById('eco-form').onsubmit = async function(e) {
-    e.preventDefault();
-    var body = {
-      name: document.getElementById('ne-name').value,
-      description: document.getElementById('ne-desc').value,
-      category_ids: getChecked('ne-categories'),
-      brand_ids: getChecked('ne-brands')
-    };
-    var r = await fetch('/api/admin/ecosystems', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (r.ok) {
-      closeModal('eco-modal');
-      loadEcosystems();
-      toast('Ecosystem created');
-    } else {
-      var d = await r.json();
-      toast(d.error || 'Error', 'error');
-    }
-  };
-
-  window.confirmDeleteEco = function(id, name) {
-    document.getElementById('confirm-title').textContent = 'Delete Ecosystem';
-    document.getElementById('confirm-msg').textContent = 'Delete ecosystem "' + name + '"?';
-    document.getElementById('confirm-ok').onclick = async function() {
-      await fetch('/api/admin/ecosystems/' + id, { method: 'DELETE' });
-      closeModal('confirm-modal');
-      loadEcosystems();
-      toast('Ecosystem deleted');
-    };
-    openModal('confirm-modal');
-  };
-
   document.querySelectorAll('.admin-modal-close, .admin-modal-cancel').forEach(function(btn) {
     btn.onclick = function() {
       var modal = btn.closest('.admin-modal');
@@ -591,13 +475,7 @@
     if (!q) return true;
     return (row.getAttribute('data-username') || '').indexOf(q) !== -1 || (row.getAttribute('data-display') || '').indexOf(q) !== -1;
   });
-  filterTable('eco-list', 'eco-search', function(row, q) {
-    if (!q) return true;
-    return (row.getAttribute('data-name') || '').indexOf(q) !== -1;
-  });
-
   loadUsers();
-  loadEcosystems();
 })();
 </script>
 <script src="/static/js/admin/data_ops.js" defer></script>

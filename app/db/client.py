@@ -64,3 +64,10 @@ def run_query_admin(query: str, timeout_sec: int = 120) -> list[dict]:
     job = client.query(query, timeout=timeout_sec)
     rows = job.result(timeout=timeout_sec)
     return [dict(row) for row in rows]
+
+
+def run_ddl_admin(ddl: str, timeout_sec: int = 300) -> None:
+    """Esegue DDL admin (es. DROP TABLE). Usare solo da route protette admin."""
+    client = get_client()
+    job = client.query(ddl, timeout=timeout_sec)
+    job.result(timeout=timeout_sec)

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.parse
 from pathlib import Path
@@ -11,7 +12,9 @@ from typing import Any, Optional
 from fastapi import APIRouter, Body, Cookie, HTTPException
 from fastapi.responses import JSONResponse
 
-from app.db.client import DATASET, PROJECT_ID, run_query_admin
+from app.db.client import DATASET, PROJECT_ID, run_ddl_admin, run_query_admin
+
+_TABLE_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,1022}$")
 from app.services.data_jobs import (
     create_data_job,
     delete_seed_profile,
@@ -40,6 +43,25 @@ def _compile_seed_profile_dict(profile: dict) -> dict:
     return compile_seed_profile(profile)
 
 
+def _bq_drop_allowed(table_id: str, *, force: bool) -> tuple[bool, str]:
+    if not _TABLE_ID_RE.match(table_id):
+        return False, "Nome tabella non valido."
+    if table_id.startswith("precalc_") or table_id.startswith("mv_"):
+        return True, ""
+    if force:
+        if os.getenv("ENABLE_ADMIN_BQ_DROP_ANY", "").strip().lower() not in ("1", "true", "yes"):
+            return (
+                False,
+                "Eliminare dim_/fact_/altre tabelle richiede ENABLE_ADMIN_BQ_DROP_ANY=1 sul servizio e body force=true.",
+            )
+        return True, ""
+    return (
+        False,
+        "Da questa UI puoi eliminare senza flag solo tabelle precalc_* e mv_*. "
+        "Per dim_/fact_/altro: abilita ENABLE_ADMIN_BQ_DROP_ANY=1 e invia force=true.",
+    )
+
+
 def _admin_user(access_token: Optional[str]):
     user = get_user(access_token)
     if not user:
@@ -61,6 +83,40 @@ def _fmt_bytes(n: Any) -> str:
             return f"{x:.2f} {unit}"
         x /= 1024
     return f"{x:.2f} TiB"
+
+
+@router.get("/api/admin/bq/drop-rules")
+async def api_admin_bq_drop_rules(access_token: Optional[str] = Cookie(None)):
+    """Regole drop tabella (solo admin)."""
+    _admin_user(access_token)
+    force_env = os.getenv("ENABLE_ADMIN_BQ_DROP_ANY", "").strip().lower() in ("1", "true", "yes")
+    return {
+        "project_id": PROJECT_ID,
+        "dataset": DATASET,
+        "safe_prefixes": ["precalc_", "mv_"],
+        "force_any_enabled": force_env,
+        "hint": "DROP è irreversibile. Usa refresh precalc / full seed per ricreare.",
+    }
+
+
+@router.post("/api/admin/bq/drop-table")
+async def api_admin_bq_drop_table(access_token: Optional[str] = Cookie(None), body: dict = Body(...)):
+    """Elimina una tabella nel dataset mart (DROP TABLE IF EXISTS)."""
+    _admin_user(access_token)
+    tid = str(body.get("table_id") or "").strip()
+    confirm = str(body.get("confirm") or "").strip()
+    force = bool(body.get("force"))
+    if not tid or tid != confirm:
+        raise HTTPException(status_code=400, detail="Il campo confirm deve essere identico a table_id.")
+    ok, msg = _bq_drop_allowed(tid, force=force)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    fq = f"`{PROJECT_ID}.{DATASET}.{tid}`"
+    try:
+        run_ddl_admin(f"DROP TABLE IF EXISTS {fq}", timeout_sec=600)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"BigQuery: {e}") from e
+    return {"ok": True, "dropped": tid}
 
 
 @router.get("/api/admin/bq/tables")
