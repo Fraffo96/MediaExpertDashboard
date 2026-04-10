@@ -1,6 +1,6 @@
 """
 Script di diagnostica BigQuery – individua perché i chart sono vuoti.
-Esegui: python scripts/diagnose_bigquery.py
+Esegui: python scripts/diagnostics/diagnose_bigquery.py
 
 Possibili cause:
 1. Credenziali GCP non configurate (GOOGLE_APPLICATION_CREDENTIALS)
@@ -10,9 +10,9 @@ Possibili cause:
 """
 import os
 import sys
+from pathlib import Path
 
-# Aggiungi la root del progetto al path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 # Carica .env prima di qualsiasi import che usa variabili d'ambiente
 from dotenv import load_dotenv

@@ -1,6 +1,6 @@
 """
 Diagnostica: verifica se le API usano le tabelle precalcolate e misura i tempi.
-Esegui: python scripts/diagnose_precalc.py
+Esegui: python scripts/diagnostics/diagnose_precalc.py
 
 Richiede: utente loggato con brand_id (usa brand_id=1 per test).
 """
@@ -8,9 +8,11 @@ import asyncio
 import os
 import sys
 import time
+from pathlib import Path
 
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.getcwd())
+_ROOT = Path(__file__).resolve().parents[2]
+os.chdir(_ROOT)
+sys.path.insert(0, str(_ROOT))
 
 # Patch per loggare precalc vs live
 _precalc_log = []

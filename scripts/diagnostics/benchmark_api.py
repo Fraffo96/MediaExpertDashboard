@@ -1,6 +1,6 @@
 """
 Benchmark API e BigQuery – misura tempi reali di caricamento dashboard.
-Uso: python -u scripts/benchmark_api.py
+Uso: python -u scripts/diagnostics/benchmark_api.py
 Richiede: .env con GCP, database mart popolato.
 """
 import asyncio
@@ -9,9 +9,10 @@ _print = functools.partial(print, flush=True)
 import os
 import sys
 import time
+from pathlib import Path
 
-# Setup path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Setup path (repo root)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 os.environ.setdefault("GCP_PROJECT_ID", "mediaexpertdashboard")
 
 # Clear cache prima del benchmark (cold start)

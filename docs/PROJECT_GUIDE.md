@@ -49,7 +49,7 @@ Per evitare che le credenziali scadano (`gcloud auth application-default login` 
 
 Lo script crea un service account, genera la chiave JSON in `credentials/`, e configura `.env`. L'app carica automaticamente `.env` all'avvio. La connessione resta valida finché non revochi la chiave.
 
-**Diagnostica:** `python scripts/diagnose_bigquery.py` per verificare connessione e dati.
+**Diagnostica:** `python scripts/diagnostics/diagnose_bigquery.py` per verificare connessione e dati.
 
 ---
 
@@ -64,7 +64,7 @@ app/
     client.py                     # BigQuery client (run_query)
     queries/
       shared.py                   # Filtri: categories, subcategories, brands, promo_types
-      basic.py                    # Basic Dashboard (legacy)
+      basic/                      # Basic Dashboard (legacy), package query
       promo.py, customer.py, simulation.py, why_buy.py, product.py
       market_intelligence/        # Brand vs media category benchmarks (moduli)
         __init__.py               # Re-export per retrocompatibilità
@@ -221,7 +221,7 @@ Parametri comuni: `period_start`, `period_end`, `category_id`, `subcategory_id`.
 
 Vedi `docs/DATABASE_SCHEMA.md`.
 
-- **55 brand**, **10 categorie + 72 subcategorie** (vedi `docs/CATEGORIES_AND_SUBCATEGORIES.md`)
+- **59 brand**, **10 categorie + 72 subcategorie** (vedi `docs/SEED_TAXONOMY_AND_WEIGHTS.md` per tassonomia seed)
 - **6 segmenti HCG**, **10 tipi promo**
 - **fact_sales_daily**, **fact_promo_performance** derivati da ordini
 

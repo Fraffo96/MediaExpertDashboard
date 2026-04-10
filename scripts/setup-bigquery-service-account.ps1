@@ -140,7 +140,7 @@ Write-Host "BigQuery e Firestore usano lo stesso JSON (GOOGLE_APPLICATION_CREDEN
 Write-Host ""
 Write-Host "Prossimi passi:" -ForegroundColor Yellow
 Write-Host "  1. (Primo deploy DB) Se Firestore non esiste: .\scripts\provision-firestore-and-brand-logos.ps1 -ProjectId $ProjectId"
-Write-Host "  2. Verifica BigQuery: python scripts\diagnose_bigquery.py"
+Write-Host "  2. Verifica BigQuery: python scripts\diagnostics\diagnose_bigquery.py"
 Write-Host "  3. Avvia app: python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
 Write-Host "  4. Login locale: utente default expert / test (creato da init_db se assente)"
 Write-Host ""

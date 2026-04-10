@@ -1,8 +1,11 @@
-"""One-off: genera scripts/precalc_refresh/sql_steps.py da refresh_precalc_tables.py."""
+"""One-off: genera scripts/precalc_refresh/sql_steps.py da refresh_precalc_tables.py.
+
+Esegui dalla root: python scripts/dev/_gen_precalc_steps.py
+"""
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-src = (ROOT / "refresh_precalc_tables.py").read_text(encoding="utf-8")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+src = (REPO_ROOT / "scripts" / "refresh_precalc_tables.py").read_text(encoding="utf-8")
 start = src.index("    # 1. precalc_sales_agg")
 _m = '    if not run_query(client, sql_mkt_peak, "precalc_mkt_purchasing_peak"):\n        sys.exit(1)'
 end = src.index(_m) + len(_m)
@@ -120,7 +123,7 @@ def _dedent_fstring_sql_bodies(text: str) -> str:
 
 
 indented = _dedent_fstring_sql_bodies(raw_indented)
-header = '''"""Step SQL precalc — generato da _gen_precalc_steps.py; non editare a mano (rigenera)."""
+header = '''"""Step SQL precalc — generato da scripts/dev/_gen_precalc_steps.py; non editare a mano (rigenera)."""
 from __future__ import annotations
 
 
@@ -128,7 +131,7 @@ def build_sql_steps(dataset: str, project_id: str) -> list[tuple[str, str]]:
     steps: list[tuple[str, str]] = []
 '''
 footer = "\n    return steps\n"
-out_dir = ROOT / "precalc_refresh"
+out_dir = REPO_ROOT / "scripts" / "precalc_refresh"
 out_dir.mkdir(exist_ok=True)
 (out_dir / "sql_steps.py").write_text(header + indented + footer, encoding="utf-8")
 print("Wrote", out_dir / "sql_steps.py")

@@ -1,6 +1,6 @@
 """
 Verifica: primo caricamento (cold) vs secondo (warm cache).
-Esegui: python scripts/test_cache_timing.py
+Esegui: python scripts/diagnostics/test_cache_timing.py
 
 Se il secondo è <1s, la cache funziona. Il primo sarà lento per le query BigQuery.
 """
@@ -8,9 +8,11 @@ import asyncio
 import os
 import sys
 import time
+from pathlib import Path
 
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.getcwd())
+_ROOT = Path(__file__).resolve().parents[2]
+os.chdir(_ROOT)
+sys.path.insert(0, str(_ROOT))
 
 
 def main():

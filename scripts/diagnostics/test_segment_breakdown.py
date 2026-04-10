@@ -1,14 +1,16 @@
 """
 Test segment breakdown API - verifica che la query restituisca dati.
-Esegui: python scripts/test_segment_breakdown.py
+Esegui: python scripts/diagnostics/test_segment_breakdown.py
 
 Richiede: BigQuery configurato (gcloud auth application-default login).
 """
 import os
 import sys
+from pathlib import Path
 
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.getcwd())
+_ROOT = Path(__file__).resolve().parents[2]
+os.chdir(_ROOT)
+sys.path.insert(0, str(_ROOT))
 
 from app.db.queries.check_live_promo import (
     query_segment_breakdown_for_product,

@@ -1,4 +1,4 @@
-"""Step SQL precalc — generato da _gen_precalc_steps.py; non editare a mano (rigenera)."""
+"""Step SQL precalc — generato da scripts/dev/_gen_precalc_steps.py; non editare a mano (rigenera)."""
 from __future__ import annotations
 
 
