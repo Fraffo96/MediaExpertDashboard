@@ -110,16 +110,25 @@ def main() -> None:
         else:
             raise ValueError(f"job_type sconosciuto: {job_type}")
 
-        verify_report = None
+        verify_report: dict = {}
         if job_type == "full_seed":
             try:
                 from app.services.seed_verify import bq_seed_verify_report
 
-                verify_report = bq_seed_verify_report()
+                verify_report.update(bq_seed_verify_report())
             except Exception as ve:
-                verify_report = {"error": str(ve)[:500]}
+                verify_report["bq_verify_error"] = str(ve)[:500]
 
-        update_data_job(job_id, "ok", message="completato", verify_report=verify_report)
+        # Svuota Redis (prefissi dashboard) + cache in-memory di questo processo.
+        # Il riepilogo Admin legge BigQuery diretto; le API dashboard usano _cache.
+        try:
+            from app.services._cache import clear_service_cache
+
+            verify_report["cache_clear"] = clear_service_cache()
+        except Exception as ce:
+            verify_report["cache_clear"] = {"error": str(ce)[:300]}
+
+        update_data_job(job_id, "ok", message="completato", verify_report=verify_report or None)
     except Exception as e:
         err = (str(e) or type(e).__name__)[:2000]
         update_data_job(job_id, "error", message="fallito", error_snippet=err)
