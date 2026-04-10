@@ -30,10 +30,10 @@
     document.querySelectorAll('.chart-loading').forEach(function(el) { el.classList.add('hidden'); });
   }
   function showChartLoading(scope) {
-    document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.remove('hidden'); });
+    document.querySelectorAll('.chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.remove('hidden'); });
   }
   function hideChartLoading(scope) {
-    document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.add('hidden'); });
+    document.querySelectorAll('.chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.add('hidden'); });
   }
 
   function updateCharts(d, scope) {
@@ -384,6 +384,15 @@
     return fetch(url, { credentials: 'include' }).then(function(r) { return r.json(); });
   }
 
+  /** Banner "no data" sotto i grafici (stessa logica di loadData). */
+  function refreshMiNoDataBanner() {
+    var noData = document.getElementById('mi-no-data');
+    if (!noData) return;
+    var d = buildCompositeFullData();
+    var empty = !(d && (d.sales_value && d.sales_value.length) || (d.promo_share_by_category && d.promo_share_by_category.length) || (d.promo_roi && d.promo_roi.length) || (d.peak_events && d.peak_events.length) || (d.incremental_yoy && d.incremental_yoy.length));
+    noData.style.display = empty ? 'block' : 'none';
+  }
+
   /** Cambio year: da cache se presente, altrimenti GET /all per singolo anno. */
   function onYearChange(scope, year) {
     if (window.MIPeriodWidgets && typeof window.MIPeriodWidgets.forceYearMode === 'function') {
@@ -416,26 +425,30 @@
   }
 
   async function loadDataCustomPeriod(ps, pe, labelHint) {
+    window._miCustomPeriodLoadGen = (window._miCustomPeriodLoadGen || 0) + 1;
+    var loadGen = window._miCustomPeriodLoadGen;
+    var slot = 'custom';
+
     if (typeof showLoadingLight === 'function') showLoadingLight(true);
     showChartLoadings();
     try {
-      var url = buildAllUrl(ps, pe, _scopeState.disc_cat, _scopeState.disc_sub);
-      var resp = await fetchJson(url);
-      if (resp.error) {
-        if (typeof showError === 'function') showError(resp.error || resp.detail || 'Request failed');
+      var base = await fetchJson(buildBaseUrl(ps, pe));
+      if (loadGen !== window._miCustomPeriodLoadGen) return;
+      if (base.error) {
+        if (typeof showError === 'function') showError(base.error || base.detail || 'Request failed');
         hideChartLoadings();
         if (typeof showLoadingLight === 'function') showLoadingLight(false);
         return;
       }
+
       window._miCustomPeriod = true;
       document.body.classList.add('mi-custom-period');
-      var slot = 'custom';
       window._miPeriodYearLabelMap = {};
       window._miPeriodYearLabelMap[slot] = labelHint || (ps + ' → ' + pe);
       window._miIncrementalYoY = {};
       window._miIncrementalYoYChannel = {};
       window._miDataByYear = {};
-      window._miDataByYear[slot] = resp;
+      window._miDataByYear[slot] = base;
       ['category_pie', 'subcategory_pie', 'promo_share', 'promo_roi', 'peak'].forEach(function(k) {
         window._miLiveOverrides[k] = null;
       });
@@ -448,19 +461,59 @@
       _scopeState.year_promo_roi = slot;
       _scopeState.year_peak = slot;
       if (window.MIScopeState) window.MIScopeState.year_segment_sku = ps.slice(0, 4);
-      var metaForDropdowns = Object.assign({}, resp, { available_years: [slot] });
+      var metaForDropdowns = Object.assign({}, base, { available_years: [slot] });
       window._miPopulateInProgress = true;
       if (window.MIDropdowns) window.MIDropdowns.populate(metaForDropdowns, _scopeState, { applyViewFromState: applyViewFromState, loadData: loadData, onYearChange: onYearChange });
       window._miPopulateInProgress = false;
       if (window.MIChartsSegmentSku && window.MIChartsSegmentSku.init) {
-        window.MIChartsSegmentSku.init(_scopeState, resp.brand_categories || [], resp.brand_subcategories || {}, { applyViewFromState: applyViewFromState });
+        window.MIChartsSegmentSku.init(_scopeState, base.brand_categories || [], base.brand_subcategories || {}, { applyViewFromState: applyViewFromState });
       }
       applyViewFromState('all');
       updateSummaryRow(buildCompositeFullData());
-      hideChartLoadings();
+      hideChartLoading('incremental_yoy');
+      hideChartLoading('segment-sku');
+      refreshMiNoDataBanner();
       if (typeof showLoadingLight === 'function') showLoadingLight(false);
       if (typeof showError === 'function') showError('');
+
+      var catIds = base.cat_ids || [];
+      var subIds = base.sub_ids || [];
+      var subCatId = base.subcategory_category_id || (catIds[0] != null ? String(catIds[0]) : '');
+      var discCat = _scopeState.disc_cat;
+      var discSub = _scopeState.disc_sub;
+
+      function mergeSlice(j) {
+        window._miDataByYear[slot] = Object.assign({}, window._miDataByYear[slot] || {}, j);
+      }
+
+      function runSlice(url, applyScope, hideScopes) {
+        hideScopes = hideScopes || [];
+        fetchJson(url).then(function(j) {
+          if (loadGen !== window._miCustomPeriodLoadGen) return;
+          if (j.error) {
+            if (typeof showError === 'function') showError(j.error || j.detail || 'Request failed');
+            hideScopes.forEach(function(s) { hideChartLoading(s); });
+            refreshMiNoDataBanner();
+            return;
+          }
+          if (typeof showError === 'function') showError('');
+          mergeSlice(j);
+          applyViewFromState(applyScope);
+          hideScopes.forEach(function(s) { hideChartLoading(s); });
+          refreshMiNoDataBanner();
+        }).catch(function(e) {
+          if (loadGen !== window._miCustomPeriodLoadGen) return;
+          if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
+          hideScopes.forEach(function(s) { hideChartLoading(s); });
+        });
+      }
+
+      runSlice(buildSalesUrl(ps, pe, catIds, subIds, subCatId), 'sales', ['category_pie', 'subcategory_pie']);
+      runSlice(buildPromoUrl(ps, pe), 'promo', ['promo_share', 'promo_roi']);
+      runSlice(buildPeakUrl(ps, pe), 'peak', ['peak']);
+      runSlice(buildDiscountUrl(ps, pe, discCat, discSub), 'discount', ['discount']);
     } catch (e) {
+      if (loadGen !== window._miCustomPeriodLoadGen) return;
       if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
       hideChartLoadings();
       if (typeof showLoadingLight === 'function') showLoadingLight(false);

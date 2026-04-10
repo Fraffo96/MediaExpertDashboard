@@ -32,10 +32,10 @@
     document.querySelectorAll('.chart-loading').forEach(function(el) { el.classList.add('hidden'); });
   }
   function showChartLoading(scope) {
-    document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.remove('hidden'); });
+    document.querySelectorAll('.chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.remove('hidden'); });
   }
   function hideChartLoading(scope) {
-    document.querySelectorAll('.mi-charts .chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.add('hidden'); });
+    document.querySelectorAll('.chart-loading[data-chart-scope="' + scope + '"]').forEach(function(el) { el.classList.add('hidden'); });
   }
 
   function updateCharts(d, scope) {
@@ -246,6 +246,31 @@
     return fetch(url, { credentials: 'include' }).then(function(r) { return r.json(); });
   }
 
+  function enrichBcBasePayload(base, compId) {
+    var out = Object.assign({}, base);
+    out.competitor_id = compId;
+    out.competitor_name = '';
+    var comps = base.competitors || [];
+    for (var i = 0; i < comps.length; i++) {
+      if (String(comps[i].brand_id) === String(compId)) {
+        out.competitor_name = comps[i].brand_name || '';
+        break;
+      }
+    }
+    return out;
+  }
+
+  function refreshBcNoDataBanner() {
+    var noDataEl = document.getElementById('mi-no-data');
+    var chartsEl = document.getElementById('bc-charts');
+    if (!noDataEl) return;
+    var d = buildCompositeFullData();
+    var empty = !(d && (d.sales_value && d.sales_value.length) || (d.promo_share_by_category && d.promo_share_by_category.length) || (d.promo_roi && d.promo_roi.length) || (d.peak_events && d.peak_events.length));
+    noDataEl.style.display = empty ? 'block' : 'none';
+    if (empty) noDataEl.textContent = 'No data available for the selected competitor.';
+    if (chartsEl) chartsEl.style.display = empty ? 'none' : '';
+  }
+
   async function fetchBcSliceForScope(scope, ps, pe) {
     var compId = _scopeState.competitor_id;
     if (!compId) return;
@@ -403,23 +428,26 @@
 
   async function loadDataCustomPeriod(ps, pe, labelHint) {
     var compId = _scopeState.competitor_id;
-    var noDataEl = document.getElementById('mi-no-data');
     var chartsEl = document.getElementById('bc-charts');
     if (!compId) return;
+    window._bcCustomPeriodLoadGen = (window._bcCustomPeriodLoadGen || 0) + 1;
+    var loadGen = window._bcCustomPeriodLoadGen;
+    var slot = 'custom';
+
     if (typeof showLoading === 'function') showLoading(true);
     showChartLoadings();
     try {
-      var url = core.buildAllUrl(ps, pe, compId, _scopeState.disc_cat, _scopeState.disc_sub);
-      var resp = await fetch(url, { credentials: 'include' }).then(function(r) { return r.json(); });
-      if (resp.error) {
-        if (typeof showError === 'function') showError(resp.error || resp.detail || 'Request failed');
+      var baseRaw = await fetchJson(core.buildBaseUrl(ps, pe, compId));
+      if (loadGen !== window._bcCustomPeriodLoadGen) return;
+      if (baseRaw.error) {
+        if (typeof showError === 'function') showError(baseRaw.error || baseRaw.detail || 'Request failed');
         hideChartLoadings();
         if (typeof showLoading === 'function') showLoading(false);
         return;
       }
+
       window._bcCustomPeriod = true;
       document.body.classList.add('mi-custom-period');
-      var slot = 'custom';
       window._miPeriodYearLabelMap = {};
       window._miPeriodYearLabelMap[slot] = labelHint || (ps + ' → ' + pe);
       ['category_pie', 'subcategory_pie', 'promo_share', 'promo_roi', 'peak'].forEach(function(k) {
@@ -428,27 +456,64 @@
       if (window.MIPeriodWidgets && window._bcPeriodWidgetsInited) {
         window.MIPeriodWidgets.resetAllToYear(_scopeState, window._miLiveOverrides);
       }
+      var base = enrichBcBasePayload(baseRaw, compId);
       window._miDataByYear = {};
-      window._miDataByYear[slot] = resp;
+      window._miDataByYear[slot] = base;
       _scopeState.year_category_pie = slot;
       _scopeState.year_subcategory_pie = slot;
       _scopeState.year_promo_share = slot;
       _scopeState.year_promo_roi = slot;
       _scopeState.year_peak = slot;
-      var fullData = resp;
-      var metaForDropdowns = Object.assign({}, fullData, {
+      var metaForDropdowns = Object.assign({}, base, {
         available_years: [slot],
-        competitors: window._bcBase ? (window._bcBase.competitors || []) : (fullData.competitors || [])
+        competitors: window._bcBase ? (window._bcBase.competitors || []) : (base.competitors || [])
       });
       if (window.BCDropdowns) window.BCDropdowns.populate(metaForDropdowns, _scopeState, { applyViewFromState: applyViewFromState, loadData: loadData, onYearChange: onYearChange });
       applyViewFromState('all');
       updateSummaryRow(buildCompositeFullData());
-      hideChartLoadings();
       if (chartsEl) chartsEl.style.display = '';
-      if (noDataEl) noDataEl.style.display = 'none';
+      refreshBcNoDataBanner();
       if (typeof showLoading === 'function') showLoading(false);
       if (typeof showError === 'function') showError('');
+
+      var catIds = base.cat_ids || [];
+      var subIds = base.sub_ids || [];
+      var subCatId = base.subcategory_category_id || (catIds[0] != null ? String(catIds[0]) : '');
+      var discCat = _scopeState.disc_cat;
+      var discSub = _scopeState.disc_sub;
+
+      function mergeSlice(j) {
+        window._miDataByYear[slot] = Object.assign({}, window._miDataByYear[slot] || {}, j);
+      }
+
+      function runSlice(url, applyScope, hideScopes) {
+        hideScopes = hideScopes || [];
+        fetchJson(url).then(function(j) {
+          if (loadGen !== window._bcCustomPeriodLoadGen) return;
+          if (j.error) {
+            if (typeof showError === 'function') showError(j.error || j.detail || 'Request failed');
+            hideScopes.forEach(function(s) { hideChartLoading(s); });
+            refreshBcNoDataBanner();
+            return;
+          }
+          if (typeof showError === 'function') showError('');
+          mergeSlice(j);
+          applyViewFromState(applyScope);
+          hideScopes.forEach(function(s) { hideChartLoading(s); });
+          refreshBcNoDataBanner();
+        }).catch(function(e) {
+          if (loadGen !== window._bcCustomPeriodLoadGen) return;
+          if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
+          hideScopes.forEach(function(s) { hideChartLoading(s); });
+        });
+      }
+
+      runSlice(core.buildSalesUrl(ps, pe, compId, catIds, subIds, subCatId), 'sales', ['category_pie', 'subcategory_pie']);
+      runSlice(core.buildPromoUrl(ps, pe, compId), 'promo', ['promo_share', 'promo_roi']);
+      runSlice(core.buildPeakUrl(ps, pe, compId), 'peak', ['peak']);
+      runSlice(core.buildDiscountUrl(ps, pe, compId, discCat, discSub), 'discount', ['discount']);
     } catch (e) {
+      if (loadGen !== window._bcCustomPeriodLoadGen) return;
       if (typeof showError === 'function') showError('Failed to load: ' + (e && e.message));
       hideChartLoadings();
       if (typeof showLoading === 'function') showLoading(false);

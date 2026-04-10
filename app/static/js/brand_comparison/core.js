@@ -7,8 +7,10 @@
     return '/api/brand-comparison/competitors?period_start=' + encodeURIComponent(ps) + '&period_end=' + encodeURIComponent(pe);
   }
 
-  function buildBaseUrl(ps, pe) {
-    return '/api/brand-comparison/base?period_start=' + encodeURIComponent(ps) + '&period_end=' + encodeURIComponent(pe);
+  function buildBaseUrl(ps, pe, competitorId) {
+    var q = ['period_start=' + encodeURIComponent(ps), 'period_end=' + encodeURIComponent(pe)];
+    if (competitorId) q.push('competitor_id=' + encodeURIComponent(competitorId));
+    return '/api/brand-comparison/base?' + q.join('&');
   }
 
   function buildAllUrl(ps, pe, competitorId, discCat, discSub) {
@@ -41,6 +43,13 @@
     return '/api/brand-comparison/peak?period_start=' + encodeURIComponent(ps) + '&period_end=' + encodeURIComponent(pe) + '&competitor_id=' + encodeURIComponent(competitorId || '');
   }
 
+  function buildDiscountUrl(ps, pe, competitorId, discCat, discSub) {
+    var q = ['period_start=' + encodeURIComponent(ps), 'period_end=' + encodeURIComponent(pe), 'competitor_id=' + encodeURIComponent(competitorId || '')];
+    if (discCat) q.push('discount_category_id=' + encodeURIComponent(discCat));
+    if (discSub) q.push('discount_subcategory_id=' + encodeURIComponent(discSub));
+    return '/api/brand-comparison/discount?' + q.join('&');
+  }
+
   window.BCCore = {
     buildCompetitorsUrl: buildCompetitorsUrl,
     buildBaseUrl: buildBaseUrl,
@@ -48,6 +57,7 @@
     buildAllYearsUrl: buildAllYearsUrl,
     buildSalesUrl: buildSalesUrl,
     buildPromoUrl: buildPromoUrl,
-    buildPeakUrl: buildPeakUrl
+    buildPeakUrl: buildPeakUrl,
+    buildDiscountUrl: buildDiscountUrl
   };
 })();

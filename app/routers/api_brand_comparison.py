@@ -58,14 +58,15 @@ async def api_brand_comparison_base(
     access_token: Optional[str] = Cookie(None),
     period_start: str = DP[0],
     period_end: str = DP[1],
+    competitor_id: str | None = None,
 ):
-    """Brand Comparison: metadata (brand_cats, competitors, years, channels). Usato da all-years."""
+    """Brand Comparison: metadata (brand_cats, competitors, years, channels). competitor_id → intersezione categorie con il competitor."""
     user = get_user(access_token)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     if not user.brand_id:
         return JSONResponse({"error": "Brand required for Brand Comparison"}, status_code=400)
-    return await _bc().get_bc_base(period_start, period_end, user.brand_id)
+    return await _bc().get_bc_base(period_start, period_end, user.brand_id, competitor_id)
 
 
 @router.get("/api/brand-comparison/all", tags=["Brand Comparison"])
@@ -172,6 +173,43 @@ async def api_brand_comparison_peak(
     brand_subcats_map = base.get("brand_subcategories", {})
     return await _bc().get_bc_peak(
         period_start, period_end, user.brand_id, competitor_id, brand_cats, brand_subcats_map
+    )
+
+
+@router.get("/api/brand-comparison/discount", tags=["Brand Comparison"])
+async def api_brand_comparison_discount(
+    access_token: Optional[str] = Cookie(None),
+    period_start: str = DP[0],
+    period_end: str = DP[1],
+    competitor_id: str | None = None,
+    discount_category_id: str | None = None,
+    discount_subcategory_id: str | None = None,
+):
+    """Brand Comparison: discount depth (stesso payload di get_bc_all / discount slice)."""
+    user = get_user(access_token)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    if not user.brand_id:
+        return JSONResponse({"error": "Brand required for Brand Comparison"}, status_code=400)
+    if not competitor_id:
+        return JSONResponse({"error": "Competitor required"}, status_code=400)
+    bad = reject_if_cat_sub_out_of_scope(user, discount_category_id, discount_subcategory_id)
+    if bad:
+        return bad
+    base = await _bc().get_bc_base(period_start, period_end, user.brand_id, competitor_id)
+    if base.get("error"):
+        return base
+    brand_cats = base.get("brand_categories", [])
+    sub_ids = base.get("sub_ids", [])
+    return await _bc().get_bc_discount(
+        period_start,
+        period_end,
+        user.brand_id,
+        competitor_id,
+        brand_cats,
+        sub_ids,
+        discount_cat=discount_category_id,
+        discount_subcat=discount_subcategory_id,
     )
 
 
