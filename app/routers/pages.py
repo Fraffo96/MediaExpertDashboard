@@ -374,6 +374,7 @@ async def page_admin(request: Request, access_token: Optional[str] = Cookie(None
         brands = ADMIN_BRANDS
     ctx = page_ctx(f, user)
     ctx["categories"] = [c for c in categories if c.get("level") == 1] or ADMIN_CATEGORIES
+    ctx["categories_json"] = json.dumps(ctx["categories"])
     ctx["subcategories"] = subcategories
     ctx["brands"] = brands
     ctx["brands_json"] = json.dumps(brands)

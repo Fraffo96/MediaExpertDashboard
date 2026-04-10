@@ -133,6 +133,29 @@ def effective_brand_focus() -> dict[int, list[int]]:
         return BRAND_FOCUS
 
 
+def effective_brand_promo_affinity() -> dict[int, float]:
+    """Moltiplicatore sul mix premium per brand (1 = default). Da SEED_BRAND_PROMO_AFFINITY_JSON."""
+    raw = (os.environ.get("SEED_BRAND_PROMO_AFFINITY_JSON") or "").strip()
+    if not raw:
+        return {}
+    try:
+        d = json.loads(raw)
+        if not isinstance(d, dict):
+            return {}
+        out: dict[int, float] = {}
+        for k, v in d.items():
+            try:
+                bid = int(k)
+                fv = float(v)
+                if fv > 0:
+                    out[bid] = fv
+            except (TypeError, ValueError):
+                continue
+        return out
+    except json.JSONDecodeError:
+        return {}
+
+
 def build_brand_subcat_pairs() -> list[tuple[int, int]]:
     pairs = []
     for bid, parents in effective_brand_focus().items():
@@ -144,6 +167,7 @@ def build_brand_subcat_pairs() -> list[tuple[int, int]]:
 
 def generate_products(n: int = 1200) -> str:
     pairs = build_brand_subcat_pairs()
+    promo_aff = effective_brand_promo_affinity()
     products = []
     pid = 10001
     for i in range(n):
@@ -159,6 +183,9 @@ def generate_products(n: int = 1200) -> str:
         if bid in SPECIALIST_BRANDS:
             avg = int(avg * 1.2)
             prem_share = min(0.9, prem_share * 1.3)
+        aff = promo_aff.get(bid)
+        if aff is not None:
+            prem_share = max(0.02, min(0.95, prem_share * aff))
         # Variance
         var = 1 + (spread * ((i * 17 + 31) % 100 - 50) / 100)
         price = max(99, int(avg * var / 50) * 50)

@@ -100,33 +100,120 @@
       <h4>Schema (colonne)</h4>
       <div id="do-bq-schema" class="admin-hint" style="max-height:280px;overflow:auto;">—</div>
     </div>
-    <div class="admin-form-section" style="margin-bottom:1.5rem;">
-      <h4>Data Creator (profilo v2)</h4>
-      <p class="admin-hint">JSON con <code>profile_version: 2</code>, <code>global</code>, opzionale <code>segment_rules</code>, <code>segment_behavior</code>, <code>promo_rules</code>, <code>brand_rules</code>. Valida e anteprima prima del full seed.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.5rem 0;align-items:center;">
-        <label for="dc-share-1" style="font-size:0.85rem;">Seg1</label>
-        <input type="range" id="dc-share-1" min="0" max="100" value="17" style="width:6rem;">
-        <label for="dc-share-2" style="font-size:0.85rem;">Seg2</label>
-        <input type="range" id="dc-share-2" min="0" max="100" value="17" style="width:6rem;">
-        <label for="dc-share-3" style="font-size:0.85rem;">Seg3</label>
-        <input type="range" id="dc-share-3" min="0" max="100" value="17" style="width:6rem;">
-        <label for="dc-share-4" style="font-size:0.85rem;">Seg4</label>
-        <input type="range" id="dc-share-4" min="0" max="100" value="17" style="width:6rem;">
-        <label for="dc-share-5" style="font-size:0.85rem;">Seg5</label>
-        <input type="range" id="dc-share-5" min="0" max="100" value="16" style="width:6rem;">
-        <label for="dc-share-6" style="font-size:0.85rem;">Seg6</label>
-        <input type="range" id="dc-share-6" min="0" max="100" value="16" style="width:6rem;">
-        <button type="button" class="admin-btn secondary" id="dc-apply-shares">Applica quote al JSON</button>
-        <button type="button" class="admin-btn secondary" id="dc-preset">Preset minimo</button>
+    <div class="admin-form-section dc-root" style="margin-bottom:1.5rem;">
+      <h4>Data Creator</h4>
+      <p class="admin-hint">Configura il <strong>profilo seed v2</strong>. Il <strong>full seed</strong> esegue in sequenza: catalogo prodotti (file SQL) → tabelle BigQuery → precalc.</p>
+      <div class="dc-pipeline" role="region" aria-label="Passi pipeline">
+        <div class="dc-pipeline-step"><strong>A</strong> Catalogo SKU → <code>bigquery/dim_product_generated.sql</code> <span class="admin-hint">(volumi, brand focus, affinità promo)</span></div>
+        <div class="dc-pipeline-step"><strong>B</strong> Seed mart → <code>schema_and_seed.sql</code> + patch <span class="admin-hint">(clienti, ordini, pool prodotti)</span></div>
+        <div class="dc-pipeline-step"><strong>C</strong> Tabelle <code>precalc_*</code> <span class="admin-hint">(derivate da B; job full seed le ricrea)</span></div>
       </div>
-      <textarea id="dc-profile-json" rows="12" style="width:100%;max-width:48rem;font-family:monospace;font-size:0.8rem;" spellcheck="false" placeholder='{"profile_version":2,"global":{"num_orders":380000,"num_customers":24000,"num_products":1200}}'></textarea>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;">
-        <button type="button" class="admin-btn secondary" id="dc-validate">Valida</button>
-        <button type="button" class="admin-btn secondary" id="dc-preview">Anteprima</button>
-        <button type="button" class="admin-btn secondary" id="dc-compile">Compila</button>
+
+      <fieldset class="dc-fieldset">
+        <legend>Volumi <span class="dc-affects">→ passi A + B</span></legend>
+        <div class="dc-grid-3">
+          <div class="admin-form-row dc-slider-row">
+            <label for="dc-num-orders">Ordini</label>
+            <input type="number" id="dc-num-orders" min="1" value="380000" step="1000">
+          </div>
+          <div class="admin-form-row dc-slider-row">
+            <label for="dc-num-customers">Clienti</label>
+            <input type="number" id="dc-num-customers" min="1" value="24000" step="100">
+          </div>
+          <div class="admin-form-row dc-slider-row">
+            <label for="dc-num-products">SKU (prodotti)</label>
+            <input type="number" id="dc-num-products" min="1" value="1200" step="50">
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Date ordini <span class="dc-affects">→ passo B</span> (<code>fact_orders</code>)</legend>
+        <div class="dc-grid-3">
+          <div class="admin-form-row">
+            <label for="dc-date-start">Inizio</label>
+            <input type="date" id="dc-date-start" value="2023-01-01">
+          </div>
+          <div class="admin-form-row">
+            <label for="dc-date-end">Fine</label>
+            <input type="date" id="dc-date-end" value="2024-12-31">
+          </div>
+          <p class="admin-hint" style="margin:0;align-self:end;">Lo span giorni è calcolato da inizio–fine.</p>
+        </div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Quote clienti per segmento <span class="dc-affects">→ passo B</span></legend>
+        <p class="admin-hint">Pesi relativi (0–100), normalizzati automaticamente. Nomi segmento come nel seed.</p>
+        <div id="dc-seg-shares"></div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Comportamento per segmento <span class="dc-affects">→ passo B</span></legend>
+        <p class="admin-hint">Sensibilità promo, churn, loyalty, premium mix, fascia reddito. Canali: spunta = attivo.</p>
+        <div id="dc-seg-behavior"></div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Promo (ordini) <span class="dc-affects">→ passo B</span></legend>
+        <div class="dc-slider-row">
+          <label for="dc-promo-slope">Curva: pendenza (slope)</label>
+          <input type="range" id="dc-promo-slope" min="0" max="150" value="58" data-scale="0.01">
+          <span class="dc-val" id="dc-promo-slope-val">0.58</span>
+        </div>
+        <div class="dc-slider-row">
+          <label for="dc-promo-intercept">Curva: intercetta</label>
+          <input type="range" id="dc-promo-intercept" min="0" max="100" value="17" data-scale="0.01">
+          <span class="dc-val" id="dc-promo-intercept-val">0.17</span>
+        </div>
+        <p class="admin-hint">Bias sconto % per segmento (aggiunge punti percentuali alla profondità sconto quando c’è promo):</p>
+        <div id="dc-discount-bias"></div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Categorie parent preferite per segmento <span class="dc-affects">→ passo B</span> (<code>product_pool</code>)</legend>
+        <p class="admin-hint">Spunta le categorie (1–10) rilevanti per ogni segmento; vuoto = default schema.</p>
+        <div id="dc-seg-categories"></div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Brand → categorie parent (focus catalogo) <span class="dc-affects">→ passo A</span></legend>
+        <p class="admin-hint">Override opzionale: quali categorie parent (1–10) il brand copre nel pool prodotti. Senza spunte sul brand si usa il default interno.</p>
+        <div id="dc-brand-focus" class="dc-brand-focus-wrap"></div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Affinità promo per brand (catalogo) <span class="dc-affects">→ passo A</span></legend>
+        <p class="admin-hint">Moltiplicatore mix SKU <strong>premium</strong> (1 = default, &gt;1 più premium, &lt;1 meno).</p>
+        <div id="dc-brand-promo-aff"></div>
+      </fieldset>
+
+      <fieldset class="dc-fieldset">
+        <legend>Guardrail (opzionale)</legend>
+        <div class="dc-grid-3">
+          <div class="admin-form-row">
+            <label for="dc-guard-orders">max_num_orders</label>
+            <input type="number" id="dc-guard-orders" min="0" placeholder="vuoto = no">
+          </div>
+          <div class="admin-form-row">
+            <label for="dc-guard-customers">max_num_customers</label>
+            <input type="number" id="dc-guard-customers" min="0" placeholder="vuoto = no">
+          </div>
+        </div>
+      </fieldset>
+
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0;align-items:center;">
+        <button type="button" class="admin-btn secondary" id="dc-preset">Ripristina default</button>
+        <button type="button" class="admin-btn primary" id="dc-preview">Aggiorna anteprima</button>
         <button type="button" class="admin-btn primary" id="dc-full-seed" style="background:#6b4f1a;border-color:#8a6a2a;">Full seed con questo profilo</button>
       </div>
-      <pre id="dc-out" class="admin-hint" style="max-height:220px;overflow:auto;margin-top:0.5rem;white-space:pre-wrap;"></pre>
+      <div id="dc-preview-out" class="dc-preview-box admin-hint" aria-live="polite">Clicca «Aggiorna anteprima» per vedere quote, date e sintesi compilazione.</div>
+
+      <details class="dc-adv-details" style="margin-top:1rem;">
+        <summary>Modifica JSON grezzo (avanzato)</summary>
+        <p class="admin-hint">Sincronizza con il form: incolla JSON e esci dal campo (blur) per applicare. Il form resta la sorgente principale.</p>
+        <textarea id="dc-profile-json" rows="10" style="width:100%;max-width:48rem;font-family:monospace;font-size:0.8rem;" spellcheck="false"></textarea>
+      </details>
     </div>
     <div class="admin-form-section" style="margin-bottom:1.5rem;">
       <h4>Job asincroni</h4>
@@ -258,6 +345,7 @@
 
 {% block scripts %}
 <script>window.ADMIN_BRANDS = {{ brands_json | safe }};</script>
+<script>window.ADMIN_CATEGORIES = {{ categories_json | safe }};</script>
 <script>
 (function() {
   var brandMap = {};
@@ -479,4 +567,5 @@
 })();
 </script>
 <script src="/static/js/admin/data_ops.js" defer></script>
+<script src="/static/js/admin/data_creator.js" defer></script>
 {% endblock %}
