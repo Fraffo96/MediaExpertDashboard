@@ -15,6 +15,24 @@ from google.cloud import bigquery
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "mediaexpertdashboard")
 SCRIPT_DIR = Path(__file__).resolve().parent
 SQL_FILE = SCRIPT_DIR.parent / "bigquery" / "schema_and_seed.sql"
+
+
+def apply_seed_numeric_overrides(content: str) -> str:
+    """Sostituisce i valori default ordini/clienti nel seed (env SEED_NUM_ORDERS / SEED_NUM_CUSTOMERS)."""
+    try:
+        n_c = int(os.environ.get("SEED_NUM_CUSTOMERS", "24000"))
+        n_o = int(os.environ.get("SEED_NUM_ORDERS", "380000"))
+    except ValueError:
+        return content
+    if n_c == 24000 and n_o == 380000:
+        return content
+    c = content.replace("GENERATE_ARRAY(1, 24000)", f"GENERATE_ARRAY(1, {n_c})")
+    c = c.replace("GENERATE_ARRAY(1, 380000)", f"GENERATE_ARRAY(1, {n_o})")
+    c = c.replace(
+        "MOD(ABS(FARM_FINGERPRINT(CONCAT('c', CAST(od.i AS STRING)))), 24000)",
+        f"MOD(ABS(FARM_FINGERPRINT(CONCAT('c', CAST(od.i AS STRING)))), {n_c})",
+    )
+    return c
 DIM_PRODUCT_FILE = SCRIPT_DIR.parent / "bigquery" / "dim_product_generated.sql"
 DERIVE_FILE = SCRIPT_DIR.parent / "bigquery" / "derive_sales_from_orders.sql"
 MATERIALIZED_VIEWS_FILE = SCRIPT_DIR.parent / "bigquery" / "materialized_views.sql"
@@ -72,7 +90,7 @@ def main():
     if not SQL_FILE.exists():
         print(f"File non trovato: {SQL_FILE}", file=sys.stderr)
         sys.exit(1)
-    content = SQL_FILE.read_text(encoding="utf-8")
+    content = apply_seed_numeric_overrides(SQL_FILE.read_text(encoding="utf-8"))
     statements = split_sql(content)
     raw_blocks = extract_raw_blocks(content)
     client = bigquery.Client(project=PROJECT_ID)

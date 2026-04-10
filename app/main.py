@@ -20,6 +20,7 @@ from app.auth.database import init_db
 from app.auth.routes import router as auth_router
 from app.jinja_env import BASE_DIR
 from app.routers import (
+    api_admin_dataops,
     api_brand_comparison,
     api_check_live,
     api_market_intelligence,
@@ -45,6 +46,7 @@ app.include_router(api_marketing.router)
 app.include_router(api_brand_comparison.router)
 app.include_router(api_check_live.router)
 app.include_router(api_misc.router)
+app.include_router(api_admin_dataops.router)
 
 
 @app.on_event("startup")

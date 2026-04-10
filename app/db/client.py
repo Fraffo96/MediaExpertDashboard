@@ -56,3 +56,11 @@ def run_query(
     job = client.query(query, job_config=job_config, timeout=30)
     rows = job.result(timeout=30)
     return [dict(row) for row in rows]
+
+
+def run_query_admin(query: str, timeout_sec: int = 120) -> list[dict]:
+    """Query di sola lettura per pannelli admin (INFORMATION_SCHEMA, __TABLES__)."""
+    client = get_client()
+    job = client.query(query, timeout=timeout_sec)
+    rows = job.result(timeout=timeout_sec)
+    return [dict(row) for row in rows]

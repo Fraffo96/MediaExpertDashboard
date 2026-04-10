@@ -10,7 +10,9 @@
   <div class="admin-tabs">
     <button type="button" class="admin-tab active" data-tab="users" aria-selected="true">Users</button>
     <button type="button" class="admin-tab" data-tab="ecosystems" aria-selected="false">Ecosystems</button>
+    <button type="button" class="admin-tab" data-tab="data-ops" aria-selected="false">Data ops</button>
   </div>
+  <div id="data-ops-meta" data-project="{{ gcp_project_id }}" data-region="{{ gcp_region }}" hidden></div>
 
   <!-- USERS SECTION -->
   <section id="admin-users" class="admin-section active">
@@ -67,6 +69,76 @@
         </thead>
         <tbody id="eco-list"></tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- DATA OPS -->
+  <section id="admin-data-ops" class="admin-section">
+    <p class="admin-intro">BigQuery <code>mart</code>, cache, job lunghi (precalc / full seed) e profili seed su Firestore.</p>
+    <div class="admin-section-header">
+      <h2>Dataset &amp; pipeline</h2>
+      <div class="admin-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+        <button type="button" class="admin-btn secondary" id="do-load-tables">Aggiorna tabelle</button>
+        <button type="button" class="admin-btn secondary" id="do-load-schema">Carica schema</button>
+        <button type="button" class="admin-btn secondary" id="do-clear-cache">Svuota cache</button>
+        <button type="button" class="admin-btn secondary" id="do-prewarm">Prewarm</button>
+      </div>
+    </div>
+    <div class="admin-form-section" style="margin-bottom:1rem;">
+      <h4>Console GCP</h4>
+      <p id="do-console-links" class="admin-hint" style="margin:0;">—</p>
+    </div>
+    <div class="admin-table-wrap" style="margin-bottom:1.5rem;">
+      <table class="admin-table" role="grid">
+        <thead>
+          <tr><th>Tabella</th><th>Righe</th><th>Dimensione</th><th>Ultima modifica</th></tr>
+        </thead>
+        <tbody id="do-bq-tables"><tr><td colspan="4">Clicca «Aggiorna tabelle».</td></tr></tbody>
+      </table>
+    </div>
+    <div class="admin-form-section" style="margin-bottom:1.5rem;">
+      <h4>Schema (colonne)</h4>
+      <div id="do-bq-schema" class="admin-hint" style="max-height:280px;overflow:auto;">—</div>
+    </div>
+    <div class="admin-form-section" style="margin-bottom:1.5rem;">
+      <h4>Job asincroni</h4>
+      <p class="admin-hint">Non usare per ambienti senza Firestore o senza worker/Job configurato.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-top:0.5rem;">
+        <div class="admin-form-row" style="margin:0;">
+          <label for="do-seed-profile">Profilo seed</label>
+          <select id="do-seed-profile"><option value="">— default env —</option></select>
+        </div>
+        <button type="button" class="admin-btn primary" id="do-job-precalc">Avvia precalc</button>
+        <button type="button" class="admin-btn primary" id="do-job-full" style="background:#6b4f1a;border-color:#8a6a2a;">Full seed + schema + precalc</button>
+      </div>
+      <p id="do-job-status" class="admin-hint" style="margin-top:0.75rem;">—</p>
+    </div>
+    <div class="admin-form-section">
+      <h4>Profili seed (Firestore)</h4>
+      <div class="admin-form-row" style="max-width:32rem;">
+        <label for="sp-id">ID profilo</label>
+        <input type="text" id="sp-id" placeholder="es. demo-small" autocomplete="off">
+      </div>
+      <div class="admin-form-row" style="max-width:32rem;">
+        <label for="sp-name">Nome</label>
+        <input type="text" id="sp-name" placeholder="Demo ridotto">
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:0.75rem;max-width:36rem;">
+        <div class="admin-form-row" style="margin:0;">
+          <label for="sp-orders">Ordini</label>
+          <input type="number" id="sp-orders" value="380000" min="1">
+        </div>
+        <div class="admin-form-row" style="margin:0;">
+          <label for="sp-customers">Clienti</label>
+          <input type="number" id="sp-customers" value="24000" min="1">
+        </div>
+        <div class="admin-form-row" style="margin:0;">
+          <label for="sp-products">SKU generati</label>
+          <input type="number" id="sp-products" value="1200" min="1">
+        </div>
+      </div>
+      <button type="button" class="admin-btn primary" id="sp-save" style="margin-top:0.75rem;">Salva profilo</button>
+      <ul id="sp-list" class="admin-hint" style="margin-top:0.75rem;padding-left:1.2rem;"></ul>
     </div>
   </section>
 </div>
@@ -476,4 +548,5 @@
   loadEcosystems();
 })();
 </script>
+<script src="/static/js/admin/data_ops.js" defer></script>
 {% endblock %}

@@ -7,6 +7,9 @@ COPY app/requirements.txt ./app/
 RUN pip install --no-cache-dir -r app/requirements.txt
 
 COPY app/ ./app/
+COPY scripts/ ./scripts/
+COPY bigquery/ ./bigquery/
+ENV PYTHONPATH=/app
 # Porta esposta per Cloud Run (usa variabile PORT)
 ENV PORT=8080
 EXPOSE 8080

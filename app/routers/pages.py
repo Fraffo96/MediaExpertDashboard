@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, Request
@@ -376,6 +377,10 @@ async def page_admin(request: Request, access_token: Optional[str] = Cookie(None
     ctx["subcategories"] = subcategories
     ctx["brands"] = brands
     ctx["brands_json"] = json.dumps(brands)
+    from app.db.client import PROJECT_ID as _gcp_pid
+
+    ctx["gcp_project_id"] = _gcp_pid
+    ctx["gcp_region"] = (os.environ.get("GCP_REGION") or os.environ.get("CLOUD_RUN_REGION") or "europe-west1").strip()
     return templates.TemplateResponse(request, "admin.html", {**ctx, "active": "admin"})
 
 

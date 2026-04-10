@@ -78,6 +78,8 @@ Le dashboard usano tabelle precalcolate (`mart.precalc_*`) su BigQuery per caric
 
 Vedi `docs/PRECALC_TABLES.md` per mappatura dashboard → tabelle e come aggiungere nuove dashboard.
 
+**Data ops (admin):** pannello Admin → tab *Data ops* — statistiche `mart.__TABLES__`, schema `INFORMATION_SCHEMA`, link Console, clear cache + prewarm, job asincroni (`dashboard_data_jobs` / `dashboard_seed_profiles` su Firestore). Refresh precalc modulare: `scripts/precalc_refresh/` + `scripts/refresh_precalc_tables.py`. Cleanup oggetti di test: `bigquery/cleanup_idempotent.sql`. Deploy Job lunghi: `deploy/DATA_PIPELINE_JOB.md`.
+
 ---
 
 ## Comandi essenziali
@@ -127,6 +129,13 @@ python scripts/refresh_precalc_tables.py
 python scripts/generate_seed_data.py
 python scripts/run_bigquery_schema.py
 ```
+
+---
+
+## GCP / BigQuery (ambiente locale)
+
+- **`gcloud auth login`** e **`gcloud auth application-default login`** salvano le credenziali **sulla macchina dello sviluppatore** (config gcloud + ADC). Non è possibile “memorizzare il login” nella chat tra sessioni Cursor.
+- **Per gli agenti:** non chiedere ogni volta di rifare il login. Eseguire direttamente `gcloud`, `bq` o script Python; **solo se** il comando fallisce con errore di autenticazione (es. token scaduto), suggerire `gcloud auth login` e/o `gcloud auth application-default login` (o gli script `scripts/gcloud-browser-login.ps1`, `scripts/gcloud-application-default-login.ps1`).
 
 ---
 

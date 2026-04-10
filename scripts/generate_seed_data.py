@@ -153,7 +153,11 @@ def generate_products(n: int = 1200) -> str:
 
 
 def main():
-    sql = generate_products(1200)
+    try:
+        n = int(os.environ.get("SEED_NUM_PRODUCTS", "1200"))
+    except ValueError:
+        n = 1200
+    sql = generate_products(n)
     out = __file__.replace("generate_seed_data.py", "").replace("scripts", "bigquery") + "../bigquery/dim_product_generated.sql"
     from pathlib import Path
     out_path = Path(__file__).parent.parent / "bigquery" / "dim_product_generated.sql"
