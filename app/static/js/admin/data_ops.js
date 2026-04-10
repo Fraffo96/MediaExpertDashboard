@@ -1,5 +1,5 @@
 /**
- * Admin tab Data ops: BigQuery stats, schema, cache, job pipeline, seed profiles.
+ * Admin tab Data ops: BigQuery stats, schema, cache, job pipeline (seed da env/server).
  */
 (function () {
   function toast(msg, type) {
@@ -365,50 +365,13 @@
     }
   }
 
-  async function refreshProfiles() {
-    var sel = document.getElementById('do-seed-profile');
-    var list = document.getElementById('sp-list');
-    try {
-      var r = await fetch('/api/admin/seed-profiles');
-      var d = await r.json();
-      if (!r.ok) throw new Error(d.detail || r.statusText);
-      var cur = sel.value;
-      sel.innerHTML = '<option value="">— default env —</option>';
-      (d.profiles || []).forEach(function (p) {
-        var o = document.createElement('option');
-        o.value = p.id;
-        o.textContent = (p.name || p.id) + ' (' + p.id + ')';
-        sel.appendChild(o);
-      });
-      if (cur) sel.value = cur;
-      list.innerHTML = '';
-      (d.profiles || []).forEach(function (p) {
-        var li = document.createElement('li');
-        li.innerHTML =
-          '<code>' +
-          p.id +
-          '</code> — ordini ' +
-          p.num_orders +
-          ', clienti ' +
-          p.num_customers +
-          ', SKU ' +
-          p.product_count;
-        list.appendChild(li);
-      });
-    } catch (e) {
-      list.textContent = e.message;
-    }
-  }
-
   async function startJob(jobType, extraBody) {
-    var sel = document.getElementById('do-seed-profile');
     var body = { job_type: jobType };
     if (extraBody) {
       Object.keys(extraBody).forEach(function (k) {
         body[k] = extraBody[k];
       });
     }
-    if (sel && sel.value && !body.profile_v2) body.seed_profile_id = sel.value;
     var st = document.getElementById('do-job-status');
     st.textContent = 'Avvio…';
     try {
@@ -430,7 +393,6 @@
 
   function onTabDataOps() {
     loadLinks();
-    refreshProfiles();
     loadSummaryAndQuality(true);
   }
 
@@ -452,7 +414,6 @@
     var btnPrewarm = document.getElementById('do-prewarm');
     var btnPrecalc = document.getElementById('do-job-precalc');
     var btnFull = document.getElementById('do-job-full');
-    var btnSaveProf = document.getElementById('sp-save');
     if (!btnTables) return;
 
     btnTables.addEventListener('click', loadTables);
@@ -466,33 +427,6 @@
     btnFull.addEventListener('click', function () {
       if (!confirm('Full seed riscrive molti dati su BigQuery e può durare molto. Continuare?')) return;
       startJob('full_seed');
-    });
-
-    btnSaveProf.addEventListener('click', async function () {
-      var id = (document.getElementById('sp-id').value || '').trim();
-      if (!id) {
-        toast('ID profilo obbligatorio', 'error');
-        return;
-      }
-      try {
-        var r = await fetch('/api/admin/seed-profiles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: id,
-            name: document.getElementById('sp-name').value || id,
-            num_orders: parseInt(document.getElementById('sp-orders').value, 10),
-            num_customers: parseInt(document.getElementById('sp-customers').value, 10),
-            product_count: parseInt(document.getElementById('sp-products').value, 10),
-          }),
-        });
-        var d = await r.json();
-        if (!r.ok) throw new Error(d.detail || r.statusText);
-        toast('Profilo salvato');
-        refreshProfiles();
-      } catch (e) {
-        toast(e.message, 'error');
-      }
     });
 
     document.querySelectorAll('.admin-tab').forEach(function (tab) {

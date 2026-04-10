@@ -45,7 +45,7 @@
 
   <!-- DATA OPS -->
   <section id="admin-data-ops" class="admin-section">
-    <p class="admin-intro">BigQuery <code>mart</code>, cache, job lunghi (precalc / full seed) e profili seed su Firestore.</p>
+    <p class="admin-intro">BigQuery <code>mart</code>, cache e job lunghi (precalc / full seed). I volumi e il profilo del seed sono definiti in <strong>configurazione server</strong> (env / Cloud Run Job), non da questa pagina.</p>
     <p class="admin-hint" style="margin:-0.25rem 0 0.75rem 0;padding:0.6rem 0.75rem;border-left:3px solid var(--accent, #6b9bd1);background:rgba(255,255,255,0.04);">
       <strong>Cache vs dati.</strong> «Svuota cache» elimina solo le risposte in Redis/RAM dell’app: <em>non</em> cancella ordini, clienti o tabelle su BigQuery. I grafici dopo il login rileggono BQ tramite le API (a volte ancora in cache). Per vedere numeri allineati al dataset dopo un seed, svuota cache o attendi il TTL. Per <em>sostituire</em> i dati serve un job <strong>full seed</strong> (o script che ricrea le tabelle). Il riepilogo sotto elenca le <strong>tabelle</strong> nel dataset (nome, righe, peso stimato in storage): non sono file sul PC.
     </p>
@@ -100,160 +100,14 @@
       <h4>Schema (colonne)</h4>
       <div id="do-bq-schema" class="admin-hint" style="max-height:280px;overflow:auto;">—</div>
     </div>
-    <div class="admin-form-section dc-root" style="margin-bottom:1.5rem;">
-      <h4>Data Creator</h4>
-      <p class="admin-hint">Configura il <strong>profilo seed v2</strong>. Il <strong>full seed</strong> esegue in sequenza: catalogo prodotti (file SQL) → tabelle BigQuery → precalc.</p>
-      <div class="dc-pipeline" role="region" aria-label="Passi pipeline">
-        <div class="dc-pipeline-step"><strong>A</strong> Catalogo SKU → <code>bigquery/dim_product_generated.sql</code> <span class="admin-hint">(volumi, brand focus, affinità promo)</span></div>
-        <div class="dc-pipeline-step"><strong>B</strong> Seed mart → <code>schema_and_seed.sql</code> + patch <span class="admin-hint">(clienti, ordini, pool prodotti)</span></div>
-        <div class="dc-pipeline-step"><strong>C</strong> Tabelle <code>precalc_*</code> <span class="admin-hint">(derivate da B; job full seed le ricrea)</span></div>
-      </div>
-
-      <fieldset class="dc-fieldset">
-        <legend>Volumi <span class="dc-affects">→ passi A + B</span></legend>
-        <div class="dc-grid-3">
-          <div class="admin-form-row dc-slider-row">
-            <label for="dc-num-orders">Ordini</label>
-            <input type="number" id="dc-num-orders" min="1" value="380000" step="1000">
-          </div>
-          <div class="admin-form-row dc-slider-row">
-            <label for="dc-num-customers">Clienti</label>
-            <input type="number" id="dc-num-customers" min="1" value="24000" step="100">
-          </div>
-          <div class="admin-form-row dc-slider-row">
-            <label for="dc-num-products">SKU (prodotti)</label>
-            <input type="number" id="dc-num-products" min="1" value="1200" step="50">
-          </div>
-        </div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Date ordini <span class="dc-affects">→ passo B</span> (<code>fact_orders</code>)</legend>
-        <div class="dc-grid-3">
-          <div class="admin-form-row">
-            <label for="dc-date-start">Inizio</label>
-            <input type="date" id="dc-date-start" value="2023-01-01">
-          </div>
-          <div class="admin-form-row">
-            <label for="dc-date-end">Fine</label>
-            <input type="date" id="dc-date-end" value="2024-12-31">
-          </div>
-          <p class="admin-hint" style="margin:0;align-self:end;">Lo span giorni è calcolato da inizio–fine.</p>
-        </div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Quote clienti per segmento <span class="dc-affects">→ passo B</span></legend>
-        <p class="admin-hint">Pesi relativi (0–100), normalizzati automaticamente. Nomi segmento come nel seed.</p>
-        <div id="dc-seg-shares"></div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Comportamento per segmento <span class="dc-affects">→ passo B</span></legend>
-        <p class="admin-hint">Sensibilità promo, churn, loyalty, premium mix, fascia reddito. Canali: spunta = attivo.</p>
-        <div id="dc-seg-behavior"></div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Promo (ordini) <span class="dc-affects">→ passo B</span></legend>
-        <div class="dc-slider-row">
-          <label for="dc-promo-slope">Curva: pendenza (slope)</label>
-          <input type="range" id="dc-promo-slope" min="0" max="150" value="58" data-scale="0.01">
-          <span class="dc-val" id="dc-promo-slope-val">0.58</span>
-        </div>
-        <div class="dc-slider-row">
-          <label for="dc-promo-intercept">Curva: intercetta</label>
-          <input type="range" id="dc-promo-intercept" min="0" max="100" value="17" data-scale="0.01">
-          <span class="dc-val" id="dc-promo-intercept-val">0.17</span>
-        </div>
-        <p class="admin-hint">Bias sconto % per segmento (aggiunge punti percentuali alla profondità sconto quando c’è promo):</p>
-        <div id="dc-discount-bias"></div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Categorie parent preferite per segmento <span class="dc-affects">→ passo B</span> (<code>product_pool</code>)</legend>
-        <p class="admin-hint">Spunta le categorie (1–10) rilevanti per ogni segmento; vuoto = default schema.</p>
-        <div id="dc-seg-categories"></div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Brand → categorie parent (focus catalogo) <span class="dc-affects">→ passo A</span></legend>
-        <p class="admin-hint">Override opzionale: quali categorie parent (1–10) il brand copre nel pool prodotti. Senza spunte sul brand si usa il default interno.</p>
-        <div id="dc-brand-focus" class="dc-brand-focus-wrap"></div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Affinità promo per brand (catalogo) <span class="dc-affects">→ passo A</span></legend>
-        <p class="admin-hint">Moltiplicatore mix SKU <strong>premium</strong> (1 = default, &gt;1 più premium, &lt;1 meno).</p>
-        <div id="dc-brand-promo-aff"></div>
-      </fieldset>
-
-      <fieldset class="dc-fieldset">
-        <legend>Guardrail (opzionale)</legend>
-        <div class="dc-grid-3">
-          <div class="admin-form-row">
-            <label for="dc-guard-orders">max_num_orders</label>
-            <input type="number" id="dc-guard-orders" min="0" placeholder="vuoto = no">
-          </div>
-          <div class="admin-form-row">
-            <label for="dc-guard-customers">max_num_customers</label>
-            <input type="number" id="dc-guard-customers" min="0" placeholder="vuoto = no">
-          </div>
-        </div>
-      </fieldset>
-
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:1rem 0;align-items:center;">
-        <button type="button" class="admin-btn secondary" id="dc-preset">Ripristina default</button>
-        <button type="button" class="admin-btn primary" id="dc-preview">Aggiorna anteprima</button>
-        <button type="button" class="admin-btn primary" id="dc-full-seed" style="background:#6b4f1a;border-color:#8a6a2a;">Full seed con questo profilo</button>
-      </div>
-      <div id="dc-preview-out" class="dc-preview-box admin-hint" aria-live="polite">Clicca «Aggiorna anteprima» per vedere quote, date e sintesi compilazione.</div>
-
-      <details class="dc-adv-details" style="margin-top:1rem;">
-        <summary>Modifica JSON grezzo (avanzato)</summary>
-        <p class="admin-hint">Sincronizza con il form: incolla JSON e esci dal campo (blur) per applicare. Il form resta la sorgente principale.</p>
-        <textarea id="dc-profile-json" rows="10" style="width:100%;max-width:48rem;font-family:monospace;font-size:0.8rem;" spellcheck="false"></textarea>
-      </details>
-    </div>
     <div class="admin-form-section" style="margin-bottom:1.5rem;">
       <h4>Job asincroni</h4>
-      <p class="admin-hint">Non usare per ambienti senza Firestore o senza worker/Job configurato.</p>
+      <p class="admin-hint">Richiede Firestore e worker / Cloud Run Job. Il <strong>full seed</strong> rigenera catalogo SQL, applica <code>schema_and_seed</code> e poi precalc, usando <strong>solo</strong> variabili d’ambiente e file nel repo (nessun profilo da questa UI).</p>
       <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-top:0.5rem;">
-        <div class="admin-form-row" style="margin:0;">
-          <label for="do-seed-profile">Profilo seed</label>
-          <select id="do-seed-profile"><option value="">— default env —</option></select>
-        </div>
         <button type="button" class="admin-btn primary" id="do-job-precalc">Avvia precalc</button>
         <button type="button" class="admin-btn primary" id="do-job-full" style="background:#6b4f1a;border-color:#8a6a2a;">Full seed + schema + precalc</button>
       </div>
       <p id="do-job-status" class="admin-hint" style="margin-top:0.75rem;">—</p>
-    </div>
-    <div class="admin-form-section">
-      <h4>Profili seed (Firestore)</h4>
-      <div class="admin-form-row" style="max-width:32rem;">
-        <label for="sp-id">ID profilo</label>
-        <input type="text" id="sp-id" placeholder="es. demo-small" autocomplete="off">
-      </div>
-      <div class="admin-form-row" style="max-width:32rem;">
-        <label for="sp-name">Nome</label>
-        <input type="text" id="sp-name" placeholder="Demo ridotto">
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:0.75rem;max-width:36rem;">
-        <div class="admin-form-row" style="margin:0;">
-          <label for="sp-orders">Ordini</label>
-          <input type="number" id="sp-orders" value="380000" min="1">
-        </div>
-        <div class="admin-form-row" style="margin:0;">
-          <label for="sp-customers">Clienti</label>
-          <input type="number" id="sp-customers" value="24000" min="1">
-        </div>
-        <div class="admin-form-row" style="margin:0;">
-          <label for="sp-products">SKU generati</label>
-          <input type="number" id="sp-products" value="1200" min="1">
-        </div>
-      </div>
-      <button type="button" class="admin-btn primary" id="sp-save" style="margin-top:0.75rem;">Salva profilo</button>
-      <ul id="sp-list" class="admin-hint" style="margin-top:0.75rem;padding-left:1.2rem;"></ul>
     </div>
   </section>
 </div>
@@ -345,7 +199,6 @@
 
 {% block scripts %}
 <script>window.ADMIN_BRANDS = {{ brands_json | safe }};</script>
-<script>window.ADMIN_CATEGORIES = {{ categories_json | safe }};</script>
 <script>
 (function() {
   var brandMap = {};
@@ -567,5 +420,4 @@
 })();
 </script>
 <script src="/static/js/admin/data_ops.js" defer></script>
-<script src="/static/js/admin/data_creator.js" defer></script>
 {% endblock %}

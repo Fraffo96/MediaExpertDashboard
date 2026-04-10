@@ -1,12 +1,9 @@
-"""Admin: osservabilità BigQuery, cache/prewarm, job pipeline asincroni, profili seed."""
+"""Admin: osservabilità BigQuery, cache/prewarm, job pipeline asincroni."""
 from __future__ import annotations
 
-import json
 import os
 import re
-import sys
 import urllib.parse
-from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, Body, Cookie, HTTPException
@@ -17,30 +14,14 @@ from app.db.client import DATASET, PROJECT_ID, run_ddl_admin, run_query_admin
 _TABLE_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,1022}$")
 from app.services.data_jobs import (
     create_data_job,
-    delete_seed_profile,
     get_data_job,
-    get_seed_profile,
-    list_seed_profiles,
-    save_seed_profile,
     spawn_local_worker,
     trigger_cloud_run_job,
 )
 from app.services.prewarm import prewarm_cache
-from app.services.seed_profile_v2 import preview_profile_v2, validate_profile_v2
 from app.web.context import get_user
 
 router = APIRouter(tags=["Admin"])
-
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCRIPTS = _REPO_ROOT / "scripts"
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-
-
-def _compile_seed_profile_dict(profile: dict) -> dict:
-    from seed_planner.compiler import compile_seed_profile  # type: ignore[import-not-found]
-
-    return compile_seed_profile(profile)
 
 
 def _bq_drop_allowed(table_id: str, *, force: bool) -> tuple[bool, str]:
@@ -319,43 +300,28 @@ async def api_admin_start_data_job(
     access_token: Optional[str] = Cookie(None),
     body: dict = Body(...),
 ):
-    """Avvia pipeline lunga (precalc o full_seed) via Cloud Run Job o subprocess locale."""
+    """Avvia pipeline lunga (precalc o full_seed) via Cloud Run Job o subprocess locale.
+
+    Nessun profilo seed dall'UI: volumi e patch SQL dipendono da env / file nel repo (worker).
+    """
     user = _admin_user(access_token)
     job_type = str(body.get("job_type") or "").strip()
     if job_type not in ("precalc", "full_seed"):
         raise HTTPException(status_code=400, detail="job_type deve essere precalc o full_seed")
-    seed_profile_id = body.get("seed_profile_id")
-    seed_profile_id = str(seed_profile_id).strip() if seed_profile_id else None
-    profile_v2 = body.get("profile_v2")
-    profile_for_job: Optional[dict] = None
-    if isinstance(profile_v2, dict) and profile_v2:
-        normalized, verr = validate_profile_v2(profile_v2)
-        if verr:
-            raise HTTPException(
-                status_code=400,
-                detail={"errors": [e.to_dict() for e in verr]},
-            )
-        profile_for_job = normalized
-        seed_profile_id = None
-    elif seed_profile_id:
-        profile_for_job = get_seed_profile(seed_profile_id)
-        if not profile_for_job:
-            raise HTTPException(status_code=404, detail="Profilo seed non trovato")
     try:
         rec = create_data_job(
             job_type,
-            seed_profile_id=seed_profile_id,
+            seed_profile_id=None,
             payload={"started_by": user.username},
-            profile_inline=profile_for_job,
+            profile_inline=None,
         )
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Firestore: {e}") from e
     jid = rec["id"]
-    prof_json = json.dumps(profile_for_job) if profile_for_job else None
-    triggered = trigger_cloud_run_job(jid, job_type, seed_profile_json=prof_json)
+    triggered = trigger_cloud_run_job(jid, job_type, seed_profile_json=None)
     runner = "cloud_run_job"
     if not triggered:
-        if spawn_local_worker(jid, job_type, profile_for_job):
+        if spawn_local_worker(jid, job_type, None):
             runner = "subprocess"
         else:
             return JSONResponse(
@@ -375,90 +341,3 @@ async def api_admin_get_data_job(job_id: str, access_token: Optional[str] = Cook
     if not job:
         raise HTTPException(status_code=404, detail="Job non trovato")
     return job
-
-
-@router.get("/api/admin/seed-profiles")
-async def api_admin_list_seed_profiles(access_token: Optional[str] = Cookie(None)):
-    _admin_user(access_token)
-    return {"profiles": list_seed_profiles()}
-
-
-@router.post("/api/admin/seed-profiles")
-async def api_admin_upsert_seed_profile(
-    access_token: Optional[str] = Cookie(None),
-    body: dict = Body(...),
-):
-    _admin_user(access_token)
-    pid = str(body.get("id") or "").strip()
-    if not pid:
-        raise HTTPException(status_code=400, detail="id profilo obbligatorio")
-    name = str(body.get("name") or pid).strip()
-    try:
-        num_orders = int(body.get("num_orders") or 380000)
-        num_customers = int(body.get("num_customers") or 24000)
-        product_count = int(body.get("product_count") or 1200)
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="numeri non validi")
-    return save_seed_profile(pid, name, num_orders, num_customers, product_count)
-
-
-@router.delete("/api/admin/seed-profiles/{profile_id}")
-async def api_admin_delete_seed_profile(profile_id: str, access_token: Optional[str] = Cookie(None)):
-    _admin_user(access_token)
-    delete_seed_profile(profile_id)
-    return {"ok": True}
-
-
-@router.post("/api/admin/seed/validate")
-async def api_admin_seed_validate(access_token: Optional[str] = Cookie(None), body: dict = Body(...)):
-    """Valida un profilo seed v2 (senza eseguire la pipeline)."""
-    _admin_user(access_token)
-    raw = dict(body)
-    nested = raw.pop("profile", None)
-    to_validate: dict = nested if isinstance(nested, dict) else raw
-    normalized, errors = validate_profile_v2(to_validate)
-    return {
-        "ok": len(errors) == 0,
-        "normalized": normalized,
-        "errors": [e.to_dict() for e in errors],
-    }
-
-
-@router.post("/api/admin/seed/preview")
-async def api_admin_seed_preview(access_token: Optional[str] = Cookie(None), body: dict = Body(...)):
-    """Anteprima profilo v2 + (default) distribuzioni attese dal compiler."""
-    _admin_user(access_token)
-    do_compile = body.get("compile", True)
-    raw = dict(body)
-    raw.pop("compile", None)
-    nested = raw.pop("profile", None)
-    to_validate: dict = nested if isinstance(nested, dict) else raw
-    normalized, errors = validate_profile_v2(to_validate)
-    if errors:
-        return JSONResponse(
-            {"ok": False, "errors": [e.to_dict() for e in errors]},
-            status_code=400,
-        )
-    compiled = _compile_seed_profile_dict(normalized) if do_compile else None
-    return {"ok": True, "preview": preview_profile_v2(normalized, compiled)}
-
-
-@router.post("/api/admin/seed/compile")
-async def api_admin_seed_compile(access_token: Optional[str] = Cookie(None), body: dict = Body(...)):
-    """Compila profilo v2 in struttura per patch SQL + preview (senza eseguire job)."""
-    _admin_user(access_token)
-    raw = dict(body)
-    include_sql = bool(raw.pop("include_sql", False))
-    nested = raw.pop("profile", None)
-    to_validate: dict = nested if isinstance(nested, dict) else raw
-    normalized, errors = validate_profile_v2(to_validate)
-    if errors:
-        return JSONResponse(
-            {"ok": False, "errors": [e.to_dict() for e in errors]},
-            status_code=400,
-        )
-    compiled = _compile_seed_profile_dict(normalized)
-    slim = dict(compiled)
-    if not include_sql:
-        slim.pop("sql", None)
-    return {"ok": True, "normalized": normalized, "compiled": slim}

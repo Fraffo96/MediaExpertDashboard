@@ -78,7 +78,7 @@ Le dashboard usano tabelle precalcolate (`mart.precalc_*`) su BigQuery per caric
 
 Vedi `docs/PRECALC_TABLES.md` per mappatura dashboard → tabelle e come aggiungere nuove dashboard.
 
-**Data ops (admin):** pannello Admin → tab *Data ops* — statistiche `mart.__TABLES__`, schema `INFORMATION_SCHEMA`, link Console, clear cache + prewarm, job asincroni (`dashboard_data_jobs` / `dashboard_seed_profiles` su Firestore). Refresh precalc modulare: `scripts/precalc_refresh/` + `scripts/refresh_precalc_tables.py`. Cleanup oggetti di test: `bigquery/cleanup_idempotent.sql`. Deploy Job lunghi: `deploy/DATA_PIPELINE_JOB.md`.
+**Data ops (admin):** pannello Admin → tab *Data ops* — statistiche `mart.__TABLES__`, schema `INFORMATION_SCHEMA`, link Console, clear cache + prewarm, DROP tabelle (con guardrail), job asincroni precalc/full seed (`dashboard_data_jobs` su Firestore; **nessun** profilo seed da UI — volumi da env/Cloud Run Job e script). Refresh precalc modulare: `scripts/precalc_refresh/` + `scripts/refresh_precalc_tables.py`. Cleanup: `bigquery/cleanup_idempotent.sql`. Deploy Job: `deploy/DATA_PIPELINE_JOB.md`.
 
 ---
 
