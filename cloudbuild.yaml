@@ -47,13 +47,15 @@ steps:
         if [ -n "${_FIRESTORE_DATABASE}" ]; then
           ENV_VARS="$${ENV_VARS},FIRESTORE_DATABASE=${_FIRESTORE_DATABASE}"
         fi
+        # --update-env-vars (non --set-env-vars): non cancella variabili aggiunte a mano su Cloud Run
+        # (es. GEMINI_API_KEY da scripts/push-gemini-env-to-cloud-run.ps1). Altrimenti ogni push su main le azzera.
         DEPLOY=(gcloud run deploy dashboard
           --image="${_REGION}-docker.pkg.dev/${_PROJECT_ID}/dashboard/dashboard:${SHORT_SHA}"
           --region="${_REGION}"
           --project="${_PROJECT_ID}"
           --platform=managed
           --allow-unauthenticated
-          --set-env-vars="$${ENV_VARS}"
+          --update-env-vars="$${ENV_VARS}"
           --memory=2Gi
           --cpu=2
           --port=8080

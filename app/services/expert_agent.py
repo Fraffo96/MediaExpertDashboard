@@ -128,11 +128,13 @@ class ExpertAgent:
         self.api_key = _env("GEMINI_API_KEY")
         self.model = _env("GEMINI_MODEL") or "gemini-2.0-flash"
         self._client = None
+        self._client_error: str | None = None
         if self.api_key and genai is not None:
             try:
                 self._client = genai.Client(api_key=self.api_key)
-            except Exception:
+            except Exception as e:  # pragma: no cover
                 self._client = None
+                self._client_error = str(e)
 
     async def handle(self, *, messages: list[dict], user: Any) -> str:
         msgs = [m for m in (messages or []) if isinstance(m, dict)]
@@ -151,8 +153,15 @@ class ExpertAgent:
                 "Ensure `google-genai` is installed (see app/requirements.txt) and redeploy. "
                 f"Your brand_id is {brand_id}."
             )
-        if not self.api_key or not self._client:
+        if not self.api_key:
             return self._offline_answer(int(brand_id), msgs[-1].get("text") or "")
+        if not self._client:
+            err = (self._client_error or "unknown error").strip()
+            return (
+                "GEMINI_API_KEY is set but the Gemini client failed to initialize. "
+                f"Detail: {err}. Check the key and server logs. "
+                f"Your brand_id is {brand_id}."
+            )
 
         sys_text = _build_system_instruction(int(brand_id), ps, pe)
         tool = build_expert_gemini_tool()
