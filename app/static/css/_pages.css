@@ -12,9 +12,10 @@
 
 /* Landing page */
 .landing-page { padding: 2rem 1.5rem; width: 100%; max-width: 100%; }
-.landing-grid { display: grid; grid-template-columns: minmax(520px, 1fr) 420px; gap: 1.25rem; align-items: start; }
+.landing-grid { display: grid; grid-template-columns: minmax(520px, 1fr) 620px; gap: 1.25rem; align-items: start; }
 .landing-main { min-width: 0; }
 .landing-expert { position: sticky; top: 0.75rem; align-self: start; }
+.landing-expert { max-width: 100%; }
 .landing-greeting { font-size: 1.1rem; color: var(--text); margin-bottom: 1.5rem; line-height: 1.5; }
 .landing-greeting.fade-in { animation: fadeIn 0.5s ease both; }
 .landing-question { font-size: 1.5rem; font-weight: 700; color: var(--white); margin-bottom: 1.5rem; }
@@ -87,7 +88,7 @@
 .expert-clear:hover { border-color: var(--yellow-dim); color: var(--yellow); }
 
 .expert-messages {
-  height: min(520px, calc(100vh - 290px));
+  height: min(640px, calc(100vh - 260px));
   overflow-y: auto;
   padding: 0.9rem 1rem;
   display: flex;
@@ -178,4 +179,9 @@
   .page { margin-left: 56px; }
   .charts-grid, .admin-layout, .compare-grid, .mi-charts { grid-template-columns: 1fr; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1500px) {
+  .landing-grid { grid-template-columns: minmax(680px, 1fr) 720px; }
+  .expert-messages { height: min(720px, calc(100vh - 240px)); }
 }
