@@ -16,6 +16,7 @@ from app.db.queries.market_intelligence import segment_sku as mi_segment_sku
 from app.db.queries.marketing import segment_by_category as mkt_seg_cat
 from app.db.queries.marketing import purchasing as mkt_purchasing
 from app.db.queries import promo_creator as promo_q
+from app.services import marketing as marketing_svc
 
 # HCG segments (aligned with mart.dim_segment seed)
 STATIC_SEGMENTS: list[dict[str, Any]] = [
@@ -321,6 +322,115 @@ def tool_list_competitors_in_category(
     return {"competitors": _truncate_rows(rows or [], 50)}
 
 
+def _trim_segment_summary_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    """Keep segment summary small for Gemini (pain_points, needstates, top SKUs/categories)."""
+    segs = raw.get("segments") or []
+    out_segs: list[dict[str, Any]] = []
+    for s in segs[:6]:
+        out_segs.append(
+            {
+                "segment_id": s.get("segment_id"),
+                "name": s.get("name"),
+                "pain_points": s.get("pain_points"),
+                "needstates": s.get("needstates"),
+                "top_categories_note": s.get("top_categories_note"),
+                "top_categories": _truncate_rows(s.get("top_categories") or [], 5),
+                "top_skus": _truncate_rows(s.get("top_skus") or [], 5),
+            }
+        )
+    return {"segments": out_segs, "period": raw.get("period")}
+
+
+def tool_get_segment_marketing_summary(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    segment_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+) -> dict[str, Any]:
+    """Pain points, needstate tags, top categories/SKUs for one HCG segment (optionally scoped to category/subcategory)."""
+    sid = int(segment_id)
+    if not (1 <= sid <= 6):
+        return {"error": "segment_id must be 1–6"}
+    pc = int(parent_category_id) if parent_category_id and 1 <= int(parent_category_id) <= 10 else None
+    sub = int(subcategory_id) if subcategory_id and int(subcategory_id) >= 100 else None
+    raw = marketing_svc.get_segment_summary(ps, pe, sid, pc, sub, int(brand_id))
+    return _trim_segment_summary_payload(raw if isinstance(raw, dict) else {})
+
+
+def tool_get_category_needstate_landscape(
+    ps: str,
+    pe: str,
+    *,
+    parent_category_id: int,
+) -> dict[str, Any]:
+    """All segments: revenue share in parent category + dominant needstate label (market-wide, not brand-only)."""
+    pc = int(parent_category_id)
+    if not (1 <= pc <= 10):
+        return {"error": "parent_category_id must be 1–10"}
+    raw = marketing_svc.get_needstates(ps, pe, pc, None)
+    segs = raw.get("segments") or []
+    return {
+        "category_id": raw.get("category_id"),
+        "period": raw.get("period"),
+        "segments": _truncate_rows(segs, 12),
+    }
+
+
+def tool_get_needstate_dimensions_for_segment(
+    ps: str,
+    pe: str,
+    *,
+    parent_category_id: int,
+    segment_id: int,
+) -> dict[str, Any]:
+    """Seven needstate dimensions with affinity scores for one segment in a parent category (spider / prioritisation)."""
+    pc = int(parent_category_id)
+    sid = int(segment_id)
+    if not (1 <= pc <= 10) or not (1 <= sid <= 6):
+        return {"error": "parent_category_id 1–10 and segment_id 1–6 required"}
+    return marketing_svc.get_needstates(ps, pe, pc, sid)
+
+
+def tool_get_media_touchpoints(
+    *,
+    segment_id: int,
+    parent_category_id: int | None = None,
+) -> dict[str, Any]:
+    """How the segment uses media / touchpoints (social, TV-style blocks, etc.) — static model tuned by category."""
+    sid = int(segment_id)
+    if not (1 <= sid <= 6):
+        return {"error": "segment_id must be 1–6"}
+    pc = int(parent_category_id) if parent_category_id and 1 <= int(parent_category_id) <= 10 else None
+    return marketing_svc.get_media_preferences(sid, pc)
+
+
+def tool_get_purchasing_journey(
+    ps: str,
+    pe: str,
+    *,
+    segment_id: int | None = None,
+    parent_category_id: int | None = None,
+) -> dict[str, Any]:
+    """Purchase channels, peak events, traffic source mix, pre-purchase search intent (for 'how they inform themselves')."""
+    sid = _opt_int(segment_id)
+    pc = int(parent_category_id) if parent_category_id and 1 <= int(parent_category_id) <= 10 else None
+    raw = marketing_svc.get_purchasing(ps, pe, sid, pc)
+    if not isinstance(raw, dict):
+        return {"error": "no data"}
+    return {
+        "channel_mix": _truncate_rows(raw.get("channel_mix") or [], 20),
+        "peak_events": _truncate_rows(raw.get("peak_events") or [], 12),
+        "source_mix": raw.get("source_mix"),
+        "pre_purchase_searches": raw.get("pre_purchase_searches"),
+        "segment_id": raw.get("segment_id"),
+        "parent_category_id": raw.get("parent_category_id"),
+        "period": raw.get("period"),
+    }
+
+
 _TOOL_IMPL = {
     "list_categories": lambda ps, pe, bid, a: tool_list_categories(),
     "list_segments": lambda ps, pe, bid, a: tool_list_segments(),
@@ -388,6 +498,35 @@ _TOOL_IMPL = {
         brand_id=int(_opt_int(a.get("brand_id")) or bid),
         parent_category_id=_opt_int(a.get("parent_category_id")),
         subcategory_id=_opt_int(a.get("subcategory_id")),
+    ),
+    "get_segment_marketing_summary": lambda ps, pe, bid, a: tool_get_segment_marketing_summary(
+        ps,
+        pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        segment_id=_req_int(a.get("segment_id"), None, "segment_id"),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+        subcategory_id=_opt_int(a.get("subcategory_id")),
+    ),
+    "get_category_needstate_landscape": lambda ps, pe, bid, a: tool_get_category_needstate_landscape(
+        ps,
+        pe,
+        parent_category_id=_req_int(a.get("parent_category_id"), None, "parent_category_id"),
+    ),
+    "get_needstate_dimensions_for_segment": lambda ps, pe, bid, a: tool_get_needstate_dimensions_for_segment(
+        ps,
+        pe,
+        parent_category_id=_req_int(a.get("parent_category_id"), None, "parent_category_id"),
+        segment_id=_req_int(a.get("segment_id"), None, "segment_id"),
+    ),
+    "get_media_touchpoints": lambda ps, pe, bid, a: tool_get_media_touchpoints(
+        segment_id=_req_int(a.get("segment_id"), None, "segment_id"),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+    ),
+    "get_purchasing_journey": lambda ps, pe, bid, a: tool_get_purchasing_journey(
+        ps,
+        pe,
+        segment_id=_opt_int(a.get("segment_id")),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
     ),
 }
 
@@ -567,6 +706,64 @@ def build_expert_gemini_tool() -> types.Tool:
                     "brand_id": {"type": "integer", "description": "Defaults to logged-in user's brand."},
                     "parent_category_id": {"type": "integer"},
                     "subcategory_id": {"type": "integer"},
+                },
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_segment_marketing_summary",
+            description="For one HCG segment: pain_points, needstates tags, top SKUs/categories for the user's brand. Use after picking target segments.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer"},
+                    "segment_id": {"type": "integer", "description": "1–6"},
+                    "parent_category_id": {"type": "integer", "description": "Macro 1–10"},
+                    "subcategory_id": {"type": "integer", "description": "Optional >=100"},
+                },
+                "required": ["segment_id"],
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_category_needstate_landscape",
+            description="Market-wide segment shares in a parent category plus dominant needstate label per segment. Use to choose who to win.",
+            parameters={
+                "type": "object",
+                "properties": {"parent_category_id": {"type": "integer", "description": "1–10"}},
+                "required": ["parent_category_id"],
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_needstate_dimensions_for_segment",
+            description="Seven needstate dimensions with scores for one segment in a category (messaging and assortment angles).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "parent_category_id": {"type": "integer"},
+                    "segment_id": {"type": "integer"},
+                },
+                "required": ["parent_category_id", "segment_id"],
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_media_touchpoints",
+            description="Static media / touchpoint mix for how the segment discovers and evaluates (use with purchasing journey for full picture).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "segment_id": {"type": "integer"},
+                    "parent_category_id": {"type": "integer"},
+                },
+                "required": ["segment_id"],
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_purchasing_journey",
+            description="Purchase channel mix, peak events, online source mix, pre-purchase search themes. Optional segment_id and parent_category_id.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "segment_id": {"type": "integer"},
+                    "parent_category_id": {"type": "integer"},
                 },
             },
         ),
