@@ -114,6 +114,7 @@ TOOL_STATUS_LABELS: dict[str, str] = {
     "list_categories": "Loading category taxonomy...",
     "list_segments": "Loading customer segments...",
     "get_top_products": "Checking your current top-selling products...",
+    "get_underperforming_products": "Scanning your portfolio for underperformers...",
     "get_sales_by_category_for_brand": "Pulling your brand sales by category...",
     "get_segment_breakdown_for_category": "Analyzing which customer segments buy in this category...",
     "get_purchasing_channel_mix": "Looking at sales channel performance...",
@@ -263,6 +264,42 @@ def tool_get_top_products(
             merged[key]["units"] += float(r.get("units") or 0)
     out = sorted(merged.values(), key=lambda x: float(x.get("gross_pln") or 0), reverse=True)[:lim]
     return {"products": _truncate_rows(out, lim)}
+
+
+def tool_get_underperforming_products(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+    bottom_pct: float = 0.10,
+    limit: int = 30,
+) -> dict[str, Any]:
+    """Bottom fraction of brand SKUs by gross_pln (PERCENT_RANK ascending) for portfolio / delist analysis."""
+    cat_filter: int | None = None
+    if subcategory_id and int(subcategory_id) >= 100:
+        cat_filter = int(subcategory_id)
+    elif parent_category_id and 1 <= int(parent_category_id) <= 10:
+        cat_filter = int(parent_category_id)
+    bp = float(bottom_pct) if bottom_pct is not None else 0.10
+    lim = max(1, min(int(limit or 30), 80))
+    rows = basic_products.query_underperforming_products(
+        ps,
+        pe,
+        brand_id=int(brand_id),
+        parent_category_id=cat_filter,
+        bottom_pct=bp,
+        limit=lim,
+    )
+    return {
+        "underperformers": _truncate_rows(rows or [], lim),
+        "bottom_pct": bp,
+        "scope_note": (
+            "pct_rank is PERCENT_RANK over gross_pln ascending within the brand (and optional category filter); "
+            "0 = lowest sales among products with sales in the period."
+        ),
+    }
 
 
 def tool_get_sales_by_category_for_brand(ps: str, pe: str, *, brand_id: int) -> dict[str, Any]:
@@ -623,6 +660,15 @@ _TOOL_IMPL = {
         subcategory_id=_opt_int(a.get("subcategory_id")),
         limit=int(a.get("limit") or 15),
     ),
+    "get_underperforming_products": lambda ps, pe, bid, a: tool_get_underperforming_products(
+        ps,
+        pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+        subcategory_id=_opt_int(a.get("subcategory_id")),
+        bottom_pct=float(a.get("bottom_pct") if a.get("bottom_pct") is not None else 0.10),
+        limit=int(a.get("limit") or 30),
+    ),
     "get_sales_by_category_for_brand": lambda ps, pe, bid, a: tool_get_sales_by_category_for_brand(
         ps, pe, brand_id=int(_opt_int(a.get("brand_id")) or bid)
     ),
@@ -774,6 +820,27 @@ def build_expert_gemini_tool() -> types.Tool:
                     "parent_category_id": {"type": "integer", "description": "Parent category 1–10."},
                     "subcategory_id": {"type": "integer", "description": "Subcategory id >=100 (e.g. 501 Refrigerators)."},
                     "limit": {"type": "integer", "description": "Max rows (default 15, max 50)."},
+                },
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_underperforming_products",
+            description=(
+                "Returns the bottom fraction of the brand's products by sales revenue (gross PLN) in the period, "
+                "with percentile rank. Use for portfolio cleanup, delist candidates, underperformer audits, "
+                "or when the user asks for weakest / lowest-selling SKUs. Not the same as get_top_products."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer", "description": "Defaults to logged-in user's brand."},
+                    "parent_category_id": {"type": "integer", "description": "Optional parent category 1–10."},
+                    "subcategory_id": {"type": "integer", "description": "Optional subcategory id >=100."},
+                    "bottom_pct": {
+                        "type": "number",
+                        "description": "Fraction of lowest-selling products to return by percentile (default 0.10 = bottom 10%).",
+                    },
+                    "limit": {"type": "integer", "description": "Max rows after filter (default 30, max 80)."},
                 },
             },
         ),

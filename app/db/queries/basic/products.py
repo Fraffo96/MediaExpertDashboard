@@ -57,6 +57,65 @@ def query_products_by_category(ps, pe, cat=None):
     ])
 
 
+def query_underperforming_products(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    bottom_pct: float = 0.10,
+    limit: int = 30,
+) -> list[dict]:
+    """
+    Brand SKUs with sales in the window, ranked by gross_pln ascending.
+    Returns rows in the bottom ``bottom_pct`` of PERCENT_RANK (0 = lowest sales in brand scope).
+    Optional parent (1–10) or subcategory (>=100) filter, same semantics as query_top_products.
+    """
+    cat_clause = (
+        " AND (p.category_id = @cat OR p.subcategory_id = @cat)"
+        if (parent_category_id is not None and str(parent_category_id).strip())
+        else ""
+    )
+    pct = max(0.01, min(float(bottom_pct or 0.10), 0.50))
+    lim = max(1, min(int(limit or 30), 80))
+    q = f"""
+    WITH agg AS (
+      SELECT p.product_id, p.product_name,
+        p.category_id, c.category_name,
+        SUM(oi.gross_pln) AS gross_pln,
+        SUM(oi.quantity) AS units
+      FROM mart.fact_order_items oi
+      JOIN mart.fact_orders o ON o.order_id = oi.order_id
+      JOIN mart.dim_product p ON p.product_id = oi.product_id
+      JOIN mart.dim_category c ON c.category_id = p.category_id AND c.level = 1
+      WHERE o.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+        AND p.brand_id = @brand
+        {cat_clause}
+      GROUP BY p.product_id, p.product_name, p.category_id, c.category_name
+    ),
+    ranked AS (
+      SELECT *,
+        PERCENT_RANK() OVER (ORDER BY gross_pln ASC) AS pct_rank
+      FROM agg
+    )
+    SELECT product_id, product_name, category_id, category_name, gross_pln, units, pct_rank
+    FROM ranked
+    WHERE pct_rank <= @pct_threshold
+    ORDER BY gross_pln ASC, product_id ASC
+    LIMIT @lim
+    """
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+        bigquery.ScalarQueryParameter("pct_threshold", "FLOAT64", pct),
+        bigquery.ScalarQueryParameter("lim", "INT64", lim),
+    ]
+    if parent_category_id is not None and str(parent_category_id).strip():
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(parent_category_id)))
+    return run_query(q, params)
+
+
 def query_products_any_token_match(
     ps: str,
     pe: str,
