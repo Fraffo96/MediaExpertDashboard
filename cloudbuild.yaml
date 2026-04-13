@@ -5,6 +5,7 @@
 # Substitution opzionali (Console → Trigger → Variable substitutions):
 #   _VPC_CONNECTOR     es. run-vpc-connector (nome Serverless VPC Access). Vuoto = niente Redis privato.
 #   _EXTRA_ENV_VARS    es. REDIS_URL=redis://10.0.0.3:6379,CACHE_TTL_LONG_SECONDS=604800
+#                      Per Ask to the expert (Gemini) su Cloud Run aggiungere anche GEMINI_API_KEY=... (meglio Secret Manager + _SET_SECRETS)
 #   _SET_SECRETS       es. JWT_SECRET_KEY=jwt-secret-key:latest,PREWARM_TOKEN=prewarm-token:latest
 #                      Richiede Secret Manager + IAM per il runtime SA (secretAccessor).
 #   _BRAND_LOGOS_PUBLIC_BASE  es. https://storage.googleapis.com/PROJECT-brand-logos/brands (loghi PNG su GCS)

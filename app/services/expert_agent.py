@@ -145,7 +145,13 @@ class ExpertAgent:
         if not contents:
             return "Please send a message."
 
-        if not self._client or types is None:
+        if types is None:
+            return (
+                "The Gemini Python SDK could not be loaded on this server. "
+                "Ensure `google-genai` is installed (see app/requirements.txt) and redeploy. "
+                f"Your brand_id is {brand_id}."
+            )
+        if not self.api_key or not self._client:
             return self._offline_answer(int(brand_id), msgs[-1].get("text") or "")
 
         sys_text = _build_system_instruction(int(brand_id), ps, pe)
@@ -235,8 +241,10 @@ class ExpertAgent:
         tc = tool_list_categories()
         n_sub = len(tc.get("subcategories") or [])
         bits = [
-            "Gemini is not configured on this server (set GEMINI_API_KEY).",
-            f"Taxonomy: {len(tc.get('parent_categories') or [])} parent categories and {n_sub} subcategories are available once the AI is enabled.",
+            "GEMINI_API_KEY is missing for this server (not a cache issue: the key must be in the process environment).",
+            "Local: put GEMINI_API_KEY in the repo root `.env` and restart uvicorn.",
+            "Cloud Run: set the variable on service `dashboard` (region europe-west1), e.g. run `scripts/push-gemini-env-to-cloud-run.ps1` after `gcloud auth login`.",
+            f"When enabled, the catalog has {len(tc.get('parent_categories') or [])} parent categories and {n_sub} subcategories.",
         ]
         if any(w in t for w in ("remove", "delete", "drop", "sku")):
             bits.append(

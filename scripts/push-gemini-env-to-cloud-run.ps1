@@ -37,5 +37,8 @@ gcloud run services update dashboard `
     --project=mediaexpertdashboard `
     --region=europe-west1 `
     --update-env-vars="$pair"
-
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "gcloud non riuscito (es. token scaduto). Esegui: .\scripts\gcloud-browser-login.ps1 poi rilancia questo script." -ForegroundColor Red
+    exit $LASTEXITCODE
+}
 Write-Host "Fatto. Verifica: Console Cloud Run > dashboard > Variabili e segreti." -ForegroundColor Green
