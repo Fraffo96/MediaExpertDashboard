@@ -142,6 +142,17 @@
   font-weight: 700;
   color: var(--white);
 }
+.expert-message.assistant .bubble .expert-status-line {
+  display: block;
+  font-size: 0.86rem;
+  font-style: italic;
+  color: var(--text-muted);
+  animation: expert-status-pulse 1.8s ease-in-out infinite;
+}
+@keyframes expert-status-pulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
 .expert-message.system .bubble {
   background: rgba(99,102,241,0.10);
   border-color: rgba(99,102,241,0.22);

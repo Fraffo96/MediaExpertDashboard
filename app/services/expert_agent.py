@@ -6,11 +6,13 @@ import asyncio
 import os
 import time
 from datetime import datetime, timezone
+from collections.abc import AsyncIterator
 from typing import Any
 
 from app.constants import ADMIN_CATEGORIES, ADMIN_SUBCATEGORIES, DP
 from app.services.expert_tools import (
     STATIC_SEGMENTS,
+    TOOL_STATUS_LABELS,
     build_expert_gemini_tool,
     run_expert_tool,
     tool_list_categories,
@@ -62,6 +64,19 @@ Always reply in **English**. You combine **consulting** with **data**: ask focus
 
 ## After you have a scenario (or reasonable assumptions), call tools before claiming facts
 Use a **mix** of: brand/category sales (`get_sales_by_category_for_brand`, `get_brand_vs_market_subcategory_sales`, `get_top_products`), **segments** (`get_segment_breakdown_for_category`, `get_category_needstate_landscape`, `get_segment_marketing_summary`, `get_needstate_dimensions_for_segment`), **purchase behaviour** (`get_purchasing_journey`, `get_purchasing_channel_mix`), **how people inform themselves** (`get_media_touchpoints` + `source_mix` / `pre_purchase_searches` from purchasing journey), **promos** (`get_segment_promo_responsiveness`, `get_promo_roi_by_type_for_brand`), **competition** (`list_competitors_in_category`). Map plain language to categories (fridge → Large Appliances / Refrigerators, etc.) using taxonomy or `list_categories`.
+
+## MANDATORY DATA COLLECTION (before your final text)
+Before writing your final answer you **MUST** call at least **5 different tools** covering:
+1. **Sales benchmark** — `get_top_products` OR `get_brand_vs_market_subcategory_sales`
+2. **Segment breakdown** — `get_segment_breakdown_for_category`
+3. **Needstates / pain points** — `get_category_needstate_landscape` OR `get_segment_marketing_summary`
+4. **Channel + media** — `get_purchasing_channel_mix` AND/OR `get_media_touchpoints` (and use `get_purchasing_journey` where helpful)
+5. **Promo ROI** — `get_promo_roi_by_type_for_brand` OR `get_segment_promo_responsiveness`
+
+Do **not** produce your final text until you have results from all five areas. If a tool errors, skip that section briefly but still call the remaining tools. `list_categories` / `list_segments` do **not** count toward the five — they are optional helpers.
+
+## FOLLOW-UP
+Always end your answer with one **bold** follow-up question (1 sentence) suggesting the next area to explore (e.g. deeper segment analysis, promo mechanics, channel strategy, competitive positioning, cannibalization risk). If everything was covered, ask if they want a summary or want to explore a different product/category.
 
 ## Structured answer (use markdown headings and bullets)
 - **Assumptions** — what you assumed if the user did not specify.
@@ -147,32 +162,44 @@ class ExpertAgent:
                 self._client = None
                 self._client_error = str(e)
 
-    async def handle(self, *, messages: list[dict], user: Any) -> str:
+    async def handle_stream(self, *, messages: list[dict], user: Any) -> AsyncIterator[dict[str, Any]]:
+        """Yield ``{"type":"status","text":...}`` per tool, then ``{"type":"answer","text":...}``, or ``error``."""
         msgs = [m for m in (messages or []) if isinstance(m, dict)]
         brand_id = getattr(user, "brand_id", None)
         if not brand_id:
-            return "I need a brand context to run data checks. Please make sure your account is linked to a brand."
+            yield {"type": "error", "text": "I need a brand context to run data checks. Please make sure your account is linked to a brand."}
+            return
 
         ps, pe = DP[0], DP[1]
         contents = _client_messages_to_contents(msgs)
         if not contents:
-            return "Please send a message."
+            yield {"type": "error", "text": "Please send a message."}
+            return
 
         if types is None:
-            return (
-                "The Gemini Python SDK could not be loaded on this server. "
-                "Ensure `google-genai` is installed (see app/requirements.txt) and redeploy. "
-                f"Your brand_id is {brand_id}."
-            )
+            yield {
+                "type": "error",
+                "text": (
+                    "The Gemini Python SDK could not be loaded on this server. "
+                    "Ensure `google-genai` is installed (see app/requirements.txt) and redeploy. "
+                    f"Your brand_id is {brand_id}."
+                ),
+            }
+            return
         if not self.api_key:
-            return self._offline_answer(int(brand_id), msgs[-1].get("text") or "")
+            yield {"type": "answer", "text": self._offline_answer(int(brand_id), msgs[-1].get("text") or "")}
+            return
         if not self._client:
             err = (self._client_error or "unknown error").strip()
-            return (
-                "GEMINI_API_KEY is set but the Gemini client failed to initialize. "
-                f"Detail: {err}. Check the key and server logs. "
-                f"Your brand_id is {brand_id}."
-            )
+            yield {
+                "type": "error",
+                "text": (
+                    "GEMINI_API_KEY is set but the Gemini client failed to initialize. "
+                    f"Detail: {err}. Check the key and server logs. "
+                    f"Your brand_id is {brand_id}."
+                ),
+            }
+            return
 
         sys_text = _build_system_instruction(int(brand_id), ps, pe)
         tool = build_expert_gemini_tool()
@@ -194,11 +221,15 @@ class ExpertAgent:
         for _ in range(max_iters):
             ok = await _GLOBAL_QUOTA.acquire_slot()
             if not ok:
-                return (
-                    "I've reached today's Gemini API budget limit for this server. "
-                    "Try again tomorrow, or ask an admin to raise GEMINI_FREE_RPD. "
-                    "Meanwhile you can still use the dashboards for full analytics."
-                )
+                yield {
+                    "type": "error",
+                    "text": (
+                        "I've reached today's Gemini API budget limit for this server. "
+                        "Try again tomorrow, or ask an admin to raise GEMINI_FREE_RPD. "
+                        "Meanwhile you can still use the dashboards for full analytics."
+                    ),
+                }
+                return
 
             def _call() -> Any:
                 return self._client.models.generate_content(
@@ -210,27 +241,36 @@ class ExpertAgent:
             try:
                 resp = await asyncio.to_thread(_call)
             except Exception as e:  # pragma: no cover
-                return f"The AI service returned an error ({e!s}). Please retry in a few seconds."
+                yield {"type": "error", "text": f"The AI service returned an error ({e!s}). Please retry in a few seconds."}
+                return
 
             if not resp.candidates:
-                return "I could not generate a reply (blocked or empty). Try rephrasing your question."
+                yield {"type": "error", "text": "I could not generate a reply (blocked or empty). Try rephrasing your question."}
+                return
 
             cand = resp.candidates[0]
             content = cand.content
             if not content or not content.parts:
-                return "I could not generate a reply. Try again with a bit more detail."
+                yield {"type": "error", "text": "I could not generate a reply. Try again with a bit more detail."}
+                return
 
             parts = content.parts
             fcalls = [p for p in parts if getattr(p, "function_call", None)]
             if not fcalls:
                 text = "".join((p.text or "") for p in parts if p.text).strip()
-                return text or "I don't have an answer right now. Please try rephrasing."
+                yield {"type": "answer", "text": text or "I don't have an answer right now. Please try rephrasing."}
+                return
 
             work.append(content)
             fr_parts: list[Any] = []
             for p in fcalls:
                 fc = p.function_call
                 name = (fc.name or "").strip()
+                yield {
+                    "type": "status",
+                    "text": TOOL_STATUS_LABELS.get(name, "Running data analysis..."),
+                    "tool": name,
+                }
                 args = dict(fc.args or {})
                 payload = run_expert_tool(
                     name,
@@ -250,10 +290,22 @@ class ExpertAgent:
                 )
             work.append(types.Content(role="user", parts=fr_parts))
 
-        return (
-            "The analysis needed too many data steps in one turn. "
-            "Please narrow the question (one category or one SKU) and try again."
-        )
+        yield {
+            "type": "error",
+            "text": (
+                "The analysis needed too many data steps in one turn. "
+                "Please narrow the question (one category or one SKU) and try again."
+            ),
+        }
+
+    async def handle(self, *, messages: list[dict], user: Any) -> str:
+        out: str | None = None
+        async for ev in self.handle_stream(messages=messages, user=user):
+            if ev.get("type") == "error":
+                return str(ev.get("text") or "Something went wrong.")
+            if ev.get("type") == "answer":
+                out = str(ev.get("text") or "")
+        return out or "I don't have an answer right now. Please try rephrasing."
 
     def _offline_answer(self, brand_id: int, last_user_text: str) -> str:
         """Deterministic mini-answer when Gemini is not configured."""

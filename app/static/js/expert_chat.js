@@ -66,6 +66,17 @@
     else bubble.textContent = String(text || '');
   }
 
+  function setAssistantStatusLine(bubble, text) {
+    let span = bubble.querySelector('.expert-status-line');
+    if (!span) {
+      bubble.innerHTML = '';
+      span = document.createElement('span');
+      span.className = 'expert-status-line';
+      bubble.appendChild(span);
+    }
+    span.textContent = String(text || '');
+  }
+
   function addBubble(role, text) {
     const wrap = document.createElement('div');
     wrap.className = `expert-message ${role}`;
@@ -92,19 +103,64 @@
       .map((m) => ({ role: m.role, text: (m.text || '').trim() }));
   }
 
-  async function postChat(messagesPayload) {
+  /**
+   * SSE from POST /api/expert-chat: events `data: {"type":"status"|"answer"|"error",...}\n\n`
+   */
+  async function postChatStream(messagesPayload, onEvent) {
     const r = await fetch('/api/expert-chat', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
       body: JSON.stringify({ messages: messagesPayload }),
     });
-    const d = await r.json().catch(() => ({}));
+    const ct = (r.headers.get('content-type') || '').toLowerCase();
     if (!r.ok) {
-      const msg = d && (d.error || d.detail) ? (d.error || d.detail) : `Request failed (${r.status})`;
+      let msg = `Request failed (${r.status})`;
+      if (ct.includes('application/json')) {
+        const d = await r.json().catch(() => ({}));
+        msg = (d && (d.error || d.detail)) ? (d.error || d.detail) : msg;
+      } else {
+        const t = await r.text().catch(() => '');
+        if (t) msg = t.slice(0, 500);
+      }
       throw new Error(msg);
     }
-    return d;
+    if (!r.body || typeof r.body.getReader !== 'function') {
+      throw new Error('Streaming not supported in this browser.');
+    }
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    let finalAnswer = null;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let sep;
+      while ((sep = buf.indexOf('\n\n')) !== -1) {
+        const rawBlock = buf.slice(0, sep);
+        buf = buf.slice(sep + 2);
+        const lines = rawBlock.split(/\r?\n/);
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          let ev;
+          try {
+            ev = JSON.parse(payload);
+          } catch (_) {
+            continue;
+          }
+          if (onEvent) onEvent(ev);
+          if (ev && ev.type === 'answer') finalAnswer = String(ev.text || '');
+          if (ev && ev.type === 'error') throw new Error(String(ev.text || 'Error'));
+        }
+      }
+    }
+    return finalAnswer != null ? finalAnswer : 'Sorry — I could not generate an answer.';
   }
 
   function setBusy(busy) {
@@ -133,13 +189,24 @@
     addBubble('user', msg);
 
     setBusy(true);
-    addBubble('assistant', 'Analyzing your data…');
-    const thinkingNode = els.messages.lastChild;
+    const wrap = document.createElement('div');
+    wrap.className = 'expert-message assistant';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    setAssistantStatusLine(bubble, 'Analyzing your data…');
+    wrap.appendChild(bubble);
+    els.messages.appendChild(wrap);
+    scrollToBottom();
+    const thinkingNode = wrap;
 
     try {
       const payload = apiMessageList(history);
-      const resp = await postChat(payload);
-      const answer = resp && resp.answer ? String(resp.answer) : 'Sorry — I could not generate an answer.';
+      const answer = await postChatStream(payload, (ev) => {
+        if (ev && ev.type === 'status' && ev.text) {
+          setAssistantStatusLine(bubble, ev.text);
+          scrollToBottom();
+        }
+      });
 
       if (thinkingNode && thinkingNode.querySelector) {
         const b = thinkingNode.querySelector('.bubble');

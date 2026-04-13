@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Optional
 
 from fastapi import APIRouter, Body, Cookie, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.services.expert_agent import ExpertAgent
 from app.web.context import get_user
@@ -76,6 +77,23 @@ async def api_expert_chat(
         return JSONResponse({"error": "Message or non-empty messages[] is required."}, status_code=400)
 
     agent = ExpertAgent()
-    answer = await agent.handle(messages=messages, user=user)
-    return {"answer": answer}
+
+    async def event_generator():
+        try:
+            async for ev in agent.handle_stream(messages=messages, user=user):
+                line = json.dumps(ev, ensure_ascii=False)
+                yield f"data: {line}\n\n"
+        except Exception as e:  # pragma: no cover
+            err = json.dumps({"type": "error", "text": f"Stream error: {e!s}"}, ensure_ascii=False)
+            yield f"data: {err}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 

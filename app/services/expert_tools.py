@@ -18,6 +18,27 @@ from app.db.queries.marketing import purchasing as mkt_purchasing
 from app.db.queries import promo_creator as promo_q
 from app.services import marketing as marketing_svc
 
+# User-facing status lines when a tool runs (SSE / UI)
+TOOL_STATUS_LABELS: dict[str, str] = {
+    "list_categories": "Loading category taxonomy...",
+    "list_segments": "Loading customer segments...",
+    "get_top_products": "Checking your current top-selling products...",
+    "get_sales_by_category_for_brand": "Pulling your brand sales by category...",
+    "get_segment_breakdown_for_category": "Analyzing which customer segments buy in this category...",
+    "get_purchasing_channel_mix": "Looking at sales channel performance...",
+    "get_segment_promo_responsiveness": "Checking segment promo responsiveness...",
+    "get_product_segment_breakdown": "Analyzing segment breakdown for this SKU...",
+    "get_brand_vs_market_subcategory_sales": "Comparing your brand vs the market...",
+    "get_promo_roi_by_type_for_brand": "Evaluating promo ROI benchmarks...",
+    "search_products_by_query": "Searching product catalog...",
+    "list_competitors_in_category": "Identifying competitors in this space...",
+    "get_segment_marketing_summary": "Reviewing segment pain points and needstates...",
+    "get_category_needstate_landscape": "Scanning the needstate landscape...",
+    "get_needstate_dimensions_for_segment": "Diving into needstate dimensions...",
+    "get_media_touchpoints": "Checking how target segments discover products...",
+    "get_purchasing_journey": "Mapping the customer purchasing journey...",
+}
+
 # HCG segments (aligned with mart.dim_segment seed)
 STATIC_SEGMENTS: list[dict[str, Any]] = [
     {
