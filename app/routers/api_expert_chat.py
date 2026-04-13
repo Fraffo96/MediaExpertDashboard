@@ -19,6 +19,26 @@ _RL_MAX_REQ = 12
 _rl: dict[str, list[float]] = {}
 
 
+def _normalize_chat_messages(body: dict) -> list[dict] | None:
+    """Build message list for Gemini-first agent: prefer `messages`, fallback to legacy `message`."""
+    raw = body.get("messages")
+    if isinstance(raw, list) and raw:
+        out: list[dict] = []
+        for m in raw:
+            if not isinstance(m, dict):
+                continue
+            role = m.get("role")
+            text = (m.get("text") or "").strip()
+            if not text or role not in ("user", "assistant", "system"):
+                continue
+            out.append({"role": str(role), "text": text})
+        return out or None
+    msg = (body.get("message") or "").strip()
+    if msg:
+        return [{"role": "user", "text": msg}]
+    return None
+
+
 def _rate_limit_key(request: Request, username: str | None) -> str:
     ip = (getattr(request.client, "host", None) or "").strip() or "unknown"
     u = (username or "").strip() or "anonymous"
@@ -51,15 +71,11 @@ async def api_expert_chat(
         return JSONResponse({"error": "Rate limit exceeded. Please wait a moment and retry."}, status_code=429)
 
     body = body or {}
-    msg = (body.get("message") or "").strip()
-    if not msg:
-        return JSONResponse({"error": "Message is required."}, status_code=400)
-
-    state = body.get("state")
-    if state is not None and not isinstance(state, dict):
-        state = None
+    messages = _normalize_chat_messages(body)
+    if not messages:
+        return JSONResponse({"error": "Message or non-empty messages[] is required."}, status_code=400)
 
     agent = ExpertAgent()
-    answer, next_state = await agent.handle(message=msg, user=user, state=state)
-    return {"answer": answer, "state": next_state}
+    answer = await agent.handle(messages=messages, user=user)
+    return {"answer": answer}
 

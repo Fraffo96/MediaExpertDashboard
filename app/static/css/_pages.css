@@ -115,6 +115,32 @@
 .expert-message.assistant .bubble {
   background: rgba(255,255,255,0.04);
   color: var(--text);
+  white-space: normal;
+}
+.expert-message.assistant .bubble p {
+  margin: 0 0 0.45em 0;
+}
+.expert-message.assistant .bubble p:last-child {
+  margin-bottom: 0;
+}
+.expert-message.assistant .bubble ul {
+  margin: 0.35em 0 0.5em 1.15rem;
+  padding: 0;
+  list-style: disc;
+}
+.expert-message.assistant .bubble li {
+  margin: 0.2em 0;
+}
+.expert-message.assistant .bubble code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.88em;
+  background: rgba(0,0,0,0.35);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.expert-message.assistant .bubble strong {
+  font-weight: 700;
+  color: var(--white);
 }
 .expert-message.system .bubble {
   background: rgba(99,102,241,0.10);
