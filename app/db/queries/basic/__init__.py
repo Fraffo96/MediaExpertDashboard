@@ -27,7 +27,11 @@ from .kpi_and_category import (
     query_sales_by_category,
     query_sales_by_subcategory,
 )
-from .products import query_products_by_category, query_top_products
+from .products import (
+    query_products_any_token_match,
+    query_products_by_category,
+    query_top_products,
+)
 from .promo_roi import (
     query_discount_depth_by_category,
     query_promo_roi_by_brand,
@@ -80,6 +84,7 @@ __all__ = [
     "query_sales_by_category_by_segment",
     "query_sales_by_subcategory",
     "query_sales_detail",
+    "query_products_any_token_match",
     "query_top_products",
     "query_yoy",
     "query_yoy_detail",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from google.genai import types
@@ -17,6 +18,96 @@ from app.db.queries.marketing import segment_by_category as mkt_seg_cat
 from app.db.queries.marketing import purchasing as mkt_purchasing
 from app.db.queries import promo_creator as promo_q
 from app.services import marketing as marketing_svc
+
+_QUERY_STOPWORDS = frozenset(
+    {
+        "my",
+        "the",
+        "a",
+        "an",
+        "for",
+        "and",
+        "or",
+        "to",
+        "of",
+        "in",
+        "on",
+        "at",
+        "sku",
+        "skus",
+        "our",
+        "your",
+        "me",
+        "we",
+        "i",
+        "it",
+        "is",
+        "be",
+        "as",
+        "by",
+        "from",
+        "with",
+        "this",
+        "that",
+        "product",
+        "item",
+    }
+)
+
+
+def _tokenize_product_query(raw: str) -> list[str]:
+    s = re.sub(r"[^a-z0-9\s-]", " ", (raw or "").lower())
+    out: list[str] = []
+    for w in s.split():
+        w = w.strip("-")
+        if len(w) < 2 or w in _QUERY_STOPWORDS:
+            continue
+        out.append(w)
+    return out
+
+
+def _bq_substring_tokens(tokens: list[str]) -> list[str]:
+    """Expand spoken words into substrings that often appear in product_name (for CONTAINS_SUBSTR)."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for t in tokens:
+        if t in ("foldable", "folder"):
+            for x in ("fold", "flip", "zfold"):
+                if x not in seen:
+                    seen.add(x)
+                    out.append(x)
+            continue
+        if t == "premium":
+            for x in ("premium", "pro", "ultra", "plus"):
+                if x not in seen:
+                    seen.add(x)
+                    out.append(x)
+            continue
+        if t not in seen:
+            s = re.sub(r"[^a-z0-9]", "", t)
+            if len(s) >= 2:
+                seen.add(s)
+                out.append(s)
+    return out
+
+
+def _token_hits_in_name(name_lower: str, token: str) -> bool:
+    if token in ("foldable", "fold", "folder"):
+        return bool(re.search(r"fold|flip|zfold|z fold|galaxy z", name_lower))
+    if token == "flip":
+        return "flip" in name_lower
+    if token == "premium":
+        return any(p in name_lower for p in ("premium", "pro", "ultra", "plus", "max"))
+    return token in name_lower
+
+
+def _score_name_against_tokens(product_name: str, tokens: list[str]) -> float:
+    if not tokens:
+        return 0.0
+    name_lower = (product_name or "").lower()
+    hits = sum(1 for t in tokens if _token_hits_in_name(name_lower, t))
+    return hits / float(len(tokens))
+
 
 # User-facing status lines when a tool runs (SSE / UI)
 TOOL_STATUS_LABELS: dict[str, str] = {
@@ -294,23 +385,54 @@ def tool_search_products_by_query(
     brand_id: int | None,
     limit: int = 12,
 ) -> dict[str, Any]:
-    """Fuzzy substring search over top-selling rows (best-effort product name match)."""
-    q = (query or "").strip().lower()
-    if not q:
-        return {"matches": []}
+    """
+    Resolve natural-language product descriptions to catalog SKUs (token + synonym scoring).
+    Searches beyond top sellers via BigQuery when needed; returns best matches with relevance scores.
+    """
+    raw = (query or "").strip()
+    if not raw:
+        return {"matches": [], "hint": "empty_query"}
     lim = max(1, min(int(limit or 12), 30))
-    pool = basic_products.query_top_products(ps, pe, limit=400, cat=None, brand=str(brand_id) if brand_id else None)
-    matches = []
-    for r in pool or []:
-        pn = str(r.get("product_name") or "").lower()
-        if q in pn or pn in q:
-            matches.append(r)
-        if len(matches) >= lim * 4:
-            break
-    # Dedupe by product_id
+    tokens = _tokenize_product_query(raw)
+    if not tokens:
+        return {"matches": [], "hint": "no_search_tokens", "query_normalized": raw}
+
+    bq_tokens = _bq_substring_tokens(tokens)
+    pool: list[dict[str, Any]] = []
+
+    def _row_key(r: dict[str, Any]) -> Any:
+        return r.get("product_id")
+
+    if brand_id is not None:
+        pool = basic_products.query_products_any_token_match(
+            ps, pe, tokens=bq_tokens, brand_id=int(brand_id), candidate_limit=900
+        ) or []
+    if not pool and brand_id is not None:
+        longish = sorted((t for t in bq_tokens if len(t) >= 4), key=len, reverse=True)[:2]
+        if longish:
+            pool = basic_products.query_products_any_token_match(
+                ps, pe, tokens=longish, brand_id=int(brand_id), candidate_limit=900
+            ) or []
+    if not pool:
+        pool = basic_products.query_top_products(
+            ps, pe, limit=2500, cat=None, brand=str(brand_id) if brand_id else None
+        ) or []
+
+    min_rel = 1.0 / float(len(tokens))
+    scored: list[tuple[float, float, dict[str, Any]]] = []
+    for r in pool:
+        pn = str(r.get("product_name") or "")
+        rel = _score_name_against_tokens(pn, tokens)
+        if rel < min_rel:
+            continue
+        g = float(r.get("gross_pln") or 0)
+        scored.append((rel, g, r))
+
+    scored.sort(key=lambda x: (-x[0], -x[1]))
+
     seen: set[Any] = set()
-    out = []
-    for r in matches:
+    out: list[dict[str, Any]] = []
+    for rel, _g, r in scored:
         pid = r.get("product_id")
         if pid in seen:
             continue
@@ -321,11 +443,49 @@ def tool_search_products_by_query(
                 "product_name": r.get("product_name"),
                 "gross_pln": r.get("gross_pln"),
                 "units": r.get("units"),
+                "relevance": round(rel, 3),
             }
         )
         if len(out) >= lim:
             break
-    return {"matches": _json_safe(out)}
+
+    if not out and brand_id is not None and len(bq_tokens) > 1:
+        pool2 = basic_products.query_products_any_token_match(
+            ps, pe, tokens=bq_tokens[:1], brand_id=int(brand_id), candidate_limit=400
+        ) or []
+        scored2: list[tuple[float, float, dict[str, Any]]] = []
+        for r in pool2:
+            pn = str(r.get("product_name") or "")
+            rel = max(_score_name_against_tokens(pn, tokens), 0.25)
+            g = float(r.get("gross_pln") or 0)
+            scored2.append((rel, g, r))
+        scored2.sort(key=lambda x: (-x[0], -x[1]))
+        for rel, _g, r in scored2:
+            pid = r.get("product_id")
+            if pid in seen:
+                continue
+            seen.add(pid)
+            out.append(
+                {
+                    "product_id": r.get("product_id"),
+                    "product_name": r.get("product_name"),
+                    "gross_pln": r.get("gross_pln"),
+                    "units": r.get("units"),
+                    "relevance": round(rel, 3),
+                }
+            )
+            if len(out) >= lim:
+                break
+
+    hint = None if out else "no_matches_try_broader_terms"
+    if out and out[0].get("relevance", 1) < 0.55:
+        hint = "low_confidence_confirm_with_user"
+
+    return {
+        "matches": _json_safe(out),
+        "query_tokens": tokens,
+        "hint": hint,
+    }
 
 
 def tool_list_competitors_in_category(
@@ -707,7 +867,11 @@ def build_expert_gemini_tool() -> types.Tool:
         ),
         types.FunctionDeclaration(
             name="search_products_by_query",
-            description="Find product_id by name substring for the brand (or all brands if brand_id null).",
+            description=(
+                "Resolve a user's natural-language product description to real SKUs in the catalog "
+                "(e.g. 'Samsung foldable', 'Galaxy premium'). Returns ranked matches with relevance scores — "
+                "use these to ask the user for confirmation before delisting analysis; do not demand a numeric ID first."
+            ),
             parameters={
                 "type": "object",
                 "properties": {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from typing import Optional
@@ -80,18 +81,22 @@ async def api_expert_chat(
 
     async def event_generator():
         try:
+            ping = json.dumps({"type": "status", "text": "Connected — starting your request…"}, ensure_ascii=False)
+            yield f"data: {ping}\n\n"
+            await asyncio.sleep(0)
             async for ev in agent.handle_stream(messages=messages, user=user):
                 line = json.dumps(ev, ensure_ascii=False)
                 yield f"data: {line}\n\n"
+                await asyncio.sleep(0)
         except Exception as e:  # pragma: no cover
             err = json.dumps({"type": "error", "text": f"Stream error: {e!s}"}, ensure_ascii=False)
             yield f"data: {err}\n\n"
 
     return StreamingResponse(
         event_generator(),
-        media_type="text/event-stream",
+        media_type="text/event-stream; charset=utf-8",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },

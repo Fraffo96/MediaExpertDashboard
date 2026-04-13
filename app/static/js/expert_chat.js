@@ -103,6 +103,24 @@
       .map((m) => ({ role: m.role, text: (m.text || '').trim() }));
   }
 
+  function consumeSseEventBlock(rawBlock, onEvent, state) {
+    const lines = rawBlock.split(/\r?\n/);
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      let ev;
+      try {
+        ev = JSON.parse(payload);
+      } catch (_) {
+        continue;
+      }
+      if (onEvent) onEvent(ev);
+      if (ev && ev.type === 'answer') state.finalAnswer = String(ev.text || '');
+      if (ev && ev.type === 'error') throw new Error(String(ev.text || 'Error'));
+    }
+  }
+
   /**
    * SSE from POST /api/expert-chat: events `data: {"type":"status"|"answer"|"error",...}\n\n`
    */
@@ -110,6 +128,7 @@
     const r = await fetch('/api/expert-chat', {
       method: 'POST',
       credentials: 'include',
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
@@ -134,33 +153,29 @@
     const reader = r.body.getReader();
     const dec = new TextDecoder();
     let buf = '';
-    let finalAnswer = null;
+    const state = { finalAnswer: null };
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
+      if (value) buf += dec.decode(value, { stream: true });
       let sep;
       while ((sep = buf.indexOf('\n\n')) !== -1) {
         const rawBlock = buf.slice(0, sep);
         buf = buf.slice(sep + 2);
-        const lines = rawBlock.split(/\r?\n/);
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue;
-          const payload = line.slice(5).trim();
-          if (!payload) continue;
-          let ev;
-          try {
-            ev = JSON.parse(payload);
-          } catch (_) {
-            continue;
-          }
-          if (onEvent) onEvent(ev);
-          if (ev && ev.type === 'answer') finalAnswer = String(ev.text || '');
-          if (ev && ev.type === 'error') throw new Error(String(ev.text || 'Error'));
+        consumeSseEventBlock(rawBlock, onEvent, state);
+      }
+      if (done) break;
+    }
+    dec.decode();
+    if (buf.trim()) {
+      if (buf.includes('\n\n')) {
+        for (const rawBlock of buf.split(/\n\n/)) {
+          if (rawBlock.trim()) consumeSseEventBlock(rawBlock, onEvent, state);
         }
+      } else {
+        consumeSseEventBlock(buf, onEvent, state);
       }
     }
-    return finalAnswer != null ? finalAnswer : 'Sorry — I could not generate an answer.';
+    return state.finalAnswer != null ? state.finalAnswer : 'Sorry — I could not generate an answer.';
   }
 
   function setBusy(busy) {
