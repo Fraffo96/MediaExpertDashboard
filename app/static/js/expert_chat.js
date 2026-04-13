@@ -9,25 +9,11 @@
 
   if (!els.form || !els.text || !els.send || !els.clear || !els.messages) return;
 
-  const STORAGE_KEY = 'me_expert_chat_v1';
+  /** In-memory only: each full page load starts a fresh chat (no sessionStorage). */
+  let history = [];
 
   function nowIso() {
     try { return new Date().toISOString(); } catch (_) { return null; }
-  }
-
-  function readState() {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && Array.isArray(parsed.history)) return parsed;
-    } catch (_) {}
-    return { history: [] };
-  }
-
-  function writeState(state) {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (_) {}
   }
 
   function scrollToBottom() {
@@ -91,17 +77,17 @@
     scrollToBottom();
   }
 
-  function renderFromHistory(history) {
+  function renderFromHistory(hist) {
     while (els.messages.children.length > 1) els.messages.removeChild(els.messages.lastChild);
-    (history || []).forEach((m) => {
+    (hist || []).forEach((m) => {
       if (!m || !m.role) return;
       if (m.role === 'system') addBubble('system', m.text || '');
       else addBubble(m.role, m.text || '');
     });
   }
 
-  function apiMessageList(history) {
-    return (history || [])
+  function apiMessageList(hist) {
+    return (hist || [])
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && (m.text || '').trim())
       .map((m) => ({ role: m.role, text: (m.text || '').trim() }));
   }
@@ -127,11 +113,12 @@
     if (!busy) els.text.focus();
   }
 
-  const initial = readState();
-  if (initial.history && initial.history.length) renderFromHistory(initial.history);
+  try {
+    sessionStorage.removeItem('me_expert_chat_v1');
+  } catch (_) {}
 
   els.clear.addEventListener('click', () => {
-    writeState({ history: [] });
+    history = [];
     renderFromHistory([]);
     addBubble('system', 'Chat cleared.');
   });
@@ -142,10 +129,7 @@
     if (!msg) return;
     els.text.value = '';
 
-    const state = readState();
-    state.history = state.history || [];
-    state.history.push({ role: 'user', text: msg, ts: nowIso() });
-    writeState(state);
+    history.push({ role: 'user', text: msg, ts: nowIso() });
     addBubble('user', msg);
 
     setBusy(true);
@@ -153,7 +137,7 @@
     const thinkingNode = els.messages.lastChild;
 
     try {
-      const payload = apiMessageList(state.history);
+      const payload = apiMessageList(history);
       const resp = await postChat(payload);
       const answer = resp && resp.answer ? String(resp.answer) : 'Sorry — I could not generate an answer.';
 
@@ -165,8 +149,7 @@
         addBubble('assistant', answer);
       }
 
-      state.history.push({ role: 'assistant', text: answer, ts: nowIso() });
-      writeState(state);
+      history.push({ role: 'assistant', text: answer, ts: nowIso() });
     } catch (err) {
       const em = (err && err.message) ? err.message : 'Network error';
       if (thinkingNode && thinkingNode.querySelector) {
