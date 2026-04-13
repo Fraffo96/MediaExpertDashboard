@@ -9,6 +9,8 @@
 {% set has_sales = 'market_intelligence' in tabs or 'brand_comparison' in tabs or 'promo_creator' in tabs or 'check_live_promo' in tabs %}
 {% set has_marketing = 'marketing' in tabs %}
 <div class="landing-page">
+  <div class="landing-grid">
+    <div class="landing-main">
   {# Logo brand solo in topbar (base.html): niente hero duplicato #}
   <p class="landing-greeting fade-in">Hello, {{ user.display_name or user.username }}. At Media Expert we believe in data based decision making. What can we do to help {{ brand_name }} achieve success?</p>
   <p class="landing-question fade-in">What do you need to do?</p>
@@ -76,5 +78,42 @@
   {% if not has_sales and not has_marketing %}
   <p class="landing-no-access fade-in">No tools are available for your account. Please contact your administrator.</p>
   {% endif %}
+    </div>
+
+    <aside class="landing-expert" aria-label="Ask to the expert">
+      <div class="expert-card" id="expert-card">
+        <div class="expert-card-header">
+          <div class="expert-title">
+            <img class="expert-logo" src="/static/img/favicon.png" alt="Media Expert" width="22" height="22" loading="lazy" decoding="async">
+            <div class="expert-title-text">
+              <div class="expert-kicker">Ask to the expert</div>
+              <div class="expert-subtitle">AI assistant for sales &amp; marketing questions</div>
+            </div>
+          </div>
+          <button type="button" class="expert-clear" id="expert-clear" title="Clear chat" aria-label="Clear chat">Clear</button>
+        </div>
+
+        <div class="expert-messages" id="expert-messages" role="log" aria-live="polite" aria-relevant="additions">
+          <div class="expert-message assistant">
+            <div class="bubble">
+              Ask me a question about your business performance. For example: “What happens if I remove this SKU?” or “What happens if I add this SKU?”.
+            </div>
+          </div>
+        </div>
+
+        <form class="expert-input" id="expert-form" autocomplete="off">
+          <textarea id="expert-text" class="expert-text" rows="2" placeholder="Type your question…" required></textarea>
+          <button type="submit" class="expert-send" id="expert-send">Send</button>
+        </form>
+        <div class="expert-hint" id="expert-hint">
+          This assistant may ask clarifying questions before running data checks.
+        </div>
+      </div>
+    </aside>
+  </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/expert_chat.js"></script>
 {% endblock %}

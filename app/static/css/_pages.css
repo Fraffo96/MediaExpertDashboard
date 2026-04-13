@@ -12,6 +12,9 @@
 
 /* Landing page */
 .landing-page { padding: 2rem 1.5rem; width: 100%; max-width: 100%; }
+.landing-grid { display: grid; grid-template-columns: minmax(520px, 1fr) 420px; gap: 1.25rem; align-items: start; }
+.landing-main { min-width: 0; }
+.landing-expert { position: sticky; top: 0.75rem; align-self: start; }
 .landing-greeting { font-size: 1.1rem; color: var(--text); margin-bottom: 1.5rem; line-height: 1.5; }
 .landing-greeting.fade-in { animation: fadeIn 0.5s ease both; }
 .landing-question { font-size: 1.5rem; font-weight: 700; color: var(--white); margin-bottom: 1.5rem; }
@@ -50,6 +53,114 @@
   letter-spacing: 0.05em;
 }
 
+.expert-card {
+  background: linear-gradient(180deg, rgba(255,215,0,0.08), rgba(0,0,0,0)) , var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+}
+.expert-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.18);
+}
+.expert-title { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+.expert-logo { filter: drop-shadow(0 2px 10px rgba(255,215,0,0.22)); }
+.expert-title-text { min-width: 0; }
+.expert-kicker { font-weight: 800; color: var(--white); letter-spacing: -0.01em; }
+.expert-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
+.expert-clear {
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.expert-clear:hover { border-color: var(--yellow-dim); color: var(--yellow); }
+
+.expert-messages {
+  height: min(520px, calc(100vh - 290px));
+  overflow-y: auto;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.expert-message { display: flex; }
+.expert-message.user { justify-content: flex-end; }
+.expert-message.assistant { justify-content: flex-start; }
+.expert-message .bubble {
+  max-width: 92%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  line-height: 1.35;
+  font-size: 0.92rem;
+  white-space: pre-wrap;
+}
+.expert-message.user .bubble {
+  background: rgba(255,215,0,0.13);
+  border-color: rgba(255,215,0,0.18);
+  color: var(--white);
+}
+.expert-message.assistant .bubble {
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+}
+.expert-message.system .bubble {
+  background: rgba(99,102,241,0.10);
+  border-color: rgba(99,102,241,0.22);
+  color: var(--text);
+}
+
+.expert-input {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.12);
+}
+.expert-text {
+  resize: none;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  outline: none;
+}
+.expert-text:focus { border-color: var(--yellow-dim); box-shadow: 0 0 0 3px rgba(255,215,0,0.10); }
+.expert-send {
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  border: none;
+  background: var(--yellow);
+  color: #000;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+.expert-send:hover { background: #ffe033; }
+.expert-send:disabled { opacity: 0.65; cursor: not-allowed; }
+.expert-hint {
+  padding: 0 1rem 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
 .coming-soon { padding: 3rem 1.5rem; text-align: center; }
 .coming-soon h2 { font-size: 1.5rem; color: var(--white); margin-bottom: 0.5rem; }
 .coming-soon p { color: var(--text-muted); }
@@ -58,6 +169,8 @@
 
 /* Responsive */
 @media (max-width: 900px) {
+  .landing-grid { grid-template-columns: 1fr; }
+  .landing-expert { position: static; }
   .landing-blocks { grid-template-columns: 1fr; }
   .sidebar { width: 56px; }
   .sidebar-logo span, .sidebar-nav a span:not(.nav-dot), .sidebar-footer, .sidebar-section-label, .sidebar-divider { display: none; }

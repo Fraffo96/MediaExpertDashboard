@@ -23,6 +23,7 @@ from app.routers import (
     api_admin_dataops,
     api_brand_comparison,
     api_check_live,
+    api_expert_chat,
     api_market_intelligence,
     api_marketing,
     api_misc,
@@ -46,6 +47,7 @@ app.include_router(api_marketing.router)
 app.include_router(api_brand_comparison.router)
 app.include_router(api_check_live.router)
 app.include_router(api_misc.router)
+app.include_router(api_expert_chat.router)
 app.include_router(api_admin_dataops.router)
 
 
@@ -61,6 +63,10 @@ async def on_startup():
         (os.environ.get("BRAND_LOGOS_FORCE_SAME_ORIGIN_IMG") or "").strip() or "(off)",
     )
     logger.info("Brand logo code loaded from: %s", getattr(brand_logo_module, "__file__", "?"))
+    _pc_log_env = (os.environ.get("PROMO_CREATOR_LOG", "1") or "").strip().lower()
+    if _pc_log_env not in ("0", "false", "no", "off"):
+        logging.getLogger("app.services.promo_creator").setLevel(logging.INFO)
+        logging.getLogger("app.db.client").setLevel(logging.INFO)
     init_db()
     try:
         from app.services.marketing import warm_needstates_spider_precalc
