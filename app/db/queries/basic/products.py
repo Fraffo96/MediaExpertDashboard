@@ -64,7 +64,7 @@ def query_underperforming_products(
     brand_id: int,
     parent_category_id: int | None = None,
     bottom_pct: float = 0.10,
-    limit: int = 30,
+    limit: int = 80,
 ) -> list[dict]:
     """
     Brand SKUs with sales in the window, ranked by gross_pln ascending.
@@ -77,7 +77,7 @@ def query_underperforming_products(
         else ""
     )
     pct = max(0.01, min(float(bottom_pct or 0.10), 0.50))
-    lim = max(1, min(int(limit or 30), 80))
+    lim = max(1, min(int(limit or 80), 80))
     q = f"""
     WITH agg AS (
       SELECT p.product_id, p.product_name,

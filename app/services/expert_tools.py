@@ -274,7 +274,7 @@ def tool_get_underperforming_products(
     parent_category_id: int | None = None,
     subcategory_id: int | None = None,
     bottom_pct: float = 0.10,
-    limit: int = 30,
+    limit: int = 80,
 ) -> dict[str, Any]:
     """Bottom fraction of brand SKUs by gross_pln (PERCENT_RANK ascending) for portfolio / delist analysis."""
     cat_filter: int | None = None
@@ -283,7 +283,7 @@ def tool_get_underperforming_products(
     elif parent_category_id and 1 <= int(parent_category_id) <= 10:
         cat_filter = int(parent_category_id)
     bp = float(bottom_pct) if bottom_pct is not None else 0.10
-    lim = max(1, min(int(limit or 30), 80))
+    lim = max(1, min(int(limit or 80), 80))
     rows = basic_products.query_underperforming_products(
         ps,
         pe,
@@ -292,8 +292,10 @@ def tool_get_underperforming_products(
         bottom_pct=bp,
         limit=lim,
     )
+    out_rows = _truncate_rows(rows or [], lim)
     return {
-        "underperformers": _truncate_rows(rows or [], lim),
+        "underperformers": out_rows,
+        "returned_count": len(out_rows),
         "bottom_pct": bp,
         "scope_note": (
             "pct_rank is PERCENT_RANK over gross_pln ascending within the brand (and optional category filter); "
@@ -667,7 +669,7 @@ _TOOL_IMPL = {
         parent_category_id=_opt_int(a.get("parent_category_id")),
         subcategory_id=_opt_int(a.get("subcategory_id")),
         bottom_pct=float(a.get("bottom_pct") if a.get("bottom_pct") is not None else 0.10),
-        limit=int(a.get("limit") or 30),
+        limit=int(a.get("limit") or 80),
     ),
     "get_sales_by_category_for_brand": lambda ps, pe, bid, a: tool_get_sales_by_category_for_brand(
         ps, pe, brand_id=int(_opt_int(a.get("brand_id")) or bid)
@@ -827,8 +829,9 @@ def build_expert_gemini_tool() -> types.Tool:
             name="get_underperforming_products",
             description=(
                 "Returns the bottom fraction of the brand's products by sales revenue (gross PLN) in the period, "
-                "with percentile rank. Use for portfolio cleanup, delist candidates, underperformer audits, "
-                "or when the user asks for weakest / lowest-selling SKUs. Not the same as get_top_products."
+                "with percentile rank (field pct_rank). Includes returned_count. Use limit 80 for all-category "
+                "bottom-N% audits so the model can list every candidate. For portfolio cleanup, delist candidates, "
+                "underperformer audits, or weakest / lowest-selling SKUs. Not the same as get_top_products."
             ),
             parameters={
                 "type": "object",
@@ -840,7 +843,10 @@ def build_expert_gemini_tool() -> types.Tool:
                         "type": "number",
                         "description": "Fraction of lowest-selling products to return by percentile (default 0.10 = bottom 10%).",
                     },
-                    "limit": {"type": "integer", "description": "Max rows after filter (default 30, max 80)."},
+                    "limit": {
+                        "type": "integer",
+                        "description": "Cap on rows returned after percentile filter (default 80, max 80). Use 80 for full-portfolio bottom-N audits.",
+                    },
                 },
             },
         ),
