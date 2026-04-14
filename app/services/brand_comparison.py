@@ -44,7 +44,7 @@ from app.db.queries.precalc import (
     query_discount_depth_for_all_subcategories_bc_from_precalc,
 )
 from app.db.queries.shared import query_available_years
-from app.services._cache import cache_key, get_cached, set_cached, TTL_LONG
+from app.services._cache import cache_key, compute_once, get_cached, set_cached, TTL_LONG
 from app.services.mi_bc_live import (
     build_bc_base_live,
     get_bc_competitors_live,
@@ -668,37 +668,37 @@ async def get_bc_all_years(brand_id, competitor_id, discount_cat=None, discount_
         return {"error": "Competitor required"}
 
     key = cache_key("bc_all_years_v2_duel_prev", brand=brand_id, comp=competitor_id)
-    cached = get_cached(key, ttl=TTL_LONG)
-    if cached is not None:
-        return copy.deepcopy(cached)
 
-    from app.db.queries.shared import query_available_years
-    years = await asyncio.to_thread(query_available_years)
-    years = list(years) if years else []
-    if not years:
-        return {"error": "No years available", "by_year": {}, "available_years": []}
+    async def _compute():
+        from app.db.queries.shared import query_available_years
+        years = await asyncio.to_thread(query_available_years)
+        years = list(years) if years else []
+        if not years:
+            return {"error": "No years available", "by_year": {}, "available_years": []}
 
-    tasks = [
-        get_bc_all(f"{y}-01-01", f"{y}-12-31", brand_id, competitor_id, discount_cat, discount_subcat)
-        for y in years
-    ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    by_year = {}
-    first_error = None
-    for y, r in zip(years, results):
-        if isinstance(r, Exception):
-            first_error = first_error or str(r)
-            continue
-        if r.get("error"):
-            first_error = first_error or r.get("error")
-            continue
-        by_year[str(y)] = r
+        tasks = [
+            get_bc_all(f"{y}-01-01", f"{y}-12-31", brand_id, competitor_id, discount_cat, discount_subcat)
+            for y in years
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        by_year = {}
+        first_error = None
+        for y, r in zip(years, results):
+            if isinstance(r, Exception):
+                first_error = first_error or str(r)
+                continue
+            if r.get("error"):
+                first_error = first_error or r.get("error")
+                continue
+            by_year[str(y)] = r
 
-    out = {"by_year": by_year, "available_years": [str(y) for y in years]}
-    if not by_year and first_error:
-        out["error"] = first_error
-    set_cached(key, out, ttl=TTL_LONG)
-    return copy.deepcopy(out)
+        out = {"by_year": by_year, "available_years": [str(y) for y in years]}
+        if not by_year and first_error:
+            out["error"] = first_error
+        return out
+
+    result = await compute_once(key, _compute, ttl=TTL_LONG)
+    return copy.deepcopy(result) if result else result
 
 
 async def get_brand_comparison(ps, pe, brand_id, competitor_id=None, cat=None, subcat=None):

@@ -6,6 +6,7 @@ Env opzionali:
 - CACHE_TTL_SECONDS — default 900 senza Redis; 86400 (24h) se REDIS_URL è impostato.
 - CACHE_TTL_LONG_SECONDS — default 3600 senza Redis; 604800 (7g) se REDIS_URL è impostato.
 """
+import asyncio
 import json
 import logging
 import os
@@ -163,6 +164,36 @@ def set_cached(key: str, data: dict, ttl: int | None = None):
 
 # Esporta per uso nei servizi
 TTL_LONG = _TTL_LONG
+
+# ---------------------------------------------------------------------------
+# Compute-lock: previene cache stampede (prewarm + richiesta utente che
+# calcolano la stessa chiave in parallelo, saturando BigQuery).
+# Un solo asyncio.Lock per chiave: il secondo arrivato attende il primo,
+# poi trova il dato già in cache e lo ritorna senza toccare BQ.
+# ---------------------------------------------------------------------------
+_COMPUTE_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+async def compute_once(key: str, compute_fn, ttl: int | None = None):
+    """Esegue compute_fn() una sola volta per chiave anche sotto richieste concorrenti.
+
+    Se una coroutine sta già calcolando la chiave, le altre attendono e
+    al rilascio del lock trovano il dato in cache (nessuna query BQ doppia).
+    """
+    cached = get_cached(key, ttl=ttl)
+    if cached is not None:
+        return cached
+    if key not in _COMPUTE_LOCKS:
+        _COMPUTE_LOCKS[key] = asyncio.Lock()
+    async with _COMPUTE_LOCKS[key]:
+        # Ricontrollo dopo aver acquisito il lock: il primo ha già popolato la cache
+        cached = get_cached(key, ttl=ttl)
+        if cached is not None:
+            return cached
+        result = await compute_fn()
+        if result is not None:
+            set_cached(key, result, ttl=ttl)
+        return result
 
 
 def clear_service_cache(*, flush_redis_db: bool = False) -> dict:
