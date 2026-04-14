@@ -154,6 +154,226 @@ def query_underperforming_products(
     return run_query(q, params)
 
 
+def query_products_by_price(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+    order: str = "desc",
+    limit: int = 15,
+) -> list[dict]:
+    """Products with sales in the period, ordered by list price (price_pln). order='desc' = most expensive first."""
+    cat_clause = ""
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+        bigquery.ScalarQueryParameter("lim", "INT64", max(1, min(int(limit), 50))),
+    ]
+    if subcategory_id and int(subcategory_id) >= 100:
+        cat_clause = " AND p.subcategory_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(subcategory_id)))
+    elif parent_category_id and 1 <= int(parent_category_id) <= 10:
+        cat_clause = " AND p.category_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(parent_category_id)))
+    order_dir = "ASC" if (order or "").lower().startswith("asc") else "DESC"
+    q = f"""
+    SELECT p.product_id, p.product_name, p.price_pln, p.premium_flag, p.launch_year,
+           c_parent.category_name AS parent_category_name,
+           c_sub.category_name AS subcategory_name,
+           SUM(oi.quantity) AS units_sold, SUM(oi.gross_pln) AS gross_pln
+    FROM mart.fact_order_items oi
+    JOIN mart.fact_orders o ON o.order_id = oi.order_id
+    JOIN mart.dim_product p ON p.product_id = oi.product_id
+    LEFT JOIN mart.dim_category c_parent ON c_parent.category_id = p.category_id AND c_parent.level = 1
+    LEFT JOIN mart.dim_category c_sub ON c_sub.category_id = p.subcategory_id AND c_sub.level = 2
+    WHERE o.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+      AND p.brand_id = @brand
+      {cat_clause}
+    GROUP BY p.product_id, p.product_name, p.price_pln, p.premium_flag, p.launch_year,
+             c_parent.category_name, c_sub.category_name
+    ORDER BY p.price_pln {order_dir}
+    LIMIT @lim
+    """
+    return run_query(q, params)
+
+
+def query_products_in_price_range(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    price_min: float | None = None,
+    price_max: float | None = None,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    """Products in a PLN price bracket, with sales in the period. price_min/max are inclusive."""
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+        bigquery.ScalarQueryParameter("lim", "INT64", max(1, min(int(limit), 80))),
+    ]
+    price_clause = ""
+    if price_min is not None:
+        price_clause += " AND p.price_pln >= @price_min"
+        params.append(bigquery.ScalarQueryParameter("price_min", "FLOAT64", float(price_min)))
+    if price_max is not None:
+        price_clause += " AND p.price_pln <= @price_max"
+        params.append(bigquery.ScalarQueryParameter("price_max", "FLOAT64", float(price_max)))
+    cat_clause = ""
+    if subcategory_id and int(subcategory_id) >= 100:
+        cat_clause = " AND p.subcategory_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(subcategory_id)))
+    elif parent_category_id and 1 <= int(parent_category_id) <= 10:
+        cat_clause = " AND p.category_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(parent_category_id)))
+    q = f"""
+    SELECT p.product_id, p.product_name, p.price_pln, p.premium_flag, p.launch_year,
+           c_parent.category_name AS parent_category_name,
+           c_sub.category_name AS subcategory_name,
+           SUM(oi.quantity) AS units_sold, SUM(oi.gross_pln) AS gross_pln
+    FROM mart.fact_order_items oi
+    JOIN mart.fact_orders o ON o.order_id = oi.order_id
+    JOIN mart.dim_product p ON p.product_id = oi.product_id
+    LEFT JOIN mart.dim_category c_parent ON c_parent.category_id = p.category_id AND c_parent.level = 1
+    LEFT JOIN mart.dim_category c_sub ON c_sub.category_id = p.subcategory_id AND c_sub.level = 2
+    WHERE o.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+      AND p.brand_id = @brand
+      {price_clause}
+      {cat_clause}
+    GROUP BY p.product_id, p.product_name, p.price_pln, p.premium_flag, p.launch_year,
+             c_parent.category_name, c_sub.category_name
+    ORDER BY gross_pln DESC
+    LIMIT @lim
+    """
+    return run_query(q, params)
+
+
+def query_new_launches(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    min_launch_year: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    """Products launched in min_launch_year or later, with sales in the period, ranked by revenue."""
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+        bigquery.ScalarQueryParameter("min_year", "INT64", int(min_launch_year)),
+        bigquery.ScalarQueryParameter("lim", "INT64", max(1, min(int(limit), 50))),
+    ]
+    cat_clause = ""
+    if subcategory_id and int(subcategory_id) >= 100:
+        cat_clause = " AND p.subcategory_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(subcategory_id)))
+    elif parent_category_id and 1 <= int(parent_category_id) <= 10:
+        cat_clause = " AND p.category_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(parent_category_id)))
+    q = f"""
+    SELECT p.product_id, p.product_name, p.price_pln, p.premium_flag, p.launch_year,
+           c_parent.category_name AS parent_category_name,
+           c_sub.category_name AS subcategory_name,
+           SUM(oi.quantity) AS units_sold, SUM(oi.gross_pln) AS gross_pln
+    FROM mart.fact_order_items oi
+    JOIN mart.fact_orders o ON o.order_id = oi.order_id
+    JOIN mart.dim_product p ON p.product_id = oi.product_id
+    LEFT JOIN mart.dim_category c_parent ON c_parent.category_id = p.category_id AND c_parent.level = 1
+    LEFT JOIN mart.dim_category c_sub ON c_sub.category_id = p.subcategory_id AND c_sub.level = 2
+    WHERE o.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+      AND p.brand_id = @brand
+      AND p.launch_year >= @min_year
+      {cat_clause}
+    GROUP BY p.product_id, p.product_name, p.price_pln, p.premium_flag, p.launch_year,
+             c_parent.category_name, c_sub.category_name
+    ORDER BY gross_pln DESC
+    LIMIT @lim
+    """
+    return run_query(q, params)
+
+
+def query_sales_trend_by_month(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+) -> list[dict]:
+    """Monthly sales trend (gross_pln, units) for a brand, optionally scoped to category/subcategory."""
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+    ]
+    cat_clause = ""
+    if subcategory_id and int(subcategory_id) >= 100:
+        cat_clause = " AND category_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(subcategory_id)))
+    elif parent_category_id and 1 <= int(parent_category_id) <= 10:
+        cat_clause = " AND parent_category_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(parent_category_id)))
+    q = f"""
+    SELECT
+      EXTRACT(YEAR FROM date) AS year,
+      EXTRACT(MONTH FROM date) AS month,
+      FORMAT_DATE('%Y-%m', date) AS year_month,
+      SUM(gross_pln) AS gross_pln,
+      SUM(units) AS units
+    FROM mart.fact_sales_daily
+    WHERE date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+      AND brand_id = @brand
+      {cat_clause}
+    GROUP BY year, month, year_month
+    ORDER BY year, month
+    """
+    return run_query(q, params)
+
+
+def query_sales_by_gender_breakdown(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+) -> list[dict]:
+    """Sales breakdown by gender (M/F) for a brand, optionally scoped to category/subcategory."""
+    params: list = [
+        bigquery.ScalarQueryParameter("ps", "STRING", ps),
+        bigquery.ScalarQueryParameter("pe", "STRING", pe),
+        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id)),
+    ]
+    cat_clause = ""
+    if subcategory_id and int(subcategory_id) >= 100:
+        cat_clause = " AND category_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(subcategory_id)))
+    elif parent_category_id and 1 <= int(parent_category_id) <= 10:
+        cat_clause = " AND parent_category_id = @cat"
+        params.append(bigquery.ScalarQueryParameter("cat", "INT64", int(parent_category_id)))
+    q = f"""
+    SELECT gender, SUM(gross_pln) AS gross_pln, SUM(units) AS units,
+           ROUND(100.0 * SUM(gross_pln) / NULLIF(SUM(SUM(gross_pln)) OVER (), 0), 1) AS pct_of_total
+    FROM mart.fact_sales_daily
+    WHERE date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
+      AND brand_id = @brand
+      AND gender IS NOT NULL
+      {cat_clause}
+    GROUP BY gender
+    ORDER BY gross_pln DESC
+    """
+    return run_query(q, params)
+
+
 def query_products_any_token_match(
     ps: str,
     pe: str,

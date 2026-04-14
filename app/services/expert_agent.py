@@ -194,9 +194,10 @@ Map categories with the taxonomy below or `list_categories`.
 - **Never list {brand_name} as a competitor** — that is the user's brand (brand_id {brand_id}). If any output mixes it with rivals, exclude your brand from the competitor list and analyse **other** brands only.
 
 ## Tool reference
-Sales & market: `get_sales_by_category_for_brand`, `get_brand_vs_market_subcategory_sales`, `get_top_products`, `search_products_by_query`, `list_competitors_in_category`.
+Sales & market: `get_sales_by_category_for_brand`, `get_brand_vs_market_subcategory_sales`, `get_top_products`, `search_products_by_query`, `list_competitors_in_category`, `get_sales_trend_by_month`.
+Pricing & catalog: `get_products_by_price` (highest/cheapest by list price), `get_products_in_price_range` (price bracket filter), `get_new_product_launches` (recent launches + performance).
 Segments & marketing: `get_segment_breakdown_for_category`, `get_category_needstate_landscape`, `get_segment_marketing_summary`, `get_needstate_dimensions_for_segment`, `list_segments`.
-Behaviour & channels: `get_purchasing_channel_mix`, `get_purchasing_journey`, `get_media_touchpoints`.
+Behaviour & channels: `get_purchasing_channel_mix`, `get_purchasing_journey`, `get_media_touchpoints`, `get_customer_stats` (unique buyers, AOV, loyalty %, app %, omnichannel %), `get_sales_by_gender` (M/F split).
 Promos: `get_promo_roi_by_type_for_brand`, `get_segment_promo_responsiveness`.
 SKU / portfolio: `get_underperforming_products`, `get_product_segment_breakdown`.
 Helpers: `list_categories`, `list_segments`.
@@ -286,6 +287,19 @@ class ExpertAgent:
             return
 
         ps, pe = DP[0], DP[1]
+
+        # Handoff after 6 assistant turns: the conversation has run its course for self-service
+        assistant_turns = sum(1 for m in msgs if m.get("role") == "assistant")
+        if assistant_turns >= 6:
+            yield {
+                "type": "handoff",
+                "text": (
+                    "This is what we could tell you based on the data available with your access. "
+                    "To look for more help with your request, forward this conversation to our human experts."
+                ),
+            }
+            return
+
         contents = _client_messages_to_contents(msgs)
         if not contents:
             yield {"type": "error", "text": "Please send a message."}

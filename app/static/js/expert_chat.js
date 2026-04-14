@@ -52,6 +52,17 @@
       else closeDrawer();
     });
   }
+  const expandBtn = document.getElementById('mexpert-expand');
+  if (expandBtn) {
+    expandBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const isExpanded = drawer.classList.toggle('mexpert-drawer--expanded');
+      expandBtn.title = isExpanded ? 'Collapse chat' : 'Expand chat';
+      expandBtn.setAttribute('aria-label', isExpanded ? 'Collapse chat' : 'Expand chat');
+      expandBtn.textContent = isExpanded ? '⊡' : '⛶';
+    });
+  }
+
   if (closeBtn) {
     closeBtn.addEventListener('mousedown', (ev) => {
       ev.stopPropagation();
@@ -59,6 +70,8 @@
     closeBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
+      drawer.classList.remove('mexpert-drawer--expanded');
+      if (expandBtn) { expandBtn.textContent = '⛶'; expandBtn.title = 'Expand chat'; }
       closeDrawer();
     });
   }
@@ -191,6 +204,7 @@
       }
       if (onEvent) onEvent(ev);
       if (ev && ev.type === 'answer') state.finalAnswer = String(ev.text || '');
+      if (ev && ev.type === 'handoff') state.handoffText = String(ev.text || '');
       if (ev && ev.type === 'error') throw new Error(String(ev.text || 'Error'));
     }
   }
@@ -227,7 +241,7 @@
     const reader = r.body.getReader();
     const dec = new TextDecoder();
     let buf = '';
-    const state = { finalAnswer: null };
+    const state = { finalAnswer: null, handoffText: null };
     while (true) {
       const { done, value } = await reader.read();
       if (value) buf += dec.decode(value, { stream: true });
@@ -248,6 +262,9 @@
       } else {
         consumeSseEventBlock(buf, onEvent, state);
       }
+    }
+    if (state.handoffText != null) {
+      return { type: 'handoff', text: state.handoffText };
     }
     return state.finalAnswer != null ? state.finalAnswer : 'Sorry — I could not generate an answer.';
   }
@@ -300,15 +317,39 @@
         }
       });
 
+      const isHandoff = answer && typeof answer === 'object' && answer.type === 'handoff';
+      const answerText = isHandoff ? answer.text : answer;
+
       if (thinkingNode && thinkingNode.querySelector) {
         const b = thinkingNode.querySelector('.bubble');
-        if (b) setBubbleContent(b, 'assistant', answer);
-        thinkingNode.className = 'expert-message assistant';
+        if (b) {
+          if (isHandoff) {
+            b.innerHTML = '';
+            const p = document.createElement('p');
+            p.textContent = answerText;
+            b.appendChild(p);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'expert-handoff-btn';
+            btn.textContent = 'Forward to our human experts';
+            btn.addEventListener('click', () => {
+              btn.disabled = true;
+              const conf = document.createElement('span');
+              conf.className = 'expert-handoff-confirmed';
+              conf.textContent = 'Your conversation has been forwarded. We will contact you shortly.';
+              b.appendChild(conf);
+            });
+            b.appendChild(btn);
+          } else {
+            setBubbleContent(b, 'assistant', answerText);
+          }
+        }
+        thinkingNode.className = isHandoff ? 'expert-message handoff' : 'expert-message assistant';
       } else {
-        addBubble('assistant', answer);
+        addBubble(isHandoff ? 'handoff' : 'assistant', answerText);
       }
 
-      history.push({ role: 'assistant', text: answer, ts: nowIso() });
+      history.push({ role: 'assistant', text: answerText, ts: nowIso() });
     } catch (err) {
       const em = (err && err.message) ? err.message : 'Network error';
       if (thinkingNode && thinkingNode.querySelector) {

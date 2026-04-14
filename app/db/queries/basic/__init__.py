@@ -27,9 +27,15 @@ from .kpi_and_category import (
     query_sales_by_category,
     query_sales_by_subcategory,
 )
+from .customers import query_customer_stats
 from .products import (
+    query_new_launches,
     query_products_any_token_match,
     query_products_by_category,
+    query_products_by_price,
+    query_products_in_price_range,
+    query_sales_by_gender_breakdown,
+    query_sales_trend_by_month,
     query_top_products,
     query_underperforming_products,
 )
@@ -85,7 +91,13 @@ __all__ = [
     "query_sales_by_category_by_segment",
     "query_sales_by_subcategory",
     "query_sales_detail",
+    "query_customer_stats",
+    "query_new_launches",
     "query_products_any_token_match",
+    "query_products_by_price",
+    "query_products_in_price_range",
+    "query_sales_by_gender_breakdown",
+    "query_sales_trend_by_month",
     "query_top_products",
     "query_underperforming_products",
     "query_yoy",

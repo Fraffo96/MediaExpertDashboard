@@ -11,6 +11,7 @@ from google.genai import types
 from app.constants import ADMIN_CATEGORIES, ADMIN_SUBCATEGORIES
 from app.db.queries.basic import products as basic_products
 from app.db.queries.basic import promo_roi as basic_promo_roi
+from app.db.queries.basic import customers as basic_customers
 from app.db.queries import brand_comparison as bc
 from app.db.queries.market_intelligence import sales as mi_sales
 from app.db.queries.market_intelligence import segment_sku as mi_segment_sku
@@ -129,6 +130,12 @@ TOOL_STATUS_LABELS: dict[str, str] = {
     "get_needstate_dimensions_for_segment": "Diving into needstate dimensions...",
     "get_media_touchpoints": "Checking how target segments discover products...",
     "get_purchasing_journey": "Mapping the customer purchasing journey...",
+    "get_products_by_price": "Looking up your products by list price...",
+    "get_products_in_price_range": "Filtering your catalog by price bracket...",
+    "get_sales_trend_by_month": "Building your monthly sales trend...",
+    "get_new_product_launches": "Checking your recent product launches...",
+    "get_customer_stats": "Pulling your customer profile metrics...",
+    "get_sales_by_gender": "Analyzing sales by customer gender...",
 }
 
 # HCG segments (aligned with mart.dim_segment seed)
@@ -674,6 +681,150 @@ def tool_get_purchasing_journey(
     }
 
 
+def tool_get_products_by_price(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+    order: str = "most_expensive",
+    limit: int = 15,
+) -> dict[str, Any]:
+    """Products ranked by list price (price_pln). order='most_expensive' gives highest first, 'cheapest' gives lowest."""
+    bq_order = "asc" if (order or "").lower() == "cheapest" else "desc"
+    lim = max(1, min(int(limit or 15), 50))
+    rows = basic_products.query_products_by_price(
+        ps, pe,
+        brand_id=int(brand_id),
+        parent_category_id=int(parent_category_id) if parent_category_id else None,
+        subcategory_id=int(subcategory_id) if subcategory_id else None,
+        order=bq_order,
+        limit=lim,
+    )
+    return {"products_by_price": _truncate_rows(rows or [], lim), "order": order}
+
+
+def tool_get_products_in_price_range(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    price_min: float | None = None,
+    price_max: float | None = None,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Products in a PLN price bracket with sales in the period. Both bounds are optional."""
+    lim = max(1, min(int(limit or 20), 80))
+    rows = basic_products.query_products_in_price_range(
+        ps, pe,
+        brand_id=int(brand_id),
+        price_min=float(price_min) if price_min is not None else None,
+        price_max=float(price_max) if price_max is not None else None,
+        parent_category_id=int(parent_category_id) if parent_category_id else None,
+        subcategory_id=int(subcategory_id) if subcategory_id else None,
+        limit=lim,
+    )
+    return {
+        "products_in_range": _truncate_rows(rows or [], lim),
+        "price_min_pln": price_min,
+        "price_max_pln": price_max,
+        "returned_count": len(rows or []),
+    }
+
+
+def tool_get_sales_trend_by_month(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+) -> dict[str, Any]:
+    """Monthly gross PLN and units trend for the brand in the date window. Highlights best and worst months."""
+    rows = basic_products.query_sales_trend_by_month(
+        ps, pe,
+        brand_id=int(brand_id),
+        parent_category_id=int(parent_category_id) if parent_category_id else None,
+        subcategory_id=int(subcategory_id) if subcategory_id else None,
+    )
+    rows = list(rows) if rows else []
+    best = max(rows, key=lambda r: float(r.get("gross_pln") or 0), default=None) if rows else None
+    worst = min(rows, key=lambda r: float(r.get("gross_pln") or 0), default=None) if rows else None
+    return {
+        "monthly_trend": _truncate_rows(rows, 60),
+        "best_month": _json_safe(best),
+        "worst_month": _json_safe(worst),
+        "total_gross_pln": round(sum(float(r.get("gross_pln") or 0) for r in rows), 2),
+    }
+
+
+def tool_get_new_product_launches(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    min_launch_year: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Products launched in min_launch_year or later, with their sales performance in the period."""
+    lim = max(1, min(int(limit or 20), 50))
+    rows = basic_products.query_new_launches(
+        ps, pe,
+        brand_id=int(brand_id),
+        min_launch_year=int(min_launch_year),
+        parent_category_id=int(parent_category_id) if parent_category_id else None,
+        subcategory_id=int(subcategory_id) if subcategory_id else None,
+        limit=lim,
+    )
+    rows = list(rows) if rows else []
+    return {
+        "new_launches": _truncate_rows(rows, lim),
+        "count": len(rows),
+        "min_launch_year": int(min_launch_year),
+    }
+
+
+def tool_get_customer_stats(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+) -> dict[str, Any]:
+    """Aggregate buyer metrics: unique customers, AOV, loyalty card %, omnichannel %, app %, channel breakdown."""
+    stats = basic_customers.query_customer_stats(
+        ps, pe,
+        brand_id=int(brand_id),
+        parent_category_id=int(parent_category_id) if parent_category_id else None,
+    )
+    if isinstance(stats, dict):
+        return _json_safe(stats)
+    return {"error": "no data"}
+
+
+def tool_get_sales_by_gender(
+    ps: str,
+    pe: str,
+    *,
+    brand_id: int,
+    parent_category_id: int | None = None,
+    subcategory_id: int | None = None,
+) -> dict[str, Any]:
+    """Sales breakdown by gender (M/F): gross PLN, units, and % of total for each gender."""
+    rows = basic_products.query_sales_by_gender_breakdown(
+        ps, pe,
+        brand_id=int(brand_id),
+        parent_category_id=int(parent_category_id) if parent_category_id else None,
+        subcategory_id=int(subcategory_id) if subcategory_id else None,
+    )
+    return {"gender_breakdown": _truncate_rows(rows or [], 10)}
+
+
 _TOOL_IMPL = {
     "list_categories": lambda ps, pe, bid, a: tool_list_categories(),
     "list_segments": lambda ps, pe, bid, a: tool_list_segments(),
@@ -780,6 +931,48 @@ _TOOL_IMPL = {
         pe,
         segment_id=_opt_int(a.get("segment_id")),
         parent_category_id=_opt_int(a.get("parent_category_id")),
+    ),
+    "get_products_by_price": lambda ps, pe, bid, a: tool_get_products_by_price(
+        ps, pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+        subcategory_id=_opt_int(a.get("subcategory_id")),
+        order=str(a.get("order") or "most_expensive"),
+        limit=int(a.get("limit") or 15),
+    ),
+    "get_products_in_price_range": lambda ps, pe, bid, a: tool_get_products_in_price_range(
+        ps, pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        price_min=float(a["price_min"]) if a.get("price_min") is not None else None,
+        price_max=float(a["price_max"]) if a.get("price_max") is not None else None,
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+        subcategory_id=_opt_int(a.get("subcategory_id")),
+        limit=int(a.get("limit") or 20),
+    ),
+    "get_sales_trend_by_month": lambda ps, pe, bid, a: tool_get_sales_trend_by_month(
+        ps, pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+        subcategory_id=_opt_int(a.get("subcategory_id")),
+    ),
+    "get_new_product_launches": lambda ps, pe, bid, a: tool_get_new_product_launches(
+        ps, pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        min_launch_year=int(a.get("min_launch_year") or 2024),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+        subcategory_id=_opt_int(a.get("subcategory_id")),
+        limit=int(a.get("limit") or 20),
+    ),
+    "get_customer_stats": lambda ps, pe, bid, a: tool_get_customer_stats(
+        ps, pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+    ),
+    "get_sales_by_gender": lambda ps, pe, bid, a: tool_get_sales_by_gender(
+        ps, pe,
+        brand_id=int(_opt_int(a.get("brand_id")) or bid),
+        parent_category_id=_opt_int(a.get("parent_category_id")),
+        subcategory_id=_opt_int(a.get("subcategory_id")),
     ),
 }
 
@@ -1052,6 +1245,120 @@ def build_expert_gemini_tool() -> types.Tool:
                 "properties": {
                     "segment_id": {"type": "integer"},
                     "parent_category_id": {"type": "integer"},
+                },
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_products_by_price",
+            description=(
+                "Return the brand's products ranked by list price (price_pln from the catalog). "
+                "Use for questions like 'highest-priced', 'most expensive', 'cheapest', 'lowest-priced', "
+                "'premium products', 'entry-level products'. "
+                "order='most_expensive' (default) returns highest price first; 'cheapest' returns lowest first. "
+                "Also returns premium_flag and launch_year."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer", "description": "Defaults to logged-in user's brand."},
+                    "parent_category_id": {"type": "integer", "description": "Optional parent category 1–10."},
+                    "subcategory_id": {"type": "integer", "description": "Optional subcategory id >=100."},
+                    "order": {
+                        "type": "string",
+                        "description": "'most_expensive' (default) or 'cheapest'.",
+                    },
+                    "limit": {"type": "integer", "description": "Max rows (default 15, max 50)."},
+                },
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_products_in_price_range",
+            description=(
+                "Return brand products whose catalog list price falls between price_min and price_max (PLN). "
+                "Use for 'what do we sell between X and Y PLN', 'mid-range offering', 'products under N PLN', "
+                "'products over N PLN'. Both bounds are optional (omit one for open-ended ranges)."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer"},
+                    "price_min": {"type": "number", "description": "Lower bound in PLN (inclusive). Omit for no lower bound."},
+                    "price_max": {"type": "number", "description": "Upper bound in PLN (inclusive). Omit for no upper bound."},
+                    "parent_category_id": {"type": "integer", "description": "Optional parent category 1–10."},
+                    "subcategory_id": {"type": "integer", "description": "Optional subcategory id >=100."},
+                    "limit": {"type": "integer", "description": "Max rows (default 20)."},
+                },
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_sales_trend_by_month",
+            description=(
+                "Monthly breakdown of gross PLN and units for the brand's sales. "
+                "Use for: 'how are my sales trending?', 'month over month', 'best/worst month', "
+                "'Q1 vs Q2', 'are TVs going up or down?', 'monthly revenue breakdown'. "
+                "Returns each month's revenue, units, plus best and worst month highlighted. "
+                "Scope to a category by providing parent_category_id or subcategory_id."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer"},
+                    "parent_category_id": {"type": "integer", "description": "Optional parent category 1–10."},
+                    "subcategory_id": {"type": "integer", "description": "Optional subcategory id >=100."},
+                },
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_new_product_launches",
+            description=(
+                "Products launched in min_launch_year or later, with their sales performance. "
+                "Use for: 'which products did we launch this year/in 2025?', 'how are our new launches doing?', "
+                "'newest products', 'recent launches performance'. "
+                "Set min_launch_year to the relevant year (e.g. 2025 for 'this year', 2024 for 'last 2 years')."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer"},
+                    "min_launch_year": {"type": "integer", "description": "Minimum launch year (e.g. 2025)."},
+                    "parent_category_id": {"type": "integer", "description": "Optional parent category 1–10."},
+                    "subcategory_id": {"type": "integer", "description": "Optional subcategory id >=100."},
+                    "limit": {"type": "integer", "description": "Max rows (default 20)."},
+                },
+                "required": ["min_launch_year"],
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_customer_stats",
+            description=(
+                "Aggregate buyer metrics for the brand: unique customers, average order value, "
+                "orders per customer, loyalty card %, omnichannel %, app user %, and channel breakdown. "
+                "Use for: 'how many customers?', 'average order value', 'loyalty breakdown', "
+                "'omnichannel buyers', 'app usage', 'customer count by channel'. "
+                "Optionally scoped to a parent category."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer"},
+                    "parent_category_id": {"type": "integer", "description": "Optional: scope to a parent category 1–10."},
+                },
+            },
+        ),
+        types.FunctionDeclaration(
+            name="get_sales_by_gender",
+            description=(
+                "Sales breakdown by customer gender (M/F): gross PLN, units, and percentage of total. "
+                "Use for: 'gender split', 'do men or women buy more?', 'which gender drives revenue?', "
+                "'are women buying our products?', 'male vs female sales'. "
+                "Optionally scoped to a category or subcategory."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "brand_id": {"type": "integer"},
+                    "parent_category_id": {"type": "integer", "description": "Optional parent category 1–10."},
+                    "subcategory_id": {"type": "integer", "description": "Optional subcategory id >=100."},
                 },
             },
         ),

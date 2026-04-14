@@ -406,6 +406,20 @@ body.landing-home .page-footer {
   to   { opacity: 0; transform: translateY(16px) scale(0.97); }
 }
 
+/* ── MEXpert drawer: expanded state ── */
+.mexpert-drawer--expanded {
+  width: calc(100vw - 3rem);
+  max-width: 900px;
+  height: calc(100vh - 2rem);
+  max-height: calc(100vh - 2rem);
+  bottom: 1rem;
+  right: 1.5rem;
+  animation: none;
+}
+.mexpert-drawer--expanded .expert-messages {
+  max-height: none !important;
+}
+
 /* ── Expert card (shared between drawer & old layout) ── */
 .expert-card {
   background: linear-gradient(160deg, rgba(255,215,0,0.07) 0%, rgba(0,0,0,0) 40%), var(--bg-card);
@@ -448,6 +462,7 @@ body.landing-home .page-footer {
 }
 .expert-clear:hover { border-color: var(--yellow-dim); color: var(--yellow); }
 
+.mexpert-expand-btn,
 .mexpert-close-btn {
   width: 28px;
   height: 28px;
@@ -465,6 +480,7 @@ body.landing-home .page-footer {
   transition: border-color 0.15s, color 0.15s, background 0.15s;
   line-height: 1;
 }
+.mexpert-expand-btn:hover,
 .mexpert-close-btn:hover {
   border-color: var(--yellow);
   color: #000;
@@ -530,6 +546,38 @@ body.landing-home .page-footer {
   background: rgba(99,102,241,0.10);
   border-color: rgba(99,102,241,0.22);
   color: var(--text);
+}
+
+/* ── Handoff message ── */
+.expert-message.handoff .bubble {
+  background: rgba(255,215,0,0.06);
+  border-color: rgba(255,215,0,0.3);
+  color: var(--text);
+}
+.expert-handoff-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: var(--yellow);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.88rem;
+  font-family: inherit;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.expert-handoff-btn:hover { opacity: 0.85; }
+.expert-handoff-btn:disabled { opacity: 0.5; cursor: default; }
+.expert-handoff-confirmed {
+  display: block;
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  color: var(--yellow);
+  font-style: italic;
 }
 
 .expert-input {
