@@ -169,8 +169,9 @@
   {% endif %}
 
 </div>
+{% endblock %}
 
-{# ── MEXpert FAB + Drawer ── #}
+{% block page_floating %}
 <button type="button" class="mexpert-fab" id="mexpert-fab" aria-label="Ask the MEXpert" title="Ask the MEXpert">
   <img src="/static/img/favicon.png" alt="" width="20" height="20" loading="lazy" decoding="async">
   <span class="mexpert-fab-label">
@@ -182,7 +183,7 @@
 
 <div class="mexpert-overlay" id="mexpert-overlay" hidden aria-hidden="true"></div>
 
-<aside class="mexpert-drawer" id="mexpert-drawer" hidden aria-label="Ask the MEXpert chat" role="dialog" aria-modal="true">
+<aside class="mexpert-drawer" id="mexpert-drawer" hidden aria-hidden="true" aria-label="Ask the MEXpert chat" role="dialog" aria-modal="false">
   <div class="expert-card" id="expert-card">
     <div class="expert-card-header">
       <div class="expert-title">

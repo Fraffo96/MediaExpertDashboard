@@ -7,7 +7,7 @@
 
   /** Ignora click sul FAB subito dopo chiusura (evita riapertura da evento che “passa” al pulsante). */
   let suppressFabToggleUntil = 0;
-  const CLOSE_MS = 220;
+  const CLOSE_MS = 260;
 
   function openDrawer() {
     if (!drawer) return;
@@ -28,7 +28,7 @@
     const ta = document.getElementById('expert-text');
     if (ta) ta.blur();
     drawer.classList.add('mexpert-closing');
-    suppressFabToggleUntil = Date.now() + CLOSE_MS + 200;
+    suppressFabToggleUntil = Date.now() + CLOSE_MS + 350;
     setTimeout(() => {
       drawer.hidden = true;
       drawer.classList.remove('mexpert-closing');
@@ -255,7 +255,10 @@
   function setBusy(busy) {
     els.send.disabled = !!busy;
     els.text.disabled = !!busy;
-    if (!busy) els.text.focus();
+    if (!busy) {
+      const dr = document.getElementById('mexpert-drawer');
+      if (dr && !dr.hidden) els.text.focus();
+    }
   }
 
   try {

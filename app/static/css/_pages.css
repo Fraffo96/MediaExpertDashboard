@@ -158,10 +158,18 @@
 
 .landing-no-access { font-size: 1rem; color: var(--text-muted); margin-top: 1rem; }
 
+/* MEXpert: .mexpert-drawer usa display:flex — senza questa regola l'attributo HTML hidden non nasconde il pannello */
+.mexpert-drawer[hidden],
+.mexpert-overlay[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* ── MEXpert FAB ── */
 .mexpert-fab {
   position: fixed;
-  bottom: 1.75rem;
+  bottom: 1.5rem;
   right: 1.75rem;
   z-index: 1200;
   display: flex;
