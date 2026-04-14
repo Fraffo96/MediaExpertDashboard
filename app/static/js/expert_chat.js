@@ -1,15 +1,22 @@
 (() => {
   /* ── FAB / Drawer toggle ── */
-  const fab     = document.getElementById('mexpert-fab');
-  const drawer  = document.getElementById('mexpert-drawer');
+  const fab = document.getElementById('mexpert-fab');
+  const drawer = document.getElementById('mexpert-drawer');
   const overlay = document.getElementById('mexpert-overlay');
   const closeBtn = document.getElementById('mexpert-close');
+
+  /** Ignora click sul FAB subito dopo chiusura (evita riapertura da evento che “passa” al pulsante). */
+  let suppressFabToggleUntil = 0;
+  const CLOSE_MS = 220;
 
   function openDrawer() {
     if (!drawer) return;
     drawer.hidden = false;
-    if (overlay) { overlay.hidden = false; }
-    // Focus textarea after animation
+    drawer.setAttribute('aria-hidden', 'false');
+    if (overlay) {
+      overlay.hidden = false;
+      overlay.setAttribute('aria-hidden', 'false');
+    }
     setTimeout(() => {
       const t = document.getElementById('expert-text');
       if (t) t.focus();
@@ -17,21 +24,50 @@
   }
 
   function closeDrawer() {
-    if (!drawer) return;
+    if (!drawer || drawer.hidden) return;
+    const ta = document.getElementById('expert-text');
+    if (ta) ta.blur();
     drawer.classList.add('mexpert-closing');
-    if (overlay) overlay.hidden = true;
+    suppressFabToggleUntil = Date.now() + CLOSE_MS + 200;
     setTimeout(() => {
       drawer.hidden = true;
       drawer.classList.remove('mexpert-closing');
-    }, 200);
+      drawer.setAttribute('aria-hidden', 'true');
+      if (overlay) {
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
+      }
+    }, CLOSE_MS);
   }
 
-  if (fab) fab.addEventListener('click', () => {
-    if (!drawer) return;
-    drawer.hidden ? openDrawer() : closeDrawer();
-  });
-  if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
-  if (overlay)  overlay.addEventListener('click', closeDrawer);
+  if (fab) {
+    fab.addEventListener('click', (ev) => {
+      if (Date.now() < suppressFabToggleUntil) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+      if (!drawer) return;
+      if (drawer.hidden) openDrawer();
+      else closeDrawer();
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('mousedown', (ev) => {
+      ev.stopPropagation();
+    });
+    closeBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      closeDrawer();
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      closeDrawer();
+    });
+  }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && drawer && !drawer.hidden) closeDrawer();
   });
