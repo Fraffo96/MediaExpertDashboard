@@ -58,6 +58,7 @@ steps:
           --update-env-vars="$${ENV_VARS}"
           --memory=1Gi
           --cpu=2
+          --cpu-throttling
           --port=8080
           --min-instances=1
           --max-instances=3
