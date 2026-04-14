@@ -262,6 +262,39 @@ class GeminiQuota:
 
 _GLOBAL_QUOTA = GeminiQuota()
 
+# ---------------------------------------------------------------------------
+# Smart handoff constants
+# ---------------------------------------------------------------------------
+
+_HANDOFF_TRIGGER = "[HANDOFF]"
+
+# Appended to the system prompt when assistant_turns >= 6 and < _HANDOFF_HARD_LIMIT.
+# Tells Gemini to distinguish between data queries (answer with tools) and complex
+# strategy requests (reply with the exact trigger token only).
+_HANDOFF_ADDENDUM = """
+
+## Extended conversation mode (internal — not visible to user)
+
+This conversation has reached 6+ assistant turns. Apply these rules **for this turn only**:
+
+**Classify the current user request into one of two categories:**
+
+1. **DATA QUERY** — the user wants a specific metric, figure, or brief analysis that one or two tool calls can answer directly. Examples: ROI figures, product prices, top/worst SKUs, monthly sales trend, gender split, customer stats, competitor list, promo performance, segment breakdown, any dashboard metric — **including any item you yourself offered to explore in your previous turn** (e.g. "yes do that", "show me the ROI", "go ahead").
+   → Execute it: call the appropriate tool(s) and deliver a concise answer as usual. Append **exactly** this sentence at the very end of your reply, after the main answer: "For a deeper strategic session, you can forward this conversation to our human experts."
+
+2. **COMPLEX STRATEGY REQUEST** — a request requiring a full multi-step plan, go-to-market strategy, complete marketing roadmap, or extensive synthesis of many unknowns that the conversation has not yet explored.
+   → Reply with **only** the exact string `[HANDOFF]` — no other text, no explanation.
+
+**Priority rule:** if the user is accepting or following up on something you proposed in the previous assistant turn, always treat it as a DATA QUERY regardless of how it sounds."""
+
+# Soft suggest appended to answers in extended mode (shown as Markdown italic).
+_HANDOFF_SOFT_SUFFIX = (
+    "\n\n*For a deeper strategic session, you can forward this conversation to our human experts.*"
+)
+
+# Turns at which the hard block kicks in (no Gemini call at all).
+_HANDOFF_HARD_LIMIT = 10
+
 
 class ExpertAgent:
     """Gemini orchestrates the chat; Python executes declared tools only."""
@@ -288,9 +321,10 @@ class ExpertAgent:
 
         ps, pe = DP[0], DP[1]
 
-        # Handoff after 6 assistant turns: the conversation has run its course for self-service
         assistant_turns = sum(1 for m in msgs if m.get("role") == "assistant")
-        if assistant_turns >= 6:
+
+        # Hard limit: no Gemini call at all beyond _HANDOFF_HARD_LIMIT turns.
+        if assistant_turns >= _HANDOFF_HARD_LIMIT:
             yield {
                 "type": "handoff",
                 "text": (
@@ -299,6 +333,9 @@ class ExpertAgent:
                 ),
             }
             return
+
+        # Between 6 and the hard limit: pass to Gemini in extended mode.
+        in_extended_mode = assistant_turns >= 6
 
         contents = _client_messages_to_contents(msgs)
         if not contents:
@@ -331,6 +368,8 @@ class ExpertAgent:
             return
 
         sys_text = _build_system_instruction(int(brand_id), ps, pe)
+        if in_extended_mode:
+            sys_text += _HANDOFF_ADDENDUM
         tool = build_expert_gemini_tool()
         config = types.GenerateContentConfig(
             system_instruction=sys_text,
@@ -395,6 +434,17 @@ class ExpertAgent:
             fcalls = [p for p in parts if getattr(p, "function_call", None)]
             if not fcalls:
                 text = "".join((p.text or "") for p in parts if p.text).strip()
+                if in_extended_mode and text.strip() == _HANDOFF_TRIGGER:
+                    yield {
+                        "type": "handoff",
+                        "text": (
+                            "This is what we could tell you based on the data available with your access. "
+                            "To look for more help with your request, forward this conversation to our human experts."
+                        ),
+                    }
+                    return
+                if in_extended_mode and text:
+                    text = text + _HANDOFF_SOFT_SUFFIX
                 yield {"type": "answer", "text": text or (
                     "I've noted everything you've shared. "
                     "Let me pull the data to back this up — "
