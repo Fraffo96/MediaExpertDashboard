@@ -1,4 +1,42 @@
 (() => {
+  /* ── FAB / Drawer toggle ── */
+  const fab     = document.getElementById('mexpert-fab');
+  const drawer  = document.getElementById('mexpert-drawer');
+  const overlay = document.getElementById('mexpert-overlay');
+  const closeBtn = document.getElementById('mexpert-close');
+
+  function openDrawer() {
+    if (!drawer) return;
+    drawer.hidden = false;
+    if (overlay) { overlay.hidden = false; }
+    // Focus textarea after animation
+    setTimeout(() => {
+      const t = document.getElementById('expert-text');
+      if (t) t.focus();
+    }, 280);
+  }
+
+  function closeDrawer() {
+    if (!drawer) return;
+    drawer.classList.add('mexpert-closing');
+    if (overlay) overlay.hidden = true;
+    setTimeout(() => {
+      drawer.hidden = true;
+      drawer.classList.remove('mexpert-closing');
+    }, 200);
+  }
+
+  if (fab) fab.addEventListener('click', () => {
+    if (!drawer) return;
+    drawer.hidden ? openDrawer() : closeDrawer();
+  });
+  if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+  if (overlay)  overlay.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer && !drawer.hidden) closeDrawer();
+  });
+
+  /* ── Chat core ── */
   const els = {
     form: document.getElementById('expert-form'),
     text: document.getElementById('expert-text'),

@@ -12,9 +12,10 @@
     var cards = [];
     var n = (d.roi_benchmark && d.roi_benchmark[0]) ? (d.roi_benchmark[0].n_promos || 0) : 0;
     if (d.expected_roi != null && n > 0) {
+      var scopeNote = d.benchmark_scope === 'subcategory' ? ' (subcategory scope)' : ' (category scope)';
       var meta = d.discount_depth_used != null
-        ? 'Based on ' + n + ' similar promos at ~' + Math.round(d.discount_depth_used) + '% discount'
-        : 'Based on ' + n + ' similar promos in category';
+        ? 'Based on ' + n + ' similar promos at ~' + Math.round(d.discount_depth_used) + '% discount' + scopeNote
+        : 'Based on ' + n + ' similar promos in category' + scopeNote;
       var roiNum = Number(d.expected_roi);
       var negCls = roiNum < 0 ? ' pc-roi-negative' : '';
       cards.push('<div class="pc-card pc-card-expected-roi">' +
@@ -24,9 +25,10 @@
         '</div>');
     }
     if (d.top_competitor && d.top_competitor.brand_name) {
+      var compScope = d.benchmark_scope === 'subcategory' ? ' · Subcategory' : ' · Category';
       var compMeta = d.discount_depth_used != null
-        ? 'Performs best at ~' + Math.round(d.discount_depth_used) + '% discount (ROI ' + Number(d.top_competitor.avg_roi).toFixed(2) + 'x)'
-        : 'Performs best in this promo type (ROI ' + Number(d.top_competitor.avg_roi).toFixed(2) + 'x)';
+        ? 'Performs best at ~' + Math.round(d.discount_depth_used) + '% discount (ROI ' + Number(d.top_competitor.avg_roi).toFixed(2) + 'x)' + compScope
+        : 'Performs best in this promo type (ROI ' + Number(d.top_competitor.avg_roi).toFixed(2) + 'x)' + compScope;
       cards.push('<div class="pc-card pc-card-competitor">' +
         '<div class="pc-card-title">Top competitor</div>' +
         '<div class="pc-card-value">' + escapeHtml(d.top_competitor.brand_name) + '</div>' +

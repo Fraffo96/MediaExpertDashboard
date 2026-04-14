@@ -16,6 +16,8 @@ PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "mediaexpertdashboard")
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 SQL_FILE = SCRIPT_DIR.parent / "bigquery" / "schema_and_seed.sql"
+# Solo CREATE TABLE mart.dim_product, non altri statement che citano dim_product (es. product_pool).
+_DIM_PRODUCT_CREATE_RE = re.compile(r"CREATE\s+(OR\s+REPLACE\s+)?TABLE\s+mart\.dim_product\b", re.I)
 
 
 def apply_seed_numeric_overrides(content: str) -> str:
@@ -145,7 +147,7 @@ def main():
             sys.exit(1)
 
         # Subito dopo CREATE TABLE mart.dim_product: popola con dim_product_generated.sql
-        if "CREATE" in stmt and "mart.dim_product" in stmt and DIM_PRODUCT_FILE.exists():
+        if _DIM_PRODUCT_CREATE_RE.search(stmt) and DIM_PRODUCT_FILE.exists():
             t0 = time.time()
             try:
                 job = client.query(DIM_PRODUCT_FILE.read_text(encoding="utf-8"))

@@ -1,13 +1,13 @@
 -- =============================================================================
 -- BigQuery mart – Media Expert Dashboard
--- 10 categories + 72 subcategories, 55 brands, 6 HCG segments, products table
+-- 10 categories + 72 subcategories, 59 brands, 6 HCG segments, products table
 -- Period: 2023-01-01 → 2025-12-31
 -- =============================================================================
 
 CREATE SCHEMA IF NOT EXISTS raw  OPTIONS(location = "EU");
 CREATE SCHEMA IF NOT EXISTS mart OPTIONS(location = "EU");
 
--- ─── dim_brand (55 brands; brand_country, brand_category_focus for analytics) ─
+-- ─── dim_brand (59 brands; brand_country, brand_category_focus for analytics) ─
 CREATE OR REPLACE TABLE mart.dim_brand (
   brand_id INT64 NOT NULL,
   brand_name STRING NOT NULL,
@@ -69,7 +69,11 @@ INSERT mart.dim_brand (brand_id, brand_name, brand_country, brand_category_focus
   (52,'DJI','CN','Photo & Video'),
   (53,'Remington','US','Health & Beauty'),
   (54,'Withings','FR','Health'),
-  (55,'Fitbit','US','Smartphones & wearables');
+  (55,'Fitbit','US','Smartphones & wearables'),
+  (56,'Honor','CN','Smartphones'),
+  (57,'Vivo','CN','Smartphones'),
+  (58,'Nothing','UK','Smartphones'),
+  (59,'POCO','CN','Smartphones');
 
 -- ─── dim_category (10 parent + 72 subcategories) ────────────────────────────
 CREATE OR REPLACE TABLE mart.dim_category (
@@ -81,7 +85,7 @@ CREATE OR REPLACE TABLE mart.dim_category (
 );
 INSERT mart.dim_category (category_id, category_name, level, parent_category_id, category_path) VALUES
   (1,'TV & Home Entertainment',1,NULL,'TV & Home Entertainment'),
-  (2,'Mobile and smartwatches',1,NULL,'Mobile and smartwatches'),
+  (2,'Smartphones, tablets & wearables',1,NULL,'Smartphones, tablets & wearables'),
   (3,'Computers & IT',1,NULL,'Computers & IT'),
   (4,'Gaming',1,NULL,'Gaming'),
   (5,'Large Appliances',1,NULL,'Large Appliances'),
@@ -98,14 +102,14 @@ INSERT mart.dim_category (category_id, category_name, level, parent_category_id,
   (106,'Home cinema systems',2,1,'TV & Home Entertainment > Home cinema systems'),
   (107,'Projectors',2,1,'TV & Home Entertainment > Projectors'),
   (108,'Streaming devices',2,1,'TV & Home Entertainment > Streaming devices'),
-  (201,'Smartphones flagship',2,2,'Mobile and smartwatches > Smartphones flagship'),
-  (202,'Smartphones mid-range',2,2,'Mobile and smartwatches > Smartphones mid-range'),
-  (203,'Smartphones entry',2,2,'Mobile and smartwatches > Smartphones entry'),
-  (204,'Foldable smartphones',2,2,'Mobile and smartwatches > Foldable smartphones'),
-  (205,'Tablets',2,2,'Mobile and smartwatches > Tablets'),
-  (206,'Smartwatches',2,2,'Mobile and smartwatches > Smartwatches'),
-  (207,'Fitness trackers',2,2,'Mobile and smartwatches > Fitness trackers'),
-  (208,'Phone accessories',2,2,'Mobile and smartwatches > Phone accessories'),
+  (201,'Smartphones flagship',2,2,'Smartphones, tablets & wearables > Smartphones flagship'),
+  (202,'Smartphones mid-range',2,2,'Smartphones, tablets & wearables > Smartphones mid-range'),
+  (203,'Smartphones entry',2,2,'Smartphones, tablets & wearables > Smartphones entry'),
+  (204,'Foldable smartphones',2,2,'Smartphones, tablets & wearables > Foldable smartphones'),
+  (205,'Tablets',2,2,'Smartphones, tablets & wearables > Tablets'),
+  (206,'Smartwatches',2,2,'Smartphones, tablets & wearables > Smartwatches'),
+  (207,'Fitness trackers',2,2,'Smartphones, tablets & wearables > Fitness trackers'),
+  (208,'Phone accessories',2,2,'Smartphones, tablets & wearables > Phone accessories'),
   (301,'Laptops',2,3,'Computers & IT > Laptops'),
   (302,'Gaming laptops',2,3,'Computers & IT > Gaming laptops'),
   (303,'Desktop PCs',2,3,'Computers & IT > Desktop PCs'),
@@ -413,10 +417,12 @@ gen AS (
     op.i AS order_id,
     op.dt AS date,
     op.cust_id AS customer_id,
-    CASE WHEN MOD(ABS(FARM_FINGERPRINT(CONCAT('ch', CAST(op.i AS STRING)))), 100) < 78 THEN op.ch_pref
+    /* Canale: ~68% preferred (cliente); ~32% split web/app/store — proxy specialist CE online ~1/3 EU, non retail totale PL (vedi docs/SEED_MARKET_RESEARCH.md) */
+    CASE WHEN MOD(ABS(FARM_FINGERPRINT(CONCAT('ch', CAST(op.i AS STRING)))), 100) < 68 THEN op.ch_pref
          WHEN MOD(ABS(FARM_FINGERPRINT(CONCAT('ch', CAST(op.i AS STRING)))), 3) = 0 THEN 'web'
          WHEN MOD(ABS(FARM_FINGERPRINT(CONCAT('ch', CAST(op.i AS STRING)))), 3) = 1 THEN 'app' ELSE 'store' END AS channel,
-    ROUND(150 + (MOD(ABS(FARM_FINGERPRINT(CAST(op.i AS STRING))), 6000) / 10.0), 2) AS gross_pln,
+    /* Ticket più largo (TV/bianchi): fino ~6.5k PLN oltre entry-level */
+    ROUND(95.0 + MOD(ABS(FARM_FINGERPRINT(CAST(op.i AS STRING))), 42000) / 6.5, 2) AS gross_pln,
     1 + MOD(ABS(FARM_FINGERPRINT(CONCAT('u', CAST(op.i AS STRING)))), 4) AS units,
     /* Promo: soglia da promo_sens (seg_behavior) + picchi + bias cliente [-7,+7]; niente 72% vs 14% fissi */
     (
@@ -471,11 +477,11 @@ WITH
 seg_pref AS (
   SELECT 1 AS segment_id, 8 AS parent_category_id
   UNION ALL SELECT 1, 9 UNION ALL SELECT 1, 3 UNION ALL SELECT 1, 2 UNION ALL SELECT 1, 6
-  UNION ALL SELECT 1, 1 UNION ALL SELECT 1, 7
+  UNION ALL SELECT 1, 1 UNION ALL SELECT 1, 7 UNION ALL SELECT 1, 5
   UNION ALL SELECT 2, 1 UNION ALL SELECT 2, 2 UNION ALL SELECT 2, 7 UNION ALL SELECT 2, 3 UNION ALL SELECT 2, 6 UNION ALL SELECT 2, 8
   UNION ALL SELECT 2, 5 UNION ALL SELECT 2, 9
   UNION ALL SELECT 3, 3 UNION ALL SELECT 3, 2 UNION ALL SELECT 3, 7 UNION ALL SELECT 3, 1 UNION ALL SELECT 3, 6 UNION ALL SELECT 3, 8
-  UNION ALL SELECT 3, 4 UNION ALL SELECT 3, 9
+  UNION ALL SELECT 3, 4 UNION ALL SELECT 3, 9 UNION ALL SELECT 3, 5
   UNION ALL SELECT 4, 2 UNION ALL SELECT 4, 7 UNION ALL SELECT 4, 4 UNION ALL SELECT 4, 1 UNION ALL SELECT 4, 8 UNION ALL SELECT 4, 6
   UNION ALL SELECT 4, 3 UNION ALL SELECT 4, 5
   UNION ALL SELECT 5, 5 UNION ALL SELECT 5, 6 UNION ALL SELECT 5, 1 UNION ALL SELECT 5, 2 UNION ALL SELECT 5, 9 UNION ALL SELECT 5, 8
@@ -485,8 +491,9 @@ seg_pref AS (
 ch_pref AS (
   SELECT 'store' AS channel, 5 AS parent_category_id
   UNION ALL SELECT 'store', 1 UNION ALL SELECT 'store', 6 UNION ALL SELECT 'store', 2 UNION ALL SELECT 'store', 8
-  UNION ALL SELECT 'app', 2 UNION ALL SELECT 'app', 4 UNION ALL SELECT 'app', 7 UNION ALL SELECT 'app', 3 UNION ALL SELECT 'app', 8
-  UNION ALL SELECT 'web', 3 UNION ALL SELECT 'web', 4 UNION ALL SELECT 'web', 10 UNION ALL SELECT 'web', 2 UNION ALL SELECT 'web', 6 UNION ALL SELECT 'web', 8
+  UNION ALL SELECT 'app', 1 UNION ALL SELECT 'app', 2 UNION ALL SELECT 'app', 4 UNION ALL SELECT 'app', 7 UNION ALL SELECT 'app', 3 UNION ALL SELECT 'app', 8  UNION ALL SELECT 'app', 5
+  UNION ALL SELECT 'web', 1 UNION ALL SELECT 'web', 3 UNION ALL SELECT 'web', 4 UNION ALL SELECT 'web', 10 UNION ALL SELECT 'web', 2 UNION ALL SELECT 'web', 6 UNION ALL SELECT 'web', 8
+  UNION ALL SELECT 'web', 5
 ),
 gender_pref AS (
   SELECT 'male' AS gender, 3 AS parent_category_id
@@ -534,11 +541,19 @@ pool AS (
   SELECT segment_id, channel, gender, product_id,
     ROW_NUMBER() OVER (PARTITION BY segment_id, channel, gender ORDER BY ord_k) - 1 AS ix
   FROM (
-    /* Volume segmenti (4–6): escluso premium dal blocco base; premium rientrano da UNION flagship/TV sotto */
+    /* Volume segmenti (4–6): escluso premium dal blocco base; premium rientrano da UNION flagship/TV sotto.
+ Peso extra su grandi elettrodomestici Samsung/LG (brand 1–2, cat 5): altrimenti la revenue MI resta dominata dal mobile nel pool. */
     SELECT ap.segment_id, ap.channel, ap.gender, p.product_id,
-      MOD(ABS(FARM_FINGERPRINT(CONCAT(CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(p.subcategory_id AS STRING)))), 1000003) AS ord_k
+      MOD(ABS(FARM_FINGERPRINT(CONCAT(CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(p.subcategory_id AS STRING), '|', CAST(dpool AS STRING)))), 1000003) AS ord_k
     FROM all_pref ap
     JOIN mart.dim_product p ON p.category_id = ap.parent_category_id
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1,
+      CASE
+        WHEN p.brand_id IN (1, 2) AND p.category_id = 5 THEN 3
+        WHEN p.category_id = 5 AND p.brand_id IN (29, 30, 31, 32, 33, 34) THEN 4
+        ELSE 1
+      END
+    )) AS dpool
     WHERE NOT (ap.segment_id IN (4, 5, 6) AND p.premium_flag)
     UNION ALL
     /* Segmenti 1–3: sovrappeso forte ai premium nel mix cestino */
@@ -546,7 +561,7 @@ pool AS (
       MOD(ABS(FARM_FINGERPRINT(CONCAT(CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(p.subcategory_id AS STRING), '|', CAST(dup AS STRING)))), 1000003) AS ord_k
     FROM all_pref ap
     JOIN mart.dim_product p ON p.category_id = ap.parent_category_id
-    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 10)) AS dup
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 7)) AS dup
     WHERE ap.segment_id IN (1, 2, 3) AND p.premium_flag
     UNION ALL
     /* Smartphone/foldable premium: peso extra per segmenti 1–3 (Liberals, Doers, Go-Getters) */
@@ -554,7 +569,7 @@ pool AS (
       MOD(ABS(FARM_FINGERPRINT(CONCAT('flag', CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(dup AS STRING)))), 1000003) AS ord_k
     FROM all_pref ap
     JOIN mart.dim_product p ON p.category_id = ap.parent_category_id
-    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 12)) AS dup
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 7)) AS dup
     WHERE ap.segment_id IN (1, 2, 3) AND p.premium_flag AND p.subcategory_id IN (201, 202, 204)
     UNION ALL
     /* Flagship/foldable: peso aumentato su 4–6 (cross-segment su SKU premium mobile) */
@@ -562,16 +577,27 @@ pool AS (
       MOD(ABS(FARM_FINGERPRINT(CONCAT('fp46', CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(dup AS STRING)))), 1000003) AS ord_k
     FROM all_pref ap
     JOIN mart.dim_product p ON p.category_id = ap.parent_category_id
-    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 12)) AS dup
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 3)) AS dup
     WHERE ap.segment_id IN (4, 5, 6) AND p.premium_flag AND p.subcategory_id IN (201, 202, 204)
     UNION ALL
-    /* TV premium (OLED/QLED/soundbar): copertura 4–6 oltre solo smartphone */
+    /* TV premium (OLED/QLED/soundbar): peso basso su segmenti 4–6 (evita premium incoerente con swap a valle) */
     SELECT ap.segment_id, ap.channel, ap.gender, p.product_id,
       MOD(ABS(FARM_FINGERPRINT(CONCAT('tvp46', CAST(ap.segment_id AS STRING), '|', CAST(p.product_id AS STRING), '|', CAST(dup AS STRING)))), 1000003) AS ord_k
     FROM all_pref ap
     JOIN mart.dim_product p ON p.category_id = ap.parent_category_id
-    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 10)) AS dup
+    CROSS JOIN UNNEST(GENERATE_ARRAY(1, 2)) AS dup
     WHERE ap.segment_id IN (4, 5, 6) AND p.premium_flag AND p.subcategory_id IN (102, 103, 105)
+    UNION ALL
+    /* Copertura canale/segmento: 1×, solo SKU mass-market non premium; esclude specialist e subcat alta specificità (sync scripts/seed_catalog/constants.py SPECIALIST + POOL_UNIVERSAL_EXCLUDED_SUBCATEGORIES). */
+    SELECT seg.segment_id, ch.channel, g.gender, p.product_id,
+      MOD(ABS(FARM_FINGERPRINT(CONCAT('uch', CAST(p.product_id AS STRING), '|', CAST(seg.segment_id AS STRING), '|', ch.channel, '|', g.gender))), 1000003) AS ord_k
+    FROM (SELECT 1 AS segment_id UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6) seg
+    CROSS JOIN (SELECT 'store' AS channel UNION ALL SELECT 'app' UNION ALL SELECT 'web') ch
+    CROSS JOIN (SELECT 'male' AS gender UNION ALL SELECT 'female') g
+    CROSS JOIN mart.dim_product p
+    WHERE NOT p.premium_flag
+      AND p.brand_id NOT IN (36, 42, 49, 50, 51, 52)
+      AND p.subcategory_id NOT IN (102, 103, 104, 204, 408, 1002, 1003, 1005)
   )
 )
 SELECT segment_id, channel, gender, product_id, ix FROM pool;
@@ -694,7 +720,7 @@ lines_safe_resolved AS (
     CASE
       WHEN lsp.premium_flag AND lsp.segment_id IN (4, 5, 6)
         AND NOT (lsp.subcategory_id IN (201, 202, 204, 102, 103, 105))
-        AND MOD(ABS(FARM_FINGERPRINT(CONCAT('premswap', CAST(lsp.order_id AS STRING), '|', CAST(lsp.line_num AS STRING)))), 100) < 55 THEN (
+        AND MOD(ABS(FARM_FINGERPRINT(CONCAT('premswap', CAST(lsp.order_id AS STRING), '|', CAST(lsp.line_num AS STRING)))), 100) < 20 THEN (
         SELECT q.product_id FROM (
           SELECT p2.product_id, ROW_NUMBER() OVER (ORDER BY p2.product_id) AS rn
           FROM mart.dim_product p2
@@ -752,7 +778,8 @@ with_price AS (
         ELSE 1.0
       END *
       (0.68 + MOD(ABS(FARM_FINGERPRINT(CONCAT('br', CAST(p.brand_id AS STRING), '|', CAST(p.category_id AS STRING), '|', CAST(p.subcategory_id AS STRING)))), 55) / 100.0) *
-      (0.72 + 0.46 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('evt', CAST(p.brand_id AS STRING), '|', d.peak_event))), 1000) / 1000.0))
+      (0.72 + 0.46 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('evt', CAST(p.brand_id AS STRING), '|', d.peak_event))), 1000) / 1000.0)) *
+      CASE WHEN p.brand_id IN (1, 2) AND p.category_id = 5 THEN 1.04 ELSE 1.0 END
     , 2) AS gross_pln
   FROM lines_qty lq
   JOIN mart.dim_product p ON p.product_id = lq.product_id

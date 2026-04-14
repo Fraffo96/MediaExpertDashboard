@@ -1,6 +1,11 @@
 """Promo Creator: suggestions and benchmarks for promo planning."""
 from google.cloud import bigquery
-from app.db.client import run_query
+from app.db.client import run_query as _run_query_base
+
+
+def _run(q: str, params: list | None = None, *, log_label: str | None = None):
+    """Query Promo Creator: CTE anno intero possono superare 30s."""
+    return _run_query_base(q, params, timeout_sec=120, log_label=log_label)
 
 
 def query_category_discount_benchmark(ps, pe, brand_id, cat=None, subcat=None):
@@ -36,7 +41,7 @@ def query_category_discount_benchmark(ps, pe, brand_id, cat=None, subcat=None):
         bigquery.ScalarQueryParameter("cat", "INT64", int(cat) if cat and 1 <= int(cat) <= 10 else None),
         bigquery.ScalarQueryParameter("subcat", "INT64", int(subcat) if subcat and int(subcat) >= 100 else None),
     ]
-    return run_query(q, params)
+    return _run(q, params, log_label="pc_discount_bench_fact")
 
 
 # promo_id -> nominal discount % (from derive pcfg)
@@ -107,13 +112,17 @@ def query_roi_benchmark_by_type(ps, pe, brand_id, promo_type, cat=None):
       AND (@cat IS NULL OR fp.category_id = @cat)
       AND (@brand IS NULL OR fp.brand_id = @brand)
     """
-    return run_query(q, [
-        bigquery.ScalarQueryParameter("ps", "STRING", ps),
-        bigquery.ScalarQueryParameter("pe", "STRING", pe),
-        bigquery.ScalarQueryParameter("pt", "STRING", promo_type if promo_type else None),
-        bigquery.ScalarQueryParameter("cat", "INT64", int(cat) if cat and 1 <= int(cat) <= 10 else None),
-        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id) if brand_id else None),
-    ])
+    return _run(
+        q,
+        [
+            bigquery.ScalarQueryParameter("ps", "STRING", ps),
+            bigquery.ScalarQueryParameter("pe", "STRING", pe),
+            bigquery.ScalarQueryParameter("pt", "STRING", promo_type if promo_type else None),
+            bigquery.ScalarQueryParameter("cat", "INT64", int(cat) if cat and 1 <= int(cat) <= 10 else None),
+            bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id) if brand_id else None),
+        ],
+        log_label="pc_roi_benchmark_fp_parent",
+    )
 
 
 def query_roi_benchmark_by_type_and_discount(ps, pe, promo_type, roi_cat, discount_depth, dd_tolerance=7):
@@ -149,7 +158,7 @@ def query_roi_benchmark_by_type_and_discount(ps, pe, promo_type, roi_cat, discou
     WHERE fp.date BETWEEN PARSE_DATE('%Y-%m-%d', @ps) AND PARSE_DATE('%Y-%m-%d', @pe)
       AND fp.promo_id IN UNNEST(@pids) {where_pt} {where_cat}
     """
-    return run_query(q, params)
+    return _run(q, params, log_label="pc_roi_discount_parent_fp")
 
 
 def query_top_competitor_by_discount(ps, pe, roi_cat, promo_type, discount_depth, exclude_brand_id, dd_tolerance=7):
@@ -183,7 +192,7 @@ def query_top_competitor_by_discount(ps, pe, roi_cat, promo_type, discount_depth
     ORDER BY AVG(fp.roi) DESC
     LIMIT 1
     """
-    return run_query(q, params)
+    return _run(q, params, log_label="pc_top_comp_discount_parent_fp")
 
 
 def query_roi_benchmark_by_type_and_discount_subcat(
@@ -253,7 +262,7 @@ FROM overall o
 """
         + competitor_sql
     )
-    return run_query(q, params)
+    return _run(q, params, log_label="pc_roi_merged_discount_subcat")
 
 
 def query_roi_benchmark_by_type_subcat(ps, pe, promo_type, subcat):
@@ -314,7 +323,7 @@ FROM overall o
 """
         + competitor_sql
     )
-    return run_query(q, params)
+    return _run(q, params, log_label="pc_roi_merged_subcat")
 
 
 def query_top_competitor_by_discount_subcat(
@@ -345,7 +354,7 @@ ORDER BY AVG(r.roi) DESC
 LIMIT 1
 """
     )
-    return run_query(
+    return _run(
         q,
         [
             bigquery.ScalarQueryParameter("ps", "STRING", ps),
@@ -355,6 +364,7 @@ LIMIT 1
             bigquery.ScalarQueryParameter("exclude", "INT64", int(exclude_brand_id)),
             bigquery.ArrayQueryParameter("pids", "INT64", promo_ids),
         ],
+        log_label="pc_top_comp_discount_subcat",
     )
 
 
@@ -378,7 +388,7 @@ ORDER BY AVG(r.roi) DESC
 LIMIT 1
 """
     )
-    return run_query(
+    return _run(
         q,
         [
             bigquery.ScalarQueryParameter("ps", "STRING", ps),
@@ -387,6 +397,7 @@ LIMIT 1
             bigquery.ScalarQueryParameter("pt", "STRING", promo_type),
             bigquery.ScalarQueryParameter("exclude", "INT64", int(exclude_brand_id)),
         ],
+        log_label="pc_top_comp_type_subcat",
     )
 
 
@@ -403,12 +414,16 @@ def query_seasonality_by_month(ps, pe, promo_type, cat=None):
       AND (@cat IS NULL OR fp.category_id = @cat)
     GROUP BY 1 ORDER BY 1
     """
-    return run_query(q, [
-        bigquery.ScalarQueryParameter("ps", "STRING", ps),
-        bigquery.ScalarQueryParameter("pe", "STRING", pe),
-        bigquery.ScalarQueryParameter("pt", "STRING", promo_type if promo_type else None),
-        bigquery.ScalarQueryParameter("cat", "INT64", int(cat) if cat and 1 <= int(cat) <= 10 else None),
-    ])
+    return _run(
+        q,
+        [
+            bigquery.ScalarQueryParameter("ps", "STRING", ps),
+            bigquery.ScalarQueryParameter("pe", "STRING", pe),
+            bigquery.ScalarQueryParameter("pt", "STRING", promo_type if promo_type else None),
+            bigquery.ScalarQueryParameter("cat", "INT64", int(cat) if cat and 1 <= int(cat) <= 10 else None),
+        ],
+        log_label="pc_seasonality_fp",
+    )
 
 
 def query_segment_promo_responsiveness(ps, pe, cat=None, subcat=None, promo_type=None):
@@ -449,7 +464,7 @@ def query_segment_promo_responsiveness(ps, pe, cat=None, subcat=None, promo_type
     ORDER BY promo_share_pct DESC
     LIMIT 3
     """
-    return run_query(q, params)
+    return _run(q, params, log_label="pc_segments_responsiveness")
 
 
 def query_active_promos_overlap(ps, pe, brand_id, cat=None, subcat=None):
@@ -469,10 +484,34 @@ def query_active_promos_overlap(ps, pe, brand_id, cat=None, subcat=None):
       {where_subcat}
     GROUP BY f.promo_id, p.promo_name, p.promo_type
     """
-    return run_query(q, [
-        bigquery.ScalarQueryParameter("ps", "STRING", ps),
-        bigquery.ScalarQueryParameter("pe", "STRING", pe),
-        bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id) if brand_id else None),
-        bigquery.ScalarQueryParameter("cat", "INT64", int(cat) if cat and 1 <= int(cat) <= 10 else None),
-        bigquery.ScalarQueryParameter("subcat", "INT64", int(subcat) if subcat and int(subcat) >= 100 else None),
-    ])
+    return _run(
+        q,
+        [
+            bigquery.ScalarQueryParameter("ps", "STRING", ps),
+            bigquery.ScalarQueryParameter("pe", "STRING", pe),
+            bigquery.ScalarQueryParameter("brand", "INT64", int(brand_id) if brand_id else None),
+            bigquery.ScalarQueryParameter("cat", "INT64", int(cat) if cat and 1 <= int(cat) <= 10 else None),
+            bigquery.ScalarQueryParameter("subcat", "INT64", int(subcat) if subcat and int(subcat) >= 100 else None),
+        ],
+        log_label="pc_active_promos_overlap",
+    )
+
+
+def query_brand_ids_by_subcategory(subcat: int) -> list[dict]:
+    """Brand IDs con almeno un prodotto nella sottocategoria (catalogo dim_product)."""
+    try:
+        sid = int(subcat)
+        if sid < 100:
+            return []
+    except (TypeError, ValueError):
+        return []
+    q = """
+    SELECT DISTINCT brand_id
+    FROM mart.dim_product
+    WHERE subcategory_id = @subcat
+    """
+    return _run(
+        q,
+        [bigquery.ScalarQueryParameter("subcat", "INT64", sid)],
+        log_label="pc_brand_ids_subcat",
+    )

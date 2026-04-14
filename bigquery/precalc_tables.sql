@@ -122,6 +122,22 @@ CREATE TABLE IF NOT EXISTS mart.precalc_promo_live_sku (
 PARTITION BY date
 CLUSTER BY brand_id, promo_id, channel;
 
+-- Promo Creator (subcategory): ROI, competitor top-5, segmenti — lettura O(1) al posto di CTE su fact_sales_daily
+CREATE TABLE IF NOT EXISTS mart.precalc_promo_creator_subcat (
+  year INT64 NOT NULL,
+  parent_category_id INT64 NOT NULL,
+  category_id INT64 NOT NULL,
+  promo_type STRING NOT NULL,
+  discount_target INT64 NOT NULL,
+  avg_roi NUMERIC(10,4) NOT NULL,
+  n_promos INT64 NOT NULL,
+  media_avg_discount NUMERIC(5,1) NOT NULL,
+  top_brands ARRAY<STRUCT<brand_id INT64, brand_name STRING, avg_roi NUMERIC(10,4)>>,
+  top_segments ARRAY<STRUCT<segment_name STRING, promo_share_pct NUMERIC(5,1)>>
+)
+PARTITION BY RANGE_BUCKET(year, GENERATE_ARRAY(2023, 2026))
+CLUSTER BY parent_category_id, category_id, promo_type, discount_target;
+
 -- Promo Creator: benchmark discount e ROI per (year, category_id, brand_id)
 -- Fase 2: usato da get_promo_creator_suggestions
 CREATE TABLE IF NOT EXISTS mart.precalc_promo_creator_benchmark (

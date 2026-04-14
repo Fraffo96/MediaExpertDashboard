@@ -1,4 +1,8 @@
-"""Default seed (allineati a bigquery/schema_and_seed.sql)."""
+"""Default seed (allineati a bigquery/schema_and_seed.sql).
+
+Per tuning senza profilo compilato: modificare qui e le CTE corrispondenti nello schema, oppure
+solo lo schema e poi aggiornare questi default per il compiler. Riferimento tabellare: docs/SEED_PIPELINE_AND_WEIGHTS.md (§6).
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,7 @@ DEFAULT_SEG_PREF_ROWS: list[tuple[int, int]] = [
     (1, 6),
     (1, 1),
     (1, 7),
+    (1, 5),
     (2, 1),
     (2, 2),
     (2, 7),
@@ -27,6 +32,7 @@ DEFAULT_SEG_PREF_ROWS: list[tuple[int, int]] = [
     (3, 8),
     (3, 4),
     (3, 9),
+    (3, 5),
     (4, 2),
     (4, 7),
     (4, 4),

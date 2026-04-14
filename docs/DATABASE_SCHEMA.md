@@ -12,7 +12,7 @@
                                  │ date
   ┌──────────────┐               │              ┌──────────────────┐
   │  dim_brand   │               │              │  dim_category    │
-  │  55 righe    │               │              │  82 righe        │
+  │  59 righe    │               │              │  82 righe        │
   └──────┬───────┘               │              │  (10 parent +   │
          │ brand_id              │              │   72 subcategory)│
          │                       │              └───────┬──────────┘
@@ -50,10 +50,10 @@
 
 ## Tabelle Dimensione
 
-### dim_brand — 55 brand
+### dim_brand — 59 brand
 
 Colonne: `brand_id`, `brand_name`, `brand_country`, `brand_category_focus`.  
-Samsung, LG, Sony, Philips, TCL, Hisense, Panasonic, Apple, Xiaomi, Oppo, Realme, Huawei, Motorola, OnePlus, Garmin, Dell, HP, Lenovo, Asus, Acer, MSI, Logitech, TP-Link, Microsoft, Nintendo, Razer, SteelSeries, HyperX, Bosch, Siemens, Whirlpool, Beko, Electrolux, Amica, Tefal, Dyson, DeLonghi, Krups, Google, Amazon, Ring, Bose, JBL, Marshall, Beats, Sennheiser, Braun, Oral-B, Canon, Nikon, GoPro, DJI, Remington, Withings, Fitbit.
+Samsung, LG, Sony, Philips, TCL, Hisense, Panasonic, Apple, Xiaomi, Oppo, Realme, Huawei, Motorola, OnePlus, Garmin, Dell, HP, Lenovo, Asus, Acer, MSI, Logitech, TP-Link, Microsoft, Nintendo, Razer, SteelSeries, HyperX, Bosch, Siemens, Whirlpool, Beko, Electrolux, Amica, Tefal, Dyson, DeLonghi, Krups, Google, Amazon, Ring, Bose, JBL, Marshall, Beats, Sennheiser, Braun, Oral-B, Canon, Nikon, GoPro, DJI, Remington, Withings, Fitbit, Honor, Vivo, Nothing, POCO.
 
 Non tutti i brand vendono in tutte le categorie: combinazioni brand-categoria realistiche per le 10 parent.
 

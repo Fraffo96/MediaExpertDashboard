@@ -376,6 +376,168 @@ LEFT JOIN media_disc m ON m.year = d.year AND m.category_id = d.category_id
 """
     steps.append(("precalc_promo_creator_benchmark", sql_pc))
 
+    # 10b. precalc_promo_creator_subcat: Promo Creator con subcategory senza scan live su fact_sales_daily
+    sql_pc_sub = f"""
+CREATE OR REPLACE TABLE {dataset}.precalc_promo_creator_subcat
+PARTITION BY RANGE_BUCKET(year, GENERATE_ARRAY(2023, 2026))
+CLUSTER BY parent_category_id, category_id, promo_type, discount_target
+AS
+WITH pcfg AS (
+  SELECT 1 AS pid, 1.52 AS br UNION ALL SELECT 2 AS pid, 1.02 AS br UNION ALL SELECT 3 AS pid, 0.68 AS br
+  UNION ALL SELECT 4 AS pid, 1.38 AS br UNION ALL SELECT 5 AS pid, 1.18 AS br UNION ALL SELECT 6 AS pid, 1.92 AS br
+  UNION ALL SELECT 7 AS pid, 1.48 AS br UNION ALL SELECT 8 AS pid, 1.02 AS br UNION ALL SELECT 9 AS pid, 0.88 AS br UNION ALL SELECT 10 AS pid, 0.82 AS br
+),
+yadj AS (
+  SELECT 2023 AS yr, 1.15 AS ra UNION ALL SELECT 2024, 1.00 UNION ALL SELECT 2025, 0.85 UNION ALL SELECT 2026, 0.85
+),
+agg AS (
+  SELECT EXTRACT(YEAR FROM f.date) AS year, f.category_id AS subcat, f.promo_id, f.brand_id, f.date,
+    ANY_VALUE(f.parent_category_id) AS pcat,
+    SUM(f.gross_pln) AS att
+  FROM mart.fact_sales_daily f
+  WHERE f.date IS NOT NULL AND f.promo_flag AND f.promo_id IS NOT NULL AND f.category_id >= 100
+  GROUP BY 1, 2, 3, 4, 5
+),
+non_promo AS (
+  SELECT brand_id, category_id AS subcat, date, SUM(gross_pln) AS gross
+  FROM mart.fact_sales_daily
+  WHERE NOT promo_flag AND category_id >= 100 AND date IS NOT NULL
+  GROUP BY brand_id, category_id, date
+),
+baseline AS (
+  SELECT a.year, a.subcat, a.promo_id, a.brand_id, a.date, a.pcat, a.att,
+    AVG(np.gross) AS bl
+  FROM agg a
+  LEFT JOIN non_promo np ON np.brand_id = a.brand_id AND np.subcat = a.subcat
+    AND np.date BETWEEN DATE_SUB(a.date, INTERVAL 28 DAY) AND DATE_SUB(a.date, INTERVAL 1 DAY)
+  GROUP BY a.year, a.subcat, a.promo_id, a.brand_id, a.date, a.pcat, a.att
+),
+roi_computed AS (
+  SELECT b.year, b.subcat, b.pcat AS parent_cat, dm.promo_type, b.promo_id, b.brand_id,
+    ROUND(
+      (
+        (p.br * y.ra + 0.04 * (MOD(ABS(FARM_FINGERPRINT(CONCAT(CAST(b.date AS STRING), CAST(b.promo_id AS STRING), CAST(b.brand_id AS STRING)))), 21) - 10) / 10.0)
+        * (0.76 + 0.42 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('bmul', CAST(b.brand_id AS STRING)))), 1000) / 1000.0))
+        + 0.28 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('padj', CAST(b.brand_id AS STRING), '|', CAST(b.promo_id AS STRING)))), 21) - 10) / 10.0
+      )
+      * (0.80 + 0.42 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('pcat', CAST(b.pcat AS STRING)))), 1000) / 1000.0))
+      * (0.74 + 0.48 * (MOD(ABS(FARM_FINGERPRINT(CONCAT('ptype', COALESCE(dm.promo_type, 'na'), '|', CAST(b.pcat AS STRING)))), 1000) / 1000.0)),
+      4) AS roi
+  FROM baseline b
+  JOIN pcfg p ON p.pid = b.promo_id
+  JOIN yadj y ON y.yr = b.year
+  JOIN mart.dim_promo dm ON dm.promo_id = b.promo_id
+),
+pm AS (
+  SELECT 1 AS promo_id, 10 AS d UNION ALL SELECT 2, 20 UNION ALL SELECT 3, 30 UNION ALL SELECT 4, 15
+  UNION ALL SELECT 5, 15 UNION ALL SELECT 6, 12 UNION ALL SELECT 7, 8 UNION ALL SELECT 8, 18
+  UNION ALL SELECT 9, 25 UNION ALL SELECT 10, 20
+),
+targets AS (
+  SELECT DISTINCT d AS discount_target FROM pm
+),
+bucket_map AS (
+  SELECT t.discount_target, pm.promo_id
+  FROM targets t
+  JOIN pm ON ABS(pm.d - t.discount_target) <= 7
+),
+filt AS (
+  SELECT r.year, r.parent_cat, r.subcat, r.promo_type, r.promo_id, r.brand_id, bm.discount_target, r.roi
+  FROM roi_computed r
+  INNER JOIN bucket_map bm ON r.promo_id = bm.promo_id
+),
+discount_sub AS (
+  SELECT
+    EXTRACT(YEAR FROM f.date) AS year,
+    f.parent_category_id,
+    f.category_id AS subcat,
+    ROUND(COALESCE(
+      SUM(CASE WHEN f.promo_flag THEN f.discount_depth_pct * f.gross_pln ELSE 0 END)
+      / NULLIF(SUM(CASE WHEN f.promo_flag THEN f.gross_pln ELSE 0 END), 0), 0), 1) AS media_avg_discount
+  FROM mart.fact_sales_daily f
+  WHERE f.category_id >= 100
+  GROUP BY 1, 2, 3
+),
+main_agg AS (
+  SELECT
+    f.year,
+    f.parent_cat AS parent_category_id,
+    f.subcat AS category_id,
+    f.promo_type,
+    f.discount_target,
+    ROUND(AVG(f.roi), 2) AS avg_roi,
+    COUNT(*) AS n_promos,
+    ANY_VALUE(d.media_avg_discount) AS media_avg_discount
+  FROM filt f
+  LEFT JOIN discount_sub d
+    ON d.year = f.year AND d.parent_category_id = f.parent_cat AND d.subcat = f.subcat
+  GROUP BY 1, 2, 3, 4, 5
+),
+br AS (
+  SELECT year, parent_cat, subcat, promo_type, discount_target, brand_id,
+    ROUND(AVG(roi), 2) AS br_avg_roi
+  FROM filt
+  GROUP BY 1, 2, 3, 4, 5, 6
+),
+top_brands AS (
+  SELECT
+    br.year, br.parent_cat, br.subcat, br.promo_type, br.discount_target,
+    ARRAY_AGG(STRUCT(br.brand_id AS brand_id, b.brand_name AS brand_name, br.br_avg_roi AS avg_roi) ORDER BY br.br_avg_roi DESC LIMIT 5) AS top_brands
+  FROM br
+  JOIN mart.dim_brand b ON b.brand_id = br.brand_id
+  GROUP BY 1, 2, 3, 4, 5
+),
+seg_raw AS (
+  SELECT
+    EXTRACT(YEAR FROM f.date) AS year,
+    f.parent_category_id,
+    f.category_id AS subcat,
+    pt.promo_type AS promo_type,
+    s.segment_id,
+    s.segment_name,
+    ROUND(COALESCE(
+      SUM(CASE WHEN f.promo_flag AND p.promo_type = pt.promo_type THEN f.gross_pln ELSE 0 END)
+      / NULLIF(SUM(f.gross_pln), 0) * 100, 0), 1) AS promo_share_pct,
+    SUM(f.gross_pln) AS total_gross
+  FROM mart.fact_sales_daily f
+  JOIN mart.dim_segment s ON s.segment_id = f.segment_id
+  LEFT JOIN mart.dim_promo p ON p.promo_id = f.promo_id
+  CROSS JOIN (SELECT DISTINCT promo_type FROM mart.dim_promo WHERE promo_type IS NOT NULL) pt
+  WHERE f.category_id >= 100 AND f.gross_pln > 0
+  GROUP BY 1, 2, 3, 4, 5, 6
+),
+seg_ranked AS (
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY year, parent_category_id, subcat, promo_type ORDER BY promo_share_pct DESC) AS rn
+  FROM seg_raw
+),
+seg_top AS (
+  SELECT year, parent_category_id, subcat, promo_type,
+    ARRAY_AGG(STRUCT(segment_name AS segment_name, promo_share_pct AS promo_share_pct) ORDER BY promo_share_pct DESC LIMIT 3) AS top_segments
+  FROM seg_ranked
+  WHERE rn <= 3
+  GROUP BY 1, 2, 3, 4
+)
+SELECT
+  m.year,
+  m.parent_category_id,
+  m.category_id,
+  m.promo_type,
+  m.discount_target,
+  m.avg_roi,
+  m.n_promos,
+  COALESCE(m.media_avg_discount, 0) AS media_avg_discount,
+  tb.top_brands,
+  COALESCE(st.top_segments, []) AS top_segments
+FROM main_agg m
+LEFT JOIN top_brands tb
+  ON m.year = tb.year AND m.parent_category_id = tb.parent_cat AND m.category_id = tb.subcat
+  AND m.promo_type = tb.promo_type AND m.discount_target = tb.discount_target
+LEFT JOIN seg_top st
+  ON m.year = st.year AND m.parent_category_id = st.parent_category_id AND m.category_id = st.subcat
+  AND m.promo_type = st.promo_type
+"""
+    steps.append(("precalc_promo_creator_subcat", sql_pc_sub))
+
     # 11. precalc_promo_live_sku: SKU-level promo performance for Check Live Promo (partition by date for fast last 7/30 days)
     sql_promo_live = f"""
 CREATE OR REPLACE TABLE {dataset}.precalc_promo_live_sku

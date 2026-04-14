@@ -1,0 +1,49 @@
+{
+  "catalog_share_multiplier": {
+    "1": 2.35,
+    "2": 1.8,
+    "3": 1.35,
+    "4": 1.25,
+    "8": 2.0,
+    "9": 1.45,
+    "39": 1.35,
+    "56": 1.12,
+    "57": 1.1,
+    "58": 1.08,
+    "59": 1.15,
+    "19": 1.15,
+    "29": 1.35,
+    "30": 1.2,
+    "36": 1.2
+  },
+  "meta": {
+    "as_of": "2026-04",
+    "description": "Pesi proxy brand × parent_category_id (1–10) per mix SKU/revenue in seed. Somma 1 per brand sul sottoinsieme usato dal BRAND_FOCUS.",
+    "source_note": "Ispirato a mix pubblici Samsung DX (MX vs VD/DA), profili LG/Bosch (bianchi), Apple/Xiaomi. Non è contabilità né share di shelf Media Expert: calibrazione per retailer omnicanale EU.",
+    "sources": [
+      "https://news.samsung.com/global/samsung-electronics-announces-fourth-quarter-and-fy-2024-results",
+      "https://images.samsung.com/is/content/samsung/assets/global/ir/docs/2024_4Q_conference_eng.pdf"
+    ]
+  },
+  "brands": {
+    "1": {"1": 0.30, "2": 0.52, "5": 0.18},
+    "2": {"1": 0.48, "5": 0.52},
+    "3": {"1": 0.38, "4": 0.24, "7": 0.22, "10": 0.16},
+    "4": {"1": 0.34, "6": 0.30, "8": 0.22, "9": 0.14},
+    "8": {"2": 0.62, "3": 0.28, "7": 0.10},
+    "9": {"2": 0.41, "3": 0.10, "6": 0.31, "8": 0.18},
+    "39": {"2": 0.72, "8": 0.28},
+    "56": {"2": 1.0},
+    "57": {"2": 1.0},
+    "58": {"2": 1.0},
+    "59": {"2": 1.0},
+    "19": {"3": 0.55, "4": 0.45},
+    "21": {"3": 0.52, "4": 0.48},
+    "22": {"3": 0.55, "4": 0.45},
+    "29": {"5": 0.62, "6": 0.38},
+    "36": {"6": 0.72, "9": 0.28},
+    "42": {"7": 1.0},
+    "49": {"10": 1.0},
+    "50": {"10": 1.0}
+  }
+}

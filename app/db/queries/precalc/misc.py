@@ -31,7 +31,7 @@ def query_roi_benchmark_by_type_from_precalc(
     FROM mart.precalc_roi_agg
     WHERE year = @year {where_pt} {where_cat} {where_brand}
     """
-    return run_query(q, p)
+    return run_query(q, p, log_label="pc_precalc_roi_agg")
 
 
 def query_top_competitor_roi_from_precalc(
@@ -57,7 +57,7 @@ def query_top_competitor_roi_from_precalc(
     ORDER BY AVG(r.avg_roi) DESC
     LIMIT 1
     """
-    return run_query(q, p)
+    return run_query(q, p, log_label="pc_precalc_top_comp_parent")
 
 
 def query_category_discount_benchmark_from_precalc(year: int, brand_id: int, category_id: int | None = None) -> list[dict]:
@@ -77,7 +77,83 @@ def query_category_discount_benchmark_from_precalc(year: int, brand_id: int, cat
     FROM mart.precalc_promo_creator_benchmark
     WHERE year = @year AND brand_id = @brand {where_cat}
     """
-    return run_query(q, p)
+    return run_query(q, p, log_label="pc_precalc_discount_bench")
+
+
+def query_promo_creator_subcat_from_precalc(
+    year: int,
+    parent_category_id: int,
+    subcategory_id: int,
+    promo_type: str,
+    user_discount: float,
+) -> list[dict]:
+    """Slice Promo Creator subcategory: ROI, top_brands (ARRAY), top_segments (ARRAY). Match discount_target ±7."""
+    p = [
+        bigquery.ScalarQueryParameter("year", "INT64", year),
+        bigquery.ScalarQueryParameter("p", "INT64", int(parent_category_id)),
+        bigquery.ScalarQueryParameter("s", "INT64", int(subcategory_id)),
+        bigquery.ScalarQueryParameter("pt", "STRING", promo_type),
+        bigquery.ScalarQueryParameter("ud", "FLOAT64", float(user_discount)),
+    ]
+    q = """
+    SELECT
+      year,
+      parent_category_id,
+      category_id,
+      promo_type,
+      discount_target,
+      avg_roi,
+      n_promos,
+      media_avg_discount,
+      top_brands,
+      top_segments
+    FROM mart.precalc_promo_creator_subcat
+    WHERE year = @year
+      AND parent_category_id = @p
+      AND category_id = @s
+      AND promo_type = @pt
+      AND ABS(discount_target - @ud) <= 7
+    ORDER BY ABS(discount_target - @ud), discount_target
+    LIMIT 1
+    """
+    return run_query(q, p, timeout_sec=60, log_label="pc_precalc_subcat_bucket")
+
+
+def query_promo_creator_subcat_type_from_precalc(
+    year: int,
+    parent_category_id: int,
+    subcategory_id: int,
+    promo_type: str,
+) -> list[dict]:
+    """Fallback subcat+promo_type senza bucket sconto: usa solo precalc aggregando sui target disponibili."""
+    p = [
+        bigquery.ScalarQueryParameter("year", "INT64", int(year)),
+        bigquery.ScalarQueryParameter("p", "INT64", int(parent_category_id)),
+        bigquery.ScalarQueryParameter("s", "INT64", int(subcategory_id)),
+        bigquery.ScalarQueryParameter("pt", "STRING", promo_type),
+    ]
+    q = """
+    SELECT
+      year,
+      parent_category_id,
+      category_id,
+      promo_type,
+      CAST(NULL AS INT64) AS discount_target,
+      ROUND(AVG(avg_roi), 2) AS avg_roi,
+      SUM(n_promos) AS n_promos,
+      ROUND(AVG(media_avg_discount), 1) AS media_avg_discount,
+      ARRAY_AGG(top_brands IGNORE NULLS LIMIT 1)[OFFSET(0)] AS top_brands,
+      ARRAY_AGG(top_segments IGNORE NULLS LIMIT 1)[OFFSET(0)] AS top_segments
+    FROM mart.precalc_promo_creator_subcat
+    WHERE year = @year
+      AND parent_category_id = @p
+      AND category_id = @s
+      AND promo_type = @pt
+      AND n_promos > 0
+    GROUP BY year, parent_category_id, category_id, promo_type
+    LIMIT 1
+    """
+    return run_query(q, p, timeout_sec=60, log_label="pc_precalc_subcat_type_agg")
 
 
 def query_incremental_yoy_vendite_from_precalc(

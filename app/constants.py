@@ -15,7 +15,7 @@ DEFAULT_GCS_BRAND_LOGOS_BASE = "https://storage.googleapis.com/mediaexpertdashbo
 # Fallback per admin quando BigQuery non disponibile
 ADMIN_CATEGORIES = [
     {"category_id": 1, "category_name": "TV & Home Entertainment", "level": 1},
-    {"category_id": 2, "category_name": "Mobile and smartwatches", "level": 1},
+    {"category_id": 2, "category_name": "Smartphones, tablets & wearables", "level": 1},
     {"category_id": 3, "category_name": "Computers & IT", "level": 1},
     {"category_id": 4, "category_name": "Gaming", "level": 1},
     {"category_id": 5, "category_name": "Large Appliances", "level": 1},
@@ -111,7 +111,8 @@ ADMIN_BRANDS = [
         (28, "HyperX"), (29, "Bosch"), (30, "Siemens"), (31, "Whirlpool"), (32, "Beko"), (33, "Electrolux"),
         (34, "Amica"), (35, "Tefal"), (36, "Dyson"), (37, "DeLonghi"), (38, "Krups"), (39, "Google"), (40, "Amazon"),
         (41, "Ring"), (42, "Bose"), (43, "JBL"), (44, "Marshall"), (45, "Beats"), (46, "Sennheiser"), (47, "Braun"),
-        (48, "Oral-B"), (49, "Canon"), (50, "Nikon"), (51, "GoPro"), (52, "DJI"), (53, "Remington"), (54, "Withings"),
+        (48, "Oral-B"), (49, "Canon"), (50, "Nikon"), (51, "GoPro"), (52, "DJI"),         (53, "Remington"), (54, "Withings"),
         (55, "Fitbit"),
+        (56, "Honor"), (57, "Vivo"), (58, "Nothing"), (59, "POCO"),
     ]
 ]

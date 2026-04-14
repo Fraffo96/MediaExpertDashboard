@@ -62,10 +62,12 @@ from app.db.queries.precalc.prev_year import (
     query_sales_pct_by_brand_prev_year_subcategories_from_precalc,
 )
 from app.db.queries.precalc.misc import (
-    query_roi_benchmark_by_type_from_precalc,
     query_category_discount_benchmark_from_precalc,
     query_incremental_yoy_vendite_from_precalc,
     query_incremental_yoy_vendite_multi_year_from_precalc,
+    query_promo_creator_subcat_from_precalc,
+    query_promo_creator_subcat_type_from_precalc,
+    query_roi_benchmark_by_type_from_precalc,
     query_top_competitor_roi_from_precalc,
 )
 
@@ -119,4 +121,6 @@ __all__ = [
     "query_incremental_yoy_vendite_from_precalc",
     "query_incremental_yoy_vendite_multi_year_from_precalc",
     "query_top_competitor_roi_from_precalc",
+    "query_promo_creator_subcat_from_precalc",
+    "query_promo_creator_subcat_type_from_precalc",
 ]

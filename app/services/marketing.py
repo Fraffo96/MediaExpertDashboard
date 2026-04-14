@@ -270,6 +270,63 @@ def _load_segment_profiles() -> dict:
         return {}
 
 
+def _effective_hcg_parent_category(
+    category_id: int | None,
+    subcategory_id: int | None,
+) -> int | None:
+    """Macro-categoria 1–10 per lookup in needstates_hcg (stesso schema della pagina Needstates by Category)."""
+    if category_id is not None and str(category_id).strip():
+        try:
+            cid = int(category_id)
+            if 1 <= cid <= 10:
+                return cid
+        except (TypeError, ValueError):
+            pass
+    if subcategory_id is not None and str(subcategory_id).strip():
+        try:
+            sid = int(subcategory_id)
+            if sid >= 100:
+                parent = sid // 100
+                if 1 <= parent <= 10:
+                    return parent
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
+def _segment_summary_pain_and_needstates_from_hcg(cat_id: int, seg_id: int) -> tuple[list[str], list[str]] | None:
+    """
+    Pain points e needstate tag da needstates_hcg.json per (categoria, segmento).
+    - needstates: le 3 dimensioni col punteggio più alto per il segmento (come driver nello spider).
+    - pain points: le 2 dimensioni col punteggio più basso (minore affinità in quel contesto d’acquisto).
+    Con categoria «All» si usano invece i testi statici in segment_profiles.json.
+    """
+    if not (1 <= seg_id <= 6 and 1 <= cat_id <= 10):
+        return None
+    hcg = _load_needstates_hcg()
+    rows = hcg.get("categories", {}).get(str(cat_id), [])
+    if not rows:
+        return None
+    seg_idx = seg_id - 1
+    scored: list[tuple[str, int]] = []
+    for r in rows:
+        lab = (r.get("label") or "").strip()
+        sc = r.get("scores")
+        if not lab or not isinstance(sc, list) or seg_idx >= len(sc):
+            continue
+        try:
+            scored.append((lab, int(sc[seg_idx])))
+        except (TypeError, ValueError):
+            continue
+    if len(scored) < 2:
+        return None
+    by_desc = sorted(scored, key=lambda x: x[1], reverse=True)
+    by_asc = sorted(scored, key=lambda x: x[1])
+    needstates = [by_desc[i][0] for i in range(min(3, len(by_desc)))]
+    pain_points = [by_asc[0][0], by_asc[1][0]]
+    return (pain_points, needstates)
+
+
 def get_segment_summary(
     ps: str | None = None,
     pe: str | None = None,
@@ -278,15 +335,16 @@ def get_segment_summary(
     subcategory_id: int | None = None,
     brand_id: int | None = None,
 ) -> dict:
-    """Segment summary: profiles + top categories + top SKUs. Filters: segment, category, subcategory, brand."""
+    """Segment summary: top categories/SKUs + tag Pain/Needstates. Con category o subcategory selezionata, pain e needstates derivano da needstates_hcg.json (come Needstates by Category); con «All» restano i testi in segment_profiles.json."""
     ps = ps or _DEFAULT_PERIOD[0]
     pe = pe or _DEFAULT_PERIOD[1]
-    key = cache_key("mkt_seg_v2", ps=ps, pe=pe, seg=segment_id or 0, cat=category_id or 0, sub=subcategory_id or 0, brand=brand_id or 0)
+    key = cache_key("mkt_seg_v3", ps=ps, pe=pe, seg=segment_id or 0, cat=category_id or 0, sub=subcategory_id or 0, brand=brand_id or 0)
     cached = get_cached(key)
     if cached is not None:
         return cached
 
     profiles = _load_segment_profiles()
+    eff_hcg_cat = _effective_hcg_parent_category(category_id, subcategory_id)
     seg_ids = [segment_id] if segment_id else list(range(1, 7))
     year = int(ps[:4]) if ps and len(ps) >= 4 else None
     use_precalc = year and _is_full_year(ps, pe) and not brand_id
@@ -300,11 +358,17 @@ def get_segment_summary(
     by_segment: dict[int, dict] = {}
     for seg_id in seg_ids:
         prof = profiles.get(str(seg_id), {})
+        pain_points = prof.get("pain_points", [])
+        needstate_tags = prof.get("needstates", [])
+        if eff_hcg_cat is not None:
+            hcg_tags = _segment_summary_pain_and_needstates_from_hcg(eff_hcg_cat, seg_id)
+            if hcg_tags:
+                pain_points, needstate_tags = hcg_tags
         by_segment[seg_id] = {
             "segment_id": seg_id,
             "name": prof.get("name", f"Segment {seg_id}"),
-            "pain_points": prof.get("pain_points", []),
-            "needstates": prof.get("needstates", []),
+            "pain_points": pain_points,
+            "needstates": needstate_tags,
             "top_categories_note": prof.get("top_categories_note", ""),
             "top_categories": [c for c in top_cats if c.get("segment_id") == seg_id],
             "top_skus": [s for s in top_skus if s.get("segment_id") == seg_id],

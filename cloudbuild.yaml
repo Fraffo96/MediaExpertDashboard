@@ -56,11 +56,12 @@ steps:
           --platform=managed
           --allow-unauthenticated
           --update-env-vars="$${ENV_VARS}"
-          --memory=2Gi
-          --cpu=2
+          --memory=512Mi
+          --cpu=1
+          --no-cpu-throttling
           --port=8080
           --min-instances=1
-          --max-instances=5
+          --max-instances=3
           --timeout=120
         )
         if [ -n "${_VPC_CONNECTOR}" ]; then
@@ -79,8 +80,8 @@ options:
 substitutions:
   _PROJECT_ID: mediaexpertdashboard
   _REGION: europe-west1
-  _VPC_CONNECTOR: run-redis-connector
-  _EXTRA_ENV_VARS: 'REDIS_URL=redis://10.109.210.131:6379,CACHE_TTL_SECONDS=86400,CACHE_TTL_LONG_SECONDS=604800'
+  _VPC_CONNECTOR: ''
+  _EXTRA_ENV_VARS: 'CACHE_TTL_SECONDS=86400,CACHE_TTL_LONG_SECONDS=604800'
   _SET_SECRETS: ''
   _BRAND_LOGOS_PUBLIC_BASE: ''
   _FIRESTORE_DATABASE: ''

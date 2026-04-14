@@ -9,8 +9,10 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
+import logging
 import os
 import threading
+import time
 from typing import Optional
 
 from google.cloud import bigquery
@@ -25,6 +27,8 @@ def _resolve_gcp_project_id() -> str:
 
 PROJECT_ID = _resolve_gcp_project_id()
 DATASET = "mart"
+
+logger = logging.getLogger(__name__)
 
 _bq_client: Optional[bigquery.Client] = None
 _bq_client_lock = threading.Lock()
@@ -41,20 +45,53 @@ def get_client() -> bigquery.Client:
         return _bq_client
 
 
+def _env_flag(name: str) -> bool:
+    return (os.getenv(name, "") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def run_query(
     query: str,
     params: Optional[list] = None,
+    *,
+    timeout_sec: float = 30,
+    log_label: str | None = None,
 ) -> list[dict]:
     """
     Esegue una query parametrizzata e restituisce le righe come lista di dict.
     params: lista di bigquery.ScalarQueryParameter (nome, tipo, valore).
+    timeout_sec: timeout job BigQuery (Promo Creator / CTE pesanti usano 120s in app/db/queries/promo_creator.py).
     """
     client = get_client()
     job_config = QueryJobConfig()
     if params:
         job_config.query_parameters = params
-    job = client.query(query, job_config=job_config, timeout=30)
-    rows = job.result(timeout=30)
+    t0 = time.perf_counter()
+    job = client.query(query, job_config=job_config, timeout=timeout_sec)
+    rows = job.result(timeout=timeout_sec)
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    bytes_proc = getattr(job, "total_bytes_processed", None) or getattr(job, "total_bytes_billed", None)
+    slot_ms = getattr(job, "slot_millis", None)
+    label = log_label or ""
+    slow_thr = float((os.getenv("PROMO_CREATOR_SLOW_QUERY_MS") or "12000").strip() or "12000")
+    verbose_bq = _env_flag("PROMO_CREATOR_VERBOSE_BQ")
+    if label and verbose_bq:
+        logger.info(
+            "promo_creator_bq label=%s ms=%.0f bytes=%s slot_ms=%s job_id=%s",
+            label,
+            elapsed_ms,
+            bytes_proc,
+            slot_ms,
+            getattr(job, "job_id", None),
+        )
+    elif elapsed_ms >= slow_thr:
+        logger.warning(
+            "promo_creator_bq_slow label=%s ms=%.0f bytes=%s slot_ms=%s job_id=%s",
+            label or "unknown",
+            elapsed_ms,
+            bytes_proc,
+            slot_ms,
+            getattr(job, "job_id", None),
+        )
     return [dict(row) for row in rows]
 
 

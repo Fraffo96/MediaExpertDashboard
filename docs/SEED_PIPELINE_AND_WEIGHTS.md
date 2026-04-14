@@ -2,6 +2,8 @@
 
 Documento di riferimento per il brainstorming: **dove** sono definiti volumi, mix catalogo, segmenti, promo e come far partire un refresh senza UI (solo job/script e configurazione server).
 
+**Complementi:** tabella brand, campi tabelle e matrice needstates → [`SEED_DATA_SPEC_FOR_GENERATION.md`](SEED_DATA_SPEC_FOR_GENERATION.md). Dizionari del catalogo prodotti (`BRAND_FOCUS`, `SUBCAT_PRICE`, …) → [`scripts/seed_catalog/`](../scripts/seed_catalog/). Fonti e note sui pesi “reali” (proxy) → [`SEED_REALITY_BENCHMARKS.md`](SEED_REALITY_BENCHMARKS.md). Ricerca mercato (PL/EU) e prior macro → [`SEED_MARKET_RESEARCH.md`](SEED_MARKET_RESEARCH.md).
+
 ---
 
 ## 1. Flusso end-to-end
@@ -55,12 +57,15 @@ I replace esatti per ordini/clienti sono in `scripts/run_bigquery_schema.py` →
 
 ## 3. Catalogo prodotti (`dim_product`) — pesi e mix
 
-File: **`scripts/generate_seed_data.py`**
+File: **`scripts/generate_seed_data.py`** (entrypoint) e **`scripts/seed_catalog/`** (`constants.py`, `env_overrides.py`, `brand_weights.py`, `market_reality.py`, `brand_parent_revenue_weights.json`, `dim_product_sql.py`).
 
 | Concetto | Dove | Effetto |
 |----------|------|---------|
 | **Quante SKU** | `SEED_NUM_PRODUCTS` (env) | numero righe generate |
-| **Brand × categorie parent** | dict `BRAND_FOCUS` | quali coppie (brand, subcategoria) entrano nel round-robin delle SKU |
+| **Brand × categorie parent** | dict `BRAND_FOCUS` | quali macro sono ammesse per brand |
+| **Mix macro per brand (proxy revenue)** | `brand_parent_revenue_weights.json` × `MARKET_PARENT_VALUE_PRIOR` in `market_reality.py` | prodotto pesato + rinormalizzazione; brand senza JSON → uniforme poi × prior mercato |
+| **Smartphone PL (Statcounter)** | `market_reality.py` | moltiplicatore massa catalogo se il brand ha parent 2 |
+| **Quota righe catalogo per brand** | `catalog_share_multiplier` nello stesso JSON | moltiplica la massa vs altri brand così i marchi ad alta rotazione non restano con ~20 SKU su 1200 |
 | **Override focus** | `SEED_BRAND_FOCUS_JSON` | merge sopra `BRAND_FOCUS` |
 | **Prezzo / volatilità / share premium** | `SUBCAT_PRICE[subcat] = (avg_pln, spread_pct, premium_share)` | prezzo arrotondato, variante pseudo-casuale, probabilità `premium_flag` |
 | **Brand “mass market”** | `MASS_BRANDS` | prezzo ~×0.7, premium share ×0.5 |
@@ -197,18 +202,18 @@ Date sintetiche (giorni da ancore fisse): registrazione da `2020-01-01` + 0…13
 
 | Campo | Formula |
 |-------|---------|
-| `gross_pln` | `ROUND(150 + MOD(...)/10.0, 2)` con MOD su 6000 → range grosso **150–750** PLN circa |
+| `gross_pln` | `ROUND(95 + MOD(...)/6.5, 2)` con MOD su 42000 → fino a **~6.5k** PLN (bianchi/TV); vedi `SEED_MARKET_RESEARCH.md` |
+| Canale ordine | **68%** `preferred_channel`; **32%** rotazione web/app/store (proxy specialist CE) |
 | `net_pln` | `gross_pln / 1.23` (IVA indicativa) |
 | `units` | `1 + MOD(..., 4)` → **1–4** unità |
-| Canale riga ordine | **78%** usa `preferred_channel` del cliente; altrimenti rotazione web/app/store su `MOD(...,3)` |
 
 ### 6.7 Preferenze categoria (`seg_pref`, `ch_pref`, `gender_pref`)
 
 **`seg_pref`**: coppie `(segment_id, parent_category_id)` come nello SQL (identiche a `DEFAULT_SEG_PREF_ROWS` in `defaults.py`).
 
-- Seg 1: **8, 9, 3, 2, 6, 1, 7**
+- Seg 1: **8, 9, 3, 2, 6, 1, 7, 5**
 - Seg 2: **1, 2, 7, 3, 6, 8, 5, 9**
-- Seg 3: **3, 2, 7, 1, 6, 8, 4, 9**
+- Seg 3: **3, 2, 7, 1, 6, 8, 4, 9, 5**
 - Seg 4: **2, 7, 4, 1, 8, 6, 3, 5**
 - Seg 5: **5, 6, 1, 2, 9, 8**
 - Seg 6: **5, 6, 1, 2, 9, 8, 7**
@@ -216,8 +221,8 @@ Date sintetiche (giorni da ancore fisse): registrazione da `2020-01-01` + 0…13
 **`ch_pref`** (canale → categorie parent ammesse):
 
 - store: **5, 1, 6, 2, 8**
-- app: **2, 4, 7, 3, 8**
-- web: **3, 4, 10, 2, 6, 8**
+- app: **1, 2, 4, 7, 3, 8, 5**
+- web: **1, 3, 4, 10, 2, 6, 8, 5**
 
 **`gender_pref`**:
 
@@ -230,6 +235,7 @@ Date sintetiche (giorni da ancore fisse): registrazione da `2020-01-01` + 0…13
 - Segmenti **1, 2, 3**: prodotti premium ripetuti **10** volte (`GENERATE_ARRAY(1, 10)`) → forte sovrappeso premium nel sort.
 - Sottocategorie smartphone premium **201, 202, 204**: **12** duplicati per seg 1–3; stesse subcat **12** duplicati per seg 4–6 (blocco “flagship/foldable”).
 - TV premium **102, 103, 105** (OLED/QLED/soundbar): **10** duplicati per seg 4–6.
+- **Copertura universale canale:** **ogni** `product_id` compare **2×** in **ogni** tripletta `(segment_id, channel, gender)` (blocco `uch` nel pool), così nessuna SKU è esclusa da web/app/store; i blocchi da `all_pref` continuano a concentrare il peso sulle categorie preferite.
 
 ### 6.9 `fact_order_items`: righe, pool, quantità, prezzo
 

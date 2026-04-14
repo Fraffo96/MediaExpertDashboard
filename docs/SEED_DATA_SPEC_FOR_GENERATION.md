@@ -1,9 +1,11 @@
 # Specifica campi – Database Media Expert Dashboard
 
-> Riferimento per `scripts/generate_seed_data.py` e per modifiche allo schema.  
+> Riferimento per `scripts/generate_seed_data.py` (entrypoint) e [`scripts/seed_catalog/`](../scripts/seed_catalog/) (dizionari catalogo), oltre a modifiche allo schema.  
 > **Fonte:** `bigquery/schema_and_seed.sql`, `derive_sales_from_orders.sql`, `dim_product_generated.sql`
 
 **Quando usare:** rigenerare prodotti, verificare ID/range, modificare campi tabelle. Per schema logico e relazioni vedi `DATABASE_SCHEMA.md`.
+
+**Complemento:** flusso full_seed/precalc, variabili env e inventario numerico di tutti i pesi (segmenti, promo, pool, …) → [`SEED_PIPELINE_AND_WEIGHTS.md`](SEED_PIPELINE_AND_WEIGHTS.md). Proxy mix brand×categoria (IR / retailer) → [`SEED_REALITY_BENCHMARKS.md`](SEED_REALITY_BENCHMARKS.md) e [`scripts/seed_catalog/brand_parent_revenue_weights.json`](../scripts/seed_catalog/brand_parent_revenue_weights.json).
 
 ---
 
@@ -42,7 +44,7 @@ Su Windows, vedi anche [`scripts/reseed_full_pipeline.ps1`](../scripts/reseed_fu
 
 ## Elenco valori (nomi completi)
 
-### Brand (55)
+### Brand (59)
 
 | brand_id | brand_name | brand_country | brand_category_focus |
 |----------|-------------|---------------|----------------------|
@@ -54,7 +56,7 @@ Su Windows, vedi anche [`scripts/reseed_full_pipeline.ps1`](../scripts/reseed_fu
 | 6 | Hisense | CN | TV |
 | 7 | Panasonic | JP | TV |
 | 8 | Apple | US | Smartphones, Computers, Audio |
-| 9 | Xiaomi | CN | Smartphones, Small Appliances, Smart Home |
+| 9 | Xiaomi | CN | Smartphones, Computers (mesh/router), Small Appliances, Smart Home |
 | 10 | Oppo | CN | Smartphones |
 | 11 | Realme | CN | Smartphones |
 | 12 | Huawei | CN | Smartphones |
@@ -84,7 +86,7 @@ Su Windows, vedi anche [`scripts/reseed_full_pipeline.ps1`](../scripts/reseed_fu
 | 36 | Dyson | UK | Small Appliances, Health |
 | 37 | DeLonghi | IT | Small Appliances |
 | 38 | Krups | DE | Small Appliances |
-| 39 | Google | US | Smart Home |
+| 39 | Google | US | Smartphones, Smart Home |
 | 40 | Amazon | US | Smart Home |
 | 41 | Ring | US | Smart Home |
 | 42 | Bose | US | Audio |
@@ -101,6 +103,10 @@ Su Windows, vedi anche [`scripts/reseed_full_pipeline.ps1`](../scripts/reseed_fu
 | 53 | Remington | US | Health & Beauty |
 | 54 | Withings | FR | Health |
 | 55 | Fitbit | US | Smartphones & wearables |
+| 56 | Honor | CN | Smartphones |
+| 57 | Vivo | CN | Smartphones |
+| 58 | Nothing | UK | Smartphones |
+| 59 | POCO | CN | Smartphones |
 
 ---
 
@@ -109,7 +115,7 @@ Su Windows, vedi anche [`scripts/reseed_full_pipeline.ps1`](../scripts/reseed_fu
 | category_id | category_name |
 |-------------|---------------|
 | 1 | TV & Home Entertainment |
-| 2 | Mobile e smartwatches |
+| 2 | Smartphones, tablets & wearables |
 | 3 | Computers & IT |
 | 4 | Gaming |
 | 5 | Large Appliances |
@@ -460,7 +466,7 @@ Generazione coerente con segmento (segment_behavior_profile): preferred_channel,
 
 ### CTE `promo_mech`, `order_dates`, `order_cust`, `order_peak`, `gen`
 
-- **channel**: da `dim_customer.preferred_channel` (78% preferito)
+- **channel**: da `dim_customer.preferred_channel` (**68%** ordini; **32%** rotazione web/app/store — vedi `SEED_MARKET_RESEARCH.md`)
 - **promo_flag**: da `dim_date.peak_event` (Black Friday/Christmas 55%) + segment (Outcasts 52%, Go-Getters 22%)
 - **promo_id**: da peak_event (Black Friday→9, Christmas→10, Back to School→2, Summer Sales→6, Tech Launch→7)
 - **discount_depth_pct**: da `promo_mechanic_profile` (10, 20, 30, … % per promo_id)
@@ -520,7 +526,7 @@ Aggregata da `v_sales_daily_by_channel` senza channel. Fonte unica: fact_orders 
 
 | Entità | Range |
 |--------|-------|
-| brand_id | 1–55 |
+| brand_id | 1–59 |
 | category_id (parent) | 1–10 |
 | category_id (sub) | 101–108, 201–208, 301–310, 401–408, 501–508, 601–608, 701–706, 801–806, 901–905, 1001–1005 |
 | product_id | 10001+ |
