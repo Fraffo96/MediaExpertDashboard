@@ -3,6 +3,9 @@ Solo tabelle precalcolate. Periodo deve essere anno intero o range multi-anno co
 PRECALC_ONLY_ERR = "Precalc tables only. Use full year period (YYYY-01-01 to YYYY-12-31)."
 import asyncio
 import copy
+
+# Limita anni BC in parallelo per evitare saturazione BQ (compute_once previene stampede)
+_BC_YEAR_LOAD_SEM = asyncio.Semaphore(2)
 from decimal import Decimal
 
 
@@ -676,11 +679,11 @@ async def get_bc_all_years(brand_id, competitor_id, discount_cat=None, discount_
         if not years:
             return {"error": "No years available", "by_year": {}, "available_years": []}
 
-        tasks = [
-            get_bc_all(f"{y}-01-01", f"{y}-12-31", brand_id, competitor_id, discount_cat, discount_subcat)
-            for y in years
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        async def _load_year(y: int):
+            async with _BC_YEAR_LOAD_SEM:
+                return await get_bc_all(f"{y}-01-01", f"{y}-12-31", brand_id, competitor_id, discount_cat, discount_subcat)
+
+        results = await asyncio.gather(*[_load_year(y) for y in years], return_exceptions=True)
         by_year = {}
         first_error = None
         for y, r in zip(years, results):
