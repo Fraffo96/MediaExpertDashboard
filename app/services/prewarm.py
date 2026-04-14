@@ -127,9 +127,17 @@ async def prewarm_cache():
         async with _MI_LIVE_PREWARM_SEM:
             return await get_mi_all(ps, pe, bid, None, None)
 
+    async def _warm_top_products(bid: int):
+        from app.services.market_intelligence.extra import get_mi_top_products
+
+        last_year = int(DP[1][:4])
+        async with _MI_PREWARM_SEM:
+            return await get_mi_top_products(last_year, bid)
+
     tasks: list = [_warm_mi_all_years(bid) for bid in brand_ids]
     tasks += [_warm_bc_all_years(bid) for bid in brand_ids]
     tasks += [_warm_clp_active(bid) for bid in brand_ids]
+    tasks += [_warm_top_products(bid) for bid in brand_ids]
     tasks.append(get_filters())
 
     results = await asyncio.gather(*tasks, return_exceptions=True)

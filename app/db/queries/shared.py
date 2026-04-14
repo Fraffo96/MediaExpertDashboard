@@ -6,7 +6,7 @@ from google.cloud import bigquery
 from app.db.client import run_query
 
 # Evita ripetere DISTINCT anni su ogni get_mi_base / get_mi_all_years (stesso valore per minuti).
-_AVAILABLE_YEARS_TTL_SEC = 120.0
+_AVAILABLE_YEARS_TTL_SEC = 3600.0
 _available_years_cached: list[int] | None = None
 _available_years_cached_at: float = 0.0
 
@@ -62,11 +62,8 @@ def query_promos():
 
 
 def query_genders():
-    """Restituisce opzioni genere da fact_sales_daily."""
-    try:
-        return run_query("SELECT DISTINCT gender FROM mart.fact_sales_daily WHERE gender IS NOT NULL ORDER BY gender")
-    except Exception:
-        return [{"gender": "M"}, {"gender": "F"}]
+    """Restituisce opzioni genere: hardcodati per evitare scan su fact_sales_daily."""
+    return [{"gender": "M"}, {"gender": "F"}]
 
 
 def query_categories_by_brand(brand_id: int) -> list[dict]:

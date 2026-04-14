@@ -3,7 +3,7 @@ import asyncio
 import copy
 from decimal import Decimal
 
-from app.services._cache import cache_key, get_cached, set_cached, safe
+from app.services._cache import TTL_LONG, cache_key, get_cached, safe, set_cached
 
 
 def _sanitize_mi(obj):
@@ -35,7 +35,7 @@ async def get_mi_top_products(year, brand_id, category_id=None, subcategory_id=N
         sub=subcategory_id or "",
         ch=channel or "",
     )
-    cached = get_cached(key, ttl=600)
+    cached = get_cached(key, ttl=TTL_LONG)
     if cached is not None:
         return copy.deepcopy(cached)
     rows = await asyncio.to_thread(
@@ -49,7 +49,7 @@ async def get_mi_top_products(year, brand_id, category_id=None, subcategory_id=N
         limit,
     )
     out = {"rows": _sanitize_mi(list(rows) if rows else [])}
-    set_cached(key, out, ttl=600)
+    set_cached(key, out, ttl=TTL_LONG)
     return copy.deepcopy(out)
 
 
@@ -72,7 +72,7 @@ async def get_mi_segment_by_sku(product_id, brand_id, year, category_id=None, ch
         cat=category_id or "",
         ch=channel or "",
     )
-    cached = get_cached(key, ttl=600)
+    cached = get_cached(key, ttl=TTL_LONG)
     if cached is not None:
         return copy.deepcopy(cached)
     rows = await asyncio.to_thread(
@@ -96,5 +96,5 @@ async def get_mi_segment_by_sku(product_id, brand_id, year, category_id=None, ch
             channel,
         )
     out = {"rows": _sanitize_mi(list(rows) if rows else [])}
-    set_cached(key, out, ttl=600)
+    set_cached(key, out, ttl=TTL_LONG)
     return copy.deepcopy(out)

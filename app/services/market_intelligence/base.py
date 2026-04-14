@@ -36,6 +36,8 @@ async def get_mi_base(ps, pe, brand_id):
         set_cached(key, out)
         return copy.deepcopy(out)
 
+    years_task = asyncio.ensure_future(asyncio.to_thread(query_available_years))
+
     brand_cats = await asyncio.to_thread(query_brand_categories_from_precalc, year, bid)
     brand_cats = list(brand_cats) if brand_cats else []
 
@@ -57,8 +59,8 @@ async def get_mi_base(ps, pe, brand_id):
         sub_ids.extend([str(s["category_id"]) for s in subs])
     cat_ids = [str(c["category_id"]) for c in brand_cats]
 
-    available_years = await asyncio.to_thread(query_available_years)
-    available_years = list(available_years) if available_years else []
+    _years_raw = await years_task
+    available_years = list(_years_raw) if _years_raw else []
 
     cat_pie_id = str(first_cat) if first_cat else (cat_ids[0] if cat_ids else "")
     sub_pie_id = ""

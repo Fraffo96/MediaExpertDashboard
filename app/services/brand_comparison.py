@@ -89,15 +89,23 @@ def _bc_duel_pie_rows_as_prev(rows):
 
 def intersect_brand_category_trees(year: int, brand_id: int, competitor_id: int) -> tuple[list[dict], dict[str, list]]:
     """Macro-categorie e sub dove entrambi i brand hanno vendite (stesso anno, precalc). Ordine parent = come il brand principale (per fatturato)."""
-    cats_a = query_brand_categories_from_precalc(year, brand_id) or []
-    cats_b = query_brand_categories_from_precalc(year, competitor_id) or []
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_a = ex.submit(query_brand_categories_from_precalc, year, brand_id)
+        f_b = ex.submit(query_brand_categories_from_precalc, year, competitor_id)
+        cats_a = f_a.result() or []
+        cats_b = f_b.result() or []
     ids_b = {c["category_id"] for c in cats_b}
     brand_cats = [c for c in cats_a if c["category_id"] in ids_b]
     if not brand_cats:
         return [], {}
     parent_ids = [int(c["category_id"]) for c in brand_cats]
-    all_a = query_brand_all_subcategories_from_precalc(year, brand_id, parent_ids) or []
-    all_b = query_brand_all_subcategories_from_precalc(year, competitor_id, parent_ids) or []
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_a_sub = ex.submit(query_brand_all_subcategories_from_precalc, year, brand_id, parent_ids)
+        f_b_sub = ex.submit(query_brand_all_subcategories_from_precalc, year, competitor_id, parent_ids)
+        all_a = f_a_sub.result() or []
+        all_b = f_b_sub.result() or []
     subs_b_by_parent: dict[int, set[int]] = {}
     for r in all_b:
         pid = r.get("parent_category_id")
@@ -181,12 +189,20 @@ async def get_bc_base(ps, pe, brand_id, competitor_id=None):
     year = int(ps[:4])
 
     if cid_opt is not None:
-        brand_cats, brand_subcats_map = await asyncio.to_thread(intersect_brand_category_trees, year, bid, cid_opt)
+        (brand_cats, brand_subcats_map), _years_raw = await asyncio.gather(
+            asyncio.to_thread(intersect_brand_category_trees, year, bid, cid_opt),
+            asyncio.to_thread(query_available_years),
+        )
         brand_cats = list(brand_cats) if brand_cats else []
         brand_subcats_map = dict(brand_subcats_map) if brand_subcats_map else {}
+        available_years = list(_years_raw) if _years_raw else []
     else:
-        brand_cats = await asyncio.to_thread(query_brand_categories_from_precalc, year, bid)
+        brand_cats, _years_raw = await asyncio.gather(
+            asyncio.to_thread(query_brand_categories_from_precalc, year, bid),
+            asyncio.to_thread(query_available_years),
+        )
         brand_cats = list(brand_cats) if brand_cats else []
+        available_years = list(_years_raw) if _years_raw else []
 
         brand_subcats_map = {str(c["category_id"]): [] for c in brand_cats}
         if brand_cats:
@@ -206,10 +222,12 @@ async def get_bc_base(ps, pe, brand_id, competitor_id=None):
         sub_ids.extend([str(s["category_id"]) for s in subs])
     cat_ids = [str(c["category_id"]) for c in brand_cats]
 
-    available_years = await asyncio.to_thread(query_available_years)
-    available_years = list(available_years) if available_years else []
-
-    competitors = await asyncio.to_thread(query_competitors_in_scope_from_precalc, year, bid)
+    _comp_cache_key = cache_key("bc_competitors", ps=ps, pe=pe, brand=brand_id)
+    _comp_cached = get_cached(_comp_cache_key)
+    if _comp_cached is not None:
+        competitors = _comp_cached.get("competitors") or []
+    else:
+        competitors = list(await asyncio.to_thread(query_competitors_in_scope_from_precalc, year, bid) or [])
 
     cat_pie_id = str(first_cat) if first_cat else (cat_ids[0] if cat_ids else "")
     sub_pie_id = ""

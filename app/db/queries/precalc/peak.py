@@ -25,9 +25,15 @@ def query_peak_bc_raw_all_from_precalc(year: int, brand_id: int, competitor_id: 
     WHERE year = @year AND brand_id IN (@brand, @competitor)
     GROUP BY 1, 2, 3, 4
     """
-    peak_rows = run_query(q_peak, p)
-    annual_rows = run_query(q_annual, p)
-    return (list(peak_rows) if peak_rows else [], list(annual_rows) if annual_rows else [])
+    jobs = [("pk", q_peak, p), ("an", q_annual, p)]
+    out: dict[str, list] = {}
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = {ex.submit(run_query, ql, pp): k for k, ql, pp in jobs}
+        for fut in as_completed(futs):
+            k = futs[fut]
+            rows = fut.result()
+            out[k] = list(rows) if rows else []
+    return (out["pk"], out["an"])
 
 
 def query_peak_mi_raw_all_from_precalc(year: int, brand_id: int) -> tuple[list[dict], list[dict], list[dict], list[dict]]:

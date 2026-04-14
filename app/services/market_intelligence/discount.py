@@ -37,8 +37,18 @@ async def get_mi_discount(ps, pe, brand_id, brand_cats, sub_ids, discount_cat=No
 
     year = int(ps[:4])
 
-    disc_depth = await asyncio.to_thread(query_discount_depth_brand_vs_media_from_precalc, year, int(brand_id))
-    disc_depth = list(disc_depth) if disc_depth else []
+    if sub_ids:
+        sub_ids_int = [int(s) for s in sub_ids if s]
+        _disc_raw, _sub_raw = await asyncio.gather(
+            asyncio.to_thread(query_discount_depth_brand_vs_media_from_precalc, year, int(brand_id)),
+            asyncio.to_thread(query_discount_depth_for_all_subcategories_from_precalc, year, int(brand_id), sub_ids_int),
+        )
+        disc_depth = list(_disc_raw) if _disc_raw else []
+        dd_sub_all = list(_sub_raw) if _sub_raw else []
+    else:
+        disc_depth = list(await asyncio.to_thread(query_discount_depth_brand_vs_media_from_precalc, year, int(brand_id)) or [])
+        dd_sub_all = []
+
     discount_depth_selected_map = {}
     for r in disc_depth:
         cid = str(r.get("category_id", ""))
@@ -48,9 +58,6 @@ async def get_mi_discount(ps, pe, brand_id, brand_cats, sub_ids, discount_cat=No
                 "media_avg_discount_depth": r.get("media_avg_discount_depth"),
             }
     if sub_ids:
-        sub_ids_int = [int(s) for s in sub_ids if s]
-        dd_sub_all = await asyncio.to_thread(query_discount_depth_for_all_subcategories_from_precalc, year, int(brand_id), sub_ids_int)
-        dd_sub_all = list(dd_sub_all) if dd_sub_all else []
         for r in dd_sub_all:
             sid = str(r.get("category_id", ""))
             if sid:
