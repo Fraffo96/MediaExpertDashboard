@@ -19,6 +19,14 @@ from app.constants import CLP_DATA_MAX_DATE, DP
 
 logger = logging.getLogger(__name__)
 
+_prewarm_done: bool = False
+
+
+def is_prewarm_done() -> bool:
+    """True se il prewarm iniziale e' completato (utile per health check e diagnostica)."""
+    return _prewarm_done
+
+
 _MI_PREWARM_SEM = asyncio.Semaphore(2)
 _MI_LIVE_PREWARM_SEM = asyncio.Semaphore(2)
 _BC_PREWARM_SEM = asyncio.Semaphore(2)
@@ -53,6 +61,7 @@ def _warm_marketing_sync() -> None:
 
 async def prewarm_cache():
     """Riscalda cache per ogni brand con utenti attivi: MI + BC (primo competitor) + CLP active + filters."""
+    global _prewarm_done
     from app.services.brand_comparison import get_bc_all_years, get_bc_competitors
     from app.services.check_live_promo import get_active_promos
     from app.services.filters import get_filters
@@ -183,6 +192,7 @@ async def prewarm_cache():
         brand_ids,
         filters_ok,
     )
+    _prewarm_done = True
     return {
         "warmed": ok_mi,
         "warmed_mi_brands": ok_mi,

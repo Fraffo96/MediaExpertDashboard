@@ -92,6 +92,16 @@ def run_query(
             slot_ms,
             getattr(job, "job_id", None),
         )
+    # Log general slow queries (>2s) per tutte le query non-promo per diagnostica
+    if elapsed_ms >= 2000 and elapsed_ms < slow_thr:
+        logger.warning(
+            "bq_slow ms=%.0f label=%s bytes=%s slot_ms=%s job_id=%s",
+            elapsed_ms,
+            label or "unknown",
+            bytes_proc,
+            slot_ms,
+            getattr(job, "job_id", None),
+        )
     return [dict(row) for row in rows]
 
 
