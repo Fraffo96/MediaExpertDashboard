@@ -63,7 +63,7 @@ steps:
           --min-instances=1
           --max-instances=1
           --timeout=120
-          --startup-cpu-boost
+          --cpu-boost
         )
         if [ -n "${_VPC_CONNECTOR}" ]; then
           DEPLOY+=(--vpc-connector="${_VPC_CONNECTOR}" --vpc-egress=private-ranges-only)

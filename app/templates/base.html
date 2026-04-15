@@ -123,16 +123,7 @@
       <span class="topbar-brand-logo-wrap"{% if brand_logo_effective_brand_id %} data-brand-id="{{ brand_logo_effective_brand_id }}"{% endif %}{% if brand_logo_gcs_url %} data-gcs-logo-url="{{ brand_logo_gcs_url }}"{% endif %}{% if brand_logo_url and '/brand-logo/' in brand_logo_url %} data-proxy-logo-url="{{ brand_logo_url }}"{% endif %}><img src="{{ brand_logo_url }}" alt="" class="topbar-brand-logo" width="140" height="40" loading="lazy" decoding="async" referrerpolicy="no-referrer-when-downgrade" onload="console.info('[brand_logo] Caricata:', (this.currentSrc || this.src))" onerror="(function(el){ var w=el.closest('.topbar-brand-logo-wrap'); if(!w)return; var u=String(el.currentSrc||el.src||''); var px=w.getAttribute('data-proxy-logo-url'); var bid=w.getAttribute('data-brand-id'); var g=w.getAttribute('data-gcs-logo-url'); if(u.indexOf('googleapis.com')!==-1 &amp;&amp; (px||bid)){ var next=px||(bid?('/brand-logo/'+bid+'.png'):''); if(next){ el.onerror=function(){ w.style.display='none'; }; el.src=next; return;} } if(u.indexOf('googleapis.com')===-1 &amp;&amp; g){ el.onerror=function(){ w.style.display='none'; }; el.src=g; return;} w.style.display='none'; })(this)"></span>
       {% endif %}
       <h1>{% block page_title %}Dashboard{% endblock %}</h1>
-      {% block topbar_actions %}
-      {% if user and user.can_recalculate %}
-      <button type="button" class="recalculate-btn" id="btn-recalculate" title="Re-calculate dashboards (aggiorna tabelle precalcolate quando cambiano i feed dati)">
-        Re-calculate
-      </button>
-      {% endif %}
-      <button class="refresh-btn" onclick="if(typeof loadData==='function')loadData();" title="Refresh data">
-        <img src="/static/img/favicon.png" alt="R">
-      </button>
-      {% endblock %}
+      {% block topbar_actions %}{% endblock %}
     </div>
 
     <div id="widget-modal" class="widget-modal" aria-hidden="true">
@@ -338,31 +329,6 @@
         var c = document.getElementById('widget-modal-cancel'); if(c) c.onclick = closeModal;
         var m = document.getElementById('widget-modal'); if(m) m.onclick = function(e) { if(e.target.id==='widget-modal') closeModal(); };
       });
-    })();
-
-    (function recalculateBtn() {
-      var btn = document.getElementById('btn-recalculate');
-      if (!btn) return;
-      btn.onclick = async function() {
-        if (btn.disabled) return;
-        btn.disabled = true;
-        btn.textContent = 'Calcolando...';
-        try {
-          var r = await fetch('/api/admin/recalculate', { method: 'POST', credentials: 'include' });
-          var d = await r.json();
-          if (r.ok) {
-            alert('Tabelle precalcolate aggiornate in ' + (d.duration_sec || 0) + ' secondi.');
-            if (typeof loadData === 'function') loadData();
-          } else {
-            alert('Errore: ' + (d.error || d.detail || 'Unknown'));
-          }
-        } catch (e) {
-          alert('Errore: ' + (e.message || 'Network error'));
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Re-calculate';
-        }
-      };
     })();
 
     (function optionsModal() {
