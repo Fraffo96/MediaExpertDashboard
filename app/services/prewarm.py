@@ -7,8 +7,8 @@
 - CLP: get_active_promos ultimi 7g (TTL 300s) come primo fetch della pagina.
 Serve Redis (REDIS_URL) per condividere cache tra istanze e sessioni.
 
-Env opzionale PREWARM_BRAND_IDS=1,2,8 : elenco brand da riscaldare (salta lettura Firestore).
-Utile dopo clear-cache senza attendere login utenti."""
+Env opzionale PREWARM_BRAND_IDS=1,2,8 : brand **extra** da riscaldare sempre, in **unione** con i brand
+degli utenti attivi su Firestore (cosi' un nuovo cliente non resta escluso dal prewarm)."""
 import asyncio
 import logging
 import os
@@ -83,18 +83,25 @@ async def prewarm_cache():
         return sorted({u.brand_id for u in users if u.brand_id})
 
     explicit = _brand_ids_explicit()
+    firestore_ids: list[int] = []
+    try:
+        firestore_ids = await asyncio.to_thread(_brand_ids_from_firestore)
+    except Exception as e:
+        logger.warning("Prewarm: Firestore user list failed (%s)", e)
+
     if explicit is not None:
-        brand_ids = explicit
-        logger.info("Prewarm: using PREWARM_BRAND_IDS=%s", brand_ids)
+        brand_ids = sorted(set(explicit + firestore_ids))
+        logger.info(
+            "Prewarm: PREWARM_BRAND_IDS=%s merged with Firestore brands -> %s",
+            explicit,
+            brand_ids,
+        )
+    elif firestore_ids:
+        brand_ids = firestore_ids
+        logger.info("Prewarm: brands from Firestore active users -> %s", brand_ids)
     else:
-        try:
-            brand_ids = await asyncio.to_thread(_brand_ids_from_firestore)
-        except Exception as e:
-            logger.warning("Prewarm: Firestore user list failed (%s), fallback brand_id=1", e)
-            brand_ids = []
-        if not brand_ids:
-            brand_ids = [1]
-            logger.info("Prewarm: no brand users, warming brand_id=1")
+        brand_ids = [1]
+        logger.info("Prewarm: no explicit env and no Firestore brands, warming brand_id=1")
 
     async def _warm_mi_all_years(bid: int):
         async with _MI_PREWARM_SEM:
