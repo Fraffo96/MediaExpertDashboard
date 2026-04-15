@@ -9,11 +9,11 @@ from dotenv import load_dotenv
 
 load_dotenv(_REPO_ROOT / ".env")
 
-import asyncio
 import logging
 import os
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.auth.database import init_db
@@ -30,7 +30,7 @@ from app.routers import (
     api_sales_basic,
     pages,
 )
-from app.services.prewarm import prewarm_cache
+from app.services.prewarm import is_prewarm_done, prewarm_cache
 from app.web import brand_logo as brand_logo_module
 from app.web.brand_logo import brand_logos_public_base, router as brand_logo_router, brand_logo_url_for_user
 
@@ -49,6 +49,14 @@ app.include_router(api_check_live.router)
 app.include_router(api_misc.router)
 app.include_router(api_expert_chat.router)
 app.include_router(api_admin_dataops.router)
+
+
+@app.get("/health/ready")
+async def health_ready():
+    """Diagnostica: 200 quando il prewarm e' completato, 503 durante il riscaldamento."""
+    if is_prewarm_done():
+        return PlainTextResponse("ok", status_code=200)
+    return PlainTextResponse("warming up", status_code=503)
 
 
 @app.on_event("startup")
@@ -75,15 +83,16 @@ async def on_startup():
     except Exception:
         pass
 
-    async def _prewarm():
-        try:
-            r = await prewarm_cache()
-            if r.get("warmed", 0) > 0:
-                logger.info("Prewarm: cache ready for %s", r.get("brands", []))
-        except Exception as e:
-            logger.warning("Prewarm failed: %s", e)
-
-    asyncio.create_task(_prewarm())
+    # Prewarm sincrono: uvicorn non apre il socket finche' on_startup non ritorna,
+    # quindi Cloud Run non instrada traffico utente prima che la cache sia calda.
+    # Con startup-cpu-boost=true il prewarm gira a CPU piena e completa in ~30-60s.
+    # In caso di errore BQ il server parte comunque (cache fredda, ma funzionante).
+    try:
+        r = await prewarm_cache()
+        if r.get("warmed", 0) > 0:
+            logger.info("Prewarm: cache ready for %s", r.get("brands", []))
+    except Exception as e:
+        logger.warning("Prewarm failed (server starts anyway): %s", e)
 
 
 # Alias legacy per script e test (es. verify_brand_logo_env, test_brand_logo_resolve)

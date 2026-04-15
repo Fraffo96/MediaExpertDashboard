@@ -134,10 +134,21 @@ async def prewarm_cache():
         async with _MI_PREWARM_SEM:
             return await get_mi_top_products(last_year, bid)
 
+    _PC_PREWARM_SEM = asyncio.Semaphore(2)
+
+    async def _warm_promo_creator(bid: int):
+        from app.services.promo_creator import get_promo_creator_suggestions
+
+        last_year = int(DP[1][:4])
+        ps, pe = f"{last_year}-01-01", f"{last_year}-12-31"
+        async with _PC_PREWARM_SEM:
+            return await get_promo_creator_suggestions(ps, pe, bid)
+
     tasks: list = [_warm_mi_all_years(bid) for bid in brand_ids]
     tasks += [_warm_bc_all_years(bid) for bid in brand_ids]
     tasks += [_warm_clp_active(bid) for bid in brand_ids]
     tasks += [_warm_top_products(bid) for bid in brand_ids]
+    tasks += [_warm_promo_creator(bid) for bid in brand_ids]
     tasks.append(get_filters())
 
     results = await asyncio.gather(*tasks, return_exceptions=True)

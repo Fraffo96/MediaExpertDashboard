@@ -61,8 +61,9 @@ steps:
           --cpu-throttling
           --port=8080
           --min-instances=1
-          --max-instances=3
+          --max-instances=1
           --timeout=120
+          --startup-cpu-boost
         )
         if [ -n "${_VPC_CONNECTOR}" ]; then
           DEPLOY+=(--vpc-connector="${_VPC_CONNECTOR}" --vpc-egress=private-ranges-only)
@@ -81,7 +82,7 @@ substitutions:
   _PROJECT_ID: mediaexpertdashboard
   _REGION: europe-west1
   _VPC_CONNECTOR: ''
-  _EXTRA_ENV_VARS: 'CACHE_TTL_SECONDS=86400,CACHE_TTL_LONG_SECONDS=604800'
+  _EXTRA_ENV_VARS: 'CACHE_TTL_SECONDS=86400,CACHE_TTL_LONG_SECONDS=604800,PREWARM_BRAND_IDS=1'
   _SET_SECRETS: ''
   _BRAND_LOGOS_PUBLIC_BASE: ''
   _FIRESTORE_DATABASE: ''

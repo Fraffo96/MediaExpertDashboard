@@ -15,9 +15,11 @@ from app.db.queries.precalc import (
     query_roi_benchmark_by_type_from_precalc,
     query_top_competitor_roi_from_precalc,
 )
-from app.services._cache import TTL_LONG, cache_key, get_cached, set_cached, safe
+from app.services._cache import TTL_LONG, cache_key, compute_once, get_cached, set_cached, safe
 
 logger = logging.getLogger(__name__)
+
+_PC_BQ_SEM = asyncio.Semaphore(3)
 
 # Sotto questa soglia il benchmark sconto è poco affidabile (dati sparsi / arrotondamenti): non penalizzare ROI.
 _MIN_RELIABLE_MEDIA_DISCOUNT = 3.0
@@ -69,9 +71,6 @@ def _pick_top_competitor_from_rows(top_brands: list, user_brand_id: int, eligibl
 
 
 async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, discount_depth=None, cat=None, subcat=None):
-    t_req = time.perf_counter()
-    data_path = "unknown"
-    precalc_type_aggregate_used = False
     if not brand_id or not str(brand_id).strip():
         return {"error": "Brand required", "suggestions": []}
     key = cache_key(
@@ -84,16 +83,20 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
         cat=cat or "",
         subcat=subcat or "",
     )
-    cached = get_cached(key)
-    if cached is not None:
-        _pc_log(
-            "cache_hit",
-            brand_id=brand_id,
-            cat=cat,
-            subcat=subcat,
-            total_ms=round((time.perf_counter() - t_req) * 1000, 1),
-        )
-        return cached
+
+    async def _compute():
+        async with _PC_BQ_SEM:
+            return await _get_promo_creator_suggestions_inner(
+                ps, pe, brand_id, promo_type, discount_depth, cat, subcat
+            )
+
+    return await compute_once(key, _compute, ttl=TTL_LONG)
+
+
+async def _get_promo_creator_suggestions_inner(ps, pe, brand_id, promo_type, discount_depth, cat, subcat):
+    t_req = time.perf_counter()
+    data_path = "unknown"
+    precalc_type_aggregate_used = False
     if not is_full_year_period(ps, pe):
         return {"error": PRECALC_ONLY_ERR, "suggestions": []}
     year = int(ps[:4])
@@ -593,5 +596,4 @@ async def get_promo_creator_suggestions(ps, pe, brand_id, promo_type=None, disco
         top_competitor=top_competitor["brand_name"] if top_competitor else None,
         total_ms=round((time.perf_counter() - t_req) * 1000, 1),
     )
-    set_cached(key, out, TTL_LONG)
     return out
