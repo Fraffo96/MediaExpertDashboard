@@ -81,8 +81,9 @@ options:
 substitutions:
   _PROJECT_ID: mediaexpertdashboard
   _REGION: europe-west1
-  _VPC_CONNECTOR: ''
-  _EXTRA_ENV_VARS: 'CACHE_TTL_SECONDS=86400,CACHE_TTL_LONG_SECONDS=604800,PREWARM_BRAND_IDS=1'
+  _VPC_CONNECTOR: 'run-vpc-connector'
+  # IP Memorystore dashboard-cache (europe-west1); se ricrei Redis aggiorna l'host qui e su Cloud Run.
+  _EXTRA_ENV_VARS: 'CACHE_TTL_SECONDS=86400,CACHE_TTL_LONG_SECONDS=604800,PREWARM_BRAND_IDS=1,REDIS_URL=redis://10.163.129.3:6379'
   _SET_SECRETS: ''
   _BRAND_LOGOS_PUBLIC_BASE: ''
   _FIRESTORE_DATABASE: ''

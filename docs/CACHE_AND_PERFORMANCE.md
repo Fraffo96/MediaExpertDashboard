@@ -1,38 +1,40 @@
 # Cache e performance – strategia long-term
 
-Guida per ottenere caricamenti quasi istantanei per l'utente finale, anche su Google Cloud con nuovi utenti.
+Guida per ottenere caricamenti quasi istantanei per l'utente finale, anche su Google Cloud con nuovi utenti e dopo deploy/restart.
 
 ---
 
-## Strategia attuale (in-memory con TTL lunghi)
+## Strategia attuale (Redis Memorystore + RAM)
 
-La cache è implementata interamente **in-memory** (`app/services/_cache.py`) con TTL configurabili via variabile d'ambiente.
+La cache è in [app/services/_cache.py](../app/services/_cache.py):
 
-Con `--min-instances=1` su Cloud Run il processo Python **non viene mai spento**: la cache in-memory sopravvive tra le richieste esattamente come farebbe Redis, ma senza il costo di un'istanza Memorystore separata (~1 EUR/giorno) né di un VPC Connector (~0.36 EUR/giorno).
+- Con **`REDIS_URL`** impostata su Cloud Run: lettura/scrittura su **Redis** (Cloud Memorystore) con TTL; i dati **sopravvivono** a deploy, restart dell'istanza e **sono condivisi** tra tutte le revisioni/istanze Cloud Run collegate allo stesso Redis.
+- **Fallback in-memory**: ogni `set_cached` aggiorna anche la RAM locale per hit veloci nello stesso processo; se Redis non risponde, si usa la RAM.
 
-| Parametro | Valore | Note |
-|-----------|--------|------|
+| Parametro | Valore tipico | Note |
+|-----------|---------------|------|
+| `REDIS_URL` | `redis://HOST:6379` | Host = IP privata Memorystore (rete `default` + VPC connector) |
 | `CACHE_TTL_SECONDS` | 86400 (24h) | Dati standard (MI, BC, basic…) |
 | `CACHE_TTL_LONG_SECONDS` | 604800 (7g) | Dati all-years (MI, BC, PC) |
-| Cloud Run `min-instances` | 1 | Processo sempre vivo, cache mai persa |
-| Cloud Run `cpu` | 1 | Prewarm di background funziona regolarmente |
-| Cloud Run `memory` | 512Mi | Sufficiente per Python + cache in-memory |
+| Cloud Run `min-instances` | 1 | Riduce cold start del processo |
+| Serverless VPC Access | `run-vpc-connector` | `--vpc-egress=private-ranges-only` per raggiungere Redis |
+| Memorystore | `dashboard-cache`, Basic 1GB | Stessa regione del servizio (`europe-west1`) |
 
 ### Comportamento al restart / nuovo deploy
 
-Dopo un deploy (push su main → Cloud Build), il nuovo container parte con cache vuota. Il **prewarm on-startup** (`app/services/prewarm.py`) viene lanciato automaticamente come task asincrono al boot e ricarica i dati principali da BigQuery (con le tabelle `precalc_*`, il tempo di riscaldamento è ~10-15 secondi). La prima richiesta dopo un deploy può essere leggermente più lenta; tutte le successive vengono servite dalla cache in-memory.
+Dopo un deploy, il nuovo container ha RAM vuota ma **Redis conserva le chiavi** ancora dentro il TTL: le API servono **cache hit** da Redis senza rifare BigQuery. Il **prewarm** in background (`app/services/prewarm.py`, `app/main.py`) continua a utile per popolare chiavi mancanti o dopo `clear cache`.
 
-### Redis (rimosso)
+### Anti-stampede e carico BigQuery
 
-Redis/Cloud Memorystore è stato rimosso. La cache in-memory è sufficiente per un'app con `min-instances=1` e traffico limitato. Se in futuro l'app dovesse scalare a più istanze in parallelo con traffico elevato, Redis può essere reintrodotto impostando `REDIS_URL` nelle variabili Cloud Run e ripristinando il VPC Connector.
+Restano attivi **`compute_once`** (path MI/BC pesanti), **semafori** nel prewarm e in promo creator, e il merge **`PREWARM_BRAND_IDS` ∪ brand Firestore**: non entrano in conflitto con Redis.
 
 ---
 
 ## Flusso caricamento dashboard (Market Intelligence)
 
-1. **Primo accesso / post-deploy**: `GET /api/market-intelligence/all-years` → query BigQuery sulle tabelle `precalc_*`; dati salvati in cache in-memory.
-2. **Accessi successivi**: cache hit in-memory → risposta in millisecondi, zero query BigQuery.
-3. **Dropdown year/category/channel**: solo client-side (`window._miDataByYear`), nessuna API.
+1. **Cache hit Redis**: `GET /api/market-intelligence/all-years` → dati da Redis → risposta rapida.
+2. **Cache miss**: query BigQuery su `precalc_*`; risultato salvato in Redis (e RAM).
+3. **Dropdown year/category/channel**: client-side dove previsto (`window._miDataByYear`), nessuna API aggiuntiva.
 
 ---
 
@@ -42,14 +44,14 @@ Il prewarm è gestito da `app/services/prewarm.py` e viene triggerato da:
 
 | Trigger | Quando |
 |---------|--------|
-| **Startup app** | Al boot del container (task async in `app/main.py`) |
-| **Login utente** | Background task in `app/auth/routes.py` |
+| **Startup app** | Task async in `app/main.py` |
+| **Creazione/aggiornamento utente** | Background in `app/auth/routes.py` |
 | **HTTP interno** | `GET /internal/prewarm` con header `X-Prewarm-Token` |
-| **Admin** | `POST /api/admin/prewarm` con cookie admin |
+| **Admin** | `POST /api/admin/prewarm` |
 
-Con `min-instances=1`, il prewarm on-startup è sufficiente nella maggior parte dei casi. Il Cloud Scheduler periodico (se configurato) può essere ridotto o rimosso.
+Con Redis il prewarm è **complementare** (riempie buchi / nuovi brand), non l'unica difesa contro la lentezza.
 
-**Script remoto:** `python scripts/remote_admin_flush_cache.py` (svuota cache RAM + opzionalmente prewarm).
+**Script remoto:** `python scripts/remote_admin_flush_cache.py` (SCAN/delete prefissi su Redis + RAM, opzionale FLUSHDB).
 
 ---
 
@@ -58,40 +60,56 @@ Con `min-instances=1`, il prewarm on-startup è sufficiente nella maggior parte 
 Le dashboard usano tabelle `mart.precalc_*` su BigQuery per query rapide.
 
 - **DDL**: `bigquery/precalc_tables.sql` → eseguito da `python scripts/run_bigquery_schema.py`
-- **Popolamento**: `python scripts/refresh_precalc_tables.py` oppure pulsante "Re-calculate" (solo admin)
+- **Popolamento**: `python scripts/refresh_precalc_tables.py` o job admin
 
 Vedi `docs/PRECALC_TABLES.md` per la mappatura dashboard → tabelle.
 
 ---
 
-## Configurazione Cloud Run attuale
+## Infrastruttura GCP (riferimento)
 
-```yaml
-# cloudbuild.yaml
---memory=512Mi
---cpu=1
---no-cpu-throttling      # CPU sempre allocata per prewarm asincrono
---min-instances=1        # Nessun cold start; cache in-memory sempre calda
---max-instances=3
---timeout=120
+Creazione tipica (da adattare se ricrei l'istanza):
+
+```bash
+# VPC connector (rete default, range dedicato)
+gcloud compute networks vpc-access connectors create run-vpc-connector \
+  --region=europe-west1 --network=default --range=10.8.0.0/28 \
+  --project=mediaexpertdashboard
+
+# Redis Memorystore Basic 1GB
+gcloud redis instances create dashboard-cache --size=1 --region=europe-west1 \
+  --tier=basic --redis-version=redis_7_2 \
+  --network=projects/PROJECT_ID/global/networks/default --project=PROJECT_ID
+
+# Host: gcloud redis instances describe dashboard-cache --region=europe-west1 --format='value(host)'
 ```
 
-### Costi stimati (idle, senza traffico)
+Cloud Run:
 
-| Servizio | EUR/giorno |
-|----------|-----------|
-| Cloud Run (512Mi, CPU 1, min-1, no-throttle) | ~0.15-0.18 |
-| BigQuery (query on-demand, TTL 24h riduce i borescan) | ~0.05-0.10 |
-| Artifact Registry + Networking | ~0.01 |
-| **Totale** | **~0.18-0.25** |
+```bash
+gcloud run services update dashboard --region=europe-west1 --project=PROJECT_ID \
+  --update-env-vars="REDIS_URL=redis://REDIS_PRIVATE_IP:6379" \
+  --vpc-connector=run-vpc-connector --vpc-egress=private-ranges-only
+```
+
+In [cloudbuild.yaml](../cloudbuild.yaml): sostituzioni `_VPC_CONNECTOR` e `REDIS_URL` in `_EXTRA_ENV_VARS` (vedi file; aggiorna l'IP se ricrei Redis).
+
+### Costi indicativi (ordine di grandezza)
+
+| Voce | EUR/giorno (stima) |
+|------|---------------------|
+| Memorystore Basic 1GB | ~0.5–0.7 |
+| VPC Serverless Access connector | ~0.35 |
+| Cloud Run (min-instances, CPU/memoria attuali) | variabile |
+| BigQuery (on-demand, cache piena = meno query) | variabile |
 
 ---
 
 ## Riferimenti
 
-- `app/services/_cache.py` – cache in-memory con TTL env-driven
-- `app/services/prewarm.py` – logica pre-warming
-- `app/main.py` – startup prewarm, endpoint `/internal/prewarm`
+- `app/services/_cache.py` – Redis + RAM, TTL, `compute_once`, clear per prefisso
+- `app/services/prewarm.py` – pre-warming
+- `app/main.py` – avvio prewarm async
+- `cloudbuild.yaml` – `_VPC_CONNECTOR`, `_EXTRA_ENV_VARS` con `REDIS_URL`
 - `scripts/remote_admin_flush_cache.py` – clear + prewarm da CLI
-- `scripts/setup-prewarm-scheduler.ps1` – setup Cloud Scheduler (opzionale)
 - `AGENTS.md` – comandi essenziali e stack
