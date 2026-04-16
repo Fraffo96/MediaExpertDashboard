@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv(_REPO_ROOT / ".env")
 
+import asyncio
 import logging
 import os
 
@@ -83,16 +84,20 @@ async def on_startup():
     except Exception:
         pass
 
-    # Prewarm sincrono: uvicorn non apre il socket finche' on_startup non ritorna,
-    # quindi Cloud Run non instrada traffico utente prima che la cache sia calda.
-    # Con startup-cpu-boost=true il prewarm gira a CPU piena e completa in ~30-60s.
-    # In caso di errore BQ il server parte comunque (cache fredda, ma funzionante).
-    try:
-        r = await prewarm_cache()
-        if r.get("warmed", 0) > 0:
-            logger.info("Prewarm: cache ready for %s", r.get("brands", []))
-    except Exception as e:
-        logger.warning("Prewarm failed (server starts anyway): %s", e)
+    # Prewarm in background: Cloud Run richiede che il processo ascolti su PORT entro
+    # ~4 min (sonda TCP). Un prewarm sincrono (await) con molti brand supera spesso
+    # quel limite → revisione non parte (DEADLINE_EXCEEDED). Il traffico puo' arrivare
+    # prima che la cache sia calda; mitigato da compute_once, max-instances=1, merge
+    # brand in prewarm, e (opzionale) Redis.
+    async def _prewarm():
+        try:
+            r = await prewarm_cache()
+            if r.get("warmed", 0) > 0:
+                logger.info("Prewarm: cache ready for %s", r.get("brands", []))
+        except Exception as e:
+            logger.warning("Prewarm failed: %s", e)
+
+    asyncio.create_task(_prewarm())
 
 
 # Alias legacy per script e test (es. verify_brand_logo_env, test_brand_logo_resolve)
