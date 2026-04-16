@@ -5,7 +5,18 @@
 - BC: primo competitor da get_bc_competitors(DP) poi get_bc_all_years (TTL_LONG).
 - Marketing: media preferences, purchasing, needstates spider (es. segmento/categoria 1).
 - CLP: get_active_promos ultimi 7g (TTL 300s) come primo fetch della pagina.
-Serve Redis (REDIS_URL) per condividere cache tra istanze e sessioni.
+- Promo Creator: anno intero senza filtri (per chiave cache base).
+- Filters: get_filters().
+
+Con REDIS_URL, le scritture passano da set_cached e Redis si popola a ogni prewarm.
+
+Popolare Redis da locale (dopo deploy o cache vuota):
+  python scripts/remote_admin_flush_cache.py --prewarm-only
+  oppure: scripts/prewarm-redis-cache.ps1
+  Servono PREWARM_TOKEN e opz. DASHBOARD_BASE_URL / REMOTE_DASHBOARD_URL nel .env;
+  se l'URL manca, lo script prova gcloud run services describe dashboard.
+
+Alternativa UI: admin loggato, Data ops, prewarm; oppure POST /api/admin/prewarm.
 
 Env opzionale PREWARM_BRAND_IDS=1,2,8 : brand **extra** da riscaldare sempre, in **unione** con i brand
 degli utenti attivi su Firestore (cosi' un nuovo cliente non resta escluso dal prewarm)."""

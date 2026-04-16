@@ -53,6 +53,8 @@ Con Redis il prewarm è **complementare** (riempie buchi / nuovi brand), non l'u
 
 **Script remoto:** `python scripts/remote_admin_flush_cache.py` (SCAN/delete prefissi su Redis + RAM, opzionale FLUSHDB).
 
+**Solo prewarm (popola Redis senza clear):** `python scripts/remote_admin_flush_cache.py --prewarm-only` oppure `scripts/prewarm-redis-cache.ps1` (richiede `PREWARM_TOKEN` nel `.env`).
+
 ---
 
 ## Tabelle precalcolate (implementato)
