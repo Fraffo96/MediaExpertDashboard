@@ -260,28 +260,65 @@ _GLOBAL_QUOTA = GeminiQuota()
 
 _HANDOFF_TRIGGER = "[HANDOFF]"
 
-# Appended to the system prompt when assistant_turns >= 6 and < _HANDOFF_HARD_LIMIT.
-# Tells Gemini to distinguish between data queries (answer with tools) and complex
-# strategy requests (reply with the exact trigger token only).
-_HANDOFF_ADDENDUM = """
+# Demo version: the tool answers at most this many real user questions,
+# then forwards the conversation to our human experts.
+_DEMO_QUESTION_LIMIT = 3
 
-## Extended conversation mode (internal — not visible to user)
+_DEMO_NOTE = (
+    f"\n\n[Note: this is a demo version — the tool answers up to "
+    f"{_DEMO_QUESTION_LIMIT} questions. In the final release, the tool will "
+    f"support conversations as long as Media Expert wishes.]"
+)
 
-This conversation has reached 6+ assistant turns. You are now **winding down** the session.
+_HANDOFF_MESSAGE = (
+    "This is what we could tell you based on the data available with your access. "
+    "To look for more help with your request, forward this conversation to our human experts."
+    + _DEMO_NOTE
+)
 
-**Classify the current user request into one of two categories:**
-
-1. **ANSWERABLE WITH TOOLS** — Anything you can answer by calling available tools: metrics, figures, ROI estimates, competitor analysis, segment data, price checks, market share, trend data, product lookups, or any follow-up on what you already discussed. This includes questions that need 2–4 tool calls — as long as the tools can produce the answer, do it.
-   → Answer concisely with tools. Keep it **short** — no new deep-dives, no follow-up suggestions. Do NOT append any handoff sentence — the system adds it. **Never** end with "Would you like to…" or "We could also explore…".
-
-2. **NOT ANSWERABLE WITH TOOLS** — Only use this for requests that genuinely cannot be served by any combination of available tools: e.g. writing a full marketing plan from scratch, creating campaign creatives, things outside the scope of the dashboard data.
-   → Reply with **only** the exact string `[HANDOFF]` — no other text. Just: [HANDOFF]
-
-**Default to category 1.** When in doubt, try to answer it. Only use [HANDOFF] when the tools truly cannot help."""
+_CONFIRMATION_WORDS = {
+    "yes", "y", "yep", "yup", "ok", "okay", "k", "sure", "sure thing",
+    "go", "go ahead", "proceed", "exactly", "correct", "right",
+    "confirmed", "confirm", "perfect", "great", "good", "sounds good",
+    "that's right", "that is correct", "you got it", "understood",
+    "all good", "done",
+}
 
 
-# Turns at which the hard block kicks in (no Gemini call at all).
-_HANDOFF_HARD_LIMIT = 10
+def _is_short_confirmation(text: str) -> bool:
+    norm = text.strip().lower().rstrip(".!?,").strip()
+    if not norm:
+        return False
+    if norm in _CONFIRMATION_WORDS:
+        return True
+    words = norm.split()
+    if len(words) <= 3 and any(
+        norm == w or norm.startswith(w + " ") for w in _CONFIRMATION_WORDS
+    ):
+        return True
+    return False
+
+
+def _count_real_user_questions(msgs: list[dict]) -> int:
+    """Count user messages that are real questions — excluding short confirmations
+    ("yes", "ok", "go ahead"…) and short replies to the tool's clarifying questions."""
+    count = 0
+    prev_assistant_ends_in_question = False
+    for m in msgs:
+        if not isinstance(m, dict):
+            continue
+        role = m.get("role")
+        text = (m.get("text") or "").strip()
+        if not text or role in (None, "system"):
+            continue
+        if role == "user":
+            is_reply_to_clarifier = prev_assistant_ends_in_question and len(text) < 80
+            if not (_is_short_confirmation(text) or is_reply_to_clarifier):
+                count += 1
+            prev_assistant_ends_in_question = False
+        elif role == "assistant":
+            prev_assistant_ends_in_question = text.rstrip().endswith("?")
+    return count
 
 
 class ExpertAgent:
@@ -309,21 +346,18 @@ class ExpertAgent:
 
         ps, pe = DP[0], DP[1]
 
-        assistant_turns = sum(1 for m in msgs if m.get("role") == "assistant")
-
-        # Hard limit: no Gemini call at all beyond _HANDOFF_HARD_LIMIT turns.
-        if assistant_turns >= _HANDOFF_HARD_LIMIT:
-            yield {
-                "type": "handoff",
-                "text": (
-                    "This is what we could tell you based on the data available with your access. "
-                    "To look for more help with your request, forward this conversation to our human experts."
-                ),
-            }
+        # Demo version: count real user questions (skip confirmations and short
+        # replies to the tool's clarifying questions). Handoff when the user
+        # tries to ask a question beyond the demo limit.
+        real_questions = _count_real_user_questions(msgs)
+        if real_questions > _DEMO_QUESTION_LIMIT:
+            yield {"type": "handoff", "text": _HANDOFF_MESSAGE}
             return
 
-        # Between 6 and the hard limit: pass to Gemini in extended mode.
-        in_extended_mode = assistant_turns >= 6
+        # Extended wind-down mode is disabled in the demo version — we hard-cut
+        # at the question limit above. Keep the flag so the rest of the flow
+        # (handoff trigger detection, nudge stripping) remains dormant.
+        in_extended_mode = False
 
         contents = _client_messages_to_contents(msgs)
         if not contents:
@@ -424,13 +458,7 @@ class ExpertAgent:
                 text = "".join((p.text or "") for p in parts if p.text).strip()
                 # Check for [HANDOFF] trigger anywhere in the text (not just exact match)
                 if in_extended_mode and _HANDOFF_TRIGGER in text:
-                    yield {
-                        "type": "handoff",
-                        "text": (
-                            "This is what we could tell you based on the data available with your access. "
-                            "To look for more help with your request, forward this conversation to our human experts."
-                        ),
-                    }
+                    yield {"type": "handoff", "text": _HANDOFF_MESSAGE}
                     return
                 if in_extended_mode and text:
                     # Strip any handoff / nudge sentences Gemini may have copied from history

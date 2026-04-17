@@ -83,6 +83,88 @@
     "top_categories_note": "Large Appliances, TV mid-range, Smartphones entry",
     "top_driver": "necessity"
   },
+  "pain_points_by_category": {
+    "1": {
+      "1": ["Low energy use & sustainable build", "Wellness-friendly screen time"],
+      "2": ["Flagship status before peers catch up", "Design fitting a premium living room"],
+      "3": ["Balancing cinema quality with productivity", "Not paying for unused features"],
+      "4": ["Big-screen gaming on a tight budget", "Affording premium specs"],
+      "5": ["Family-safe set that lasts years", "Simple interface for every age"],
+      "6": ["Straightforward replacement when it breaks", "Avoiding confusing smart-TV menus"]
+    },
+    "2": {
+      "1": ["Phone longevity & repairability", "Managing screen-time for wellbeing"],
+      "2": ["Staying ahead on flagship launches", "Camera & design matching personal image"],
+      "3": ["All-day battery under heavy workload", "Fast performance for work apps"],
+      "4": ["Gaming specs at entry price", "Avoiding forced upgrade cycles"],
+      "5": ["A phone the whole family can handle", "Reliable support when things fail"],
+      "6": ["Keeping daily operation simple", "Replacing only when the old one dies"]
+    },
+    "3": {
+      "1": ["Sustainable laptop for flexible work", "Durability over raw specs"],
+      "2": ["Design that signals professional status", "Seamless home-office switching"],
+      "3": ["Top speed for career acceleration", "Zero downtime or lag"],
+      "4": ["Gaming-capable rigs on budget", "Competitive specs at entry price"],
+      "5": ["Reliable laptop for schoolwork & home", "Accessible family support & warranty"],
+      "6": ["Basic computing without a learning curve", "No pressure to upgrade early"]
+    },
+    "4": {
+      "1": ["Casual gaming balanced with wellness", "Setup that doesn't dominate the home"],
+      "2": ["Gear matching premium taste", "Status-signalling gaming identity"],
+      "3": ["Competitive edge & high refresh rates", "Minimal input lag for performance"],
+      "4": ["Affording a competitive setup", "Finding community despite tight budget"],
+      "5": ["Family-safe, shared-console fun", "Avoiding single-user over-investment"],
+      "6": ["Occasional gaming without big outlay", "Avoiding frequent hardware churn"]
+    },
+    "5": {
+      "1": ["Energy efficiency & lower bills", "Durable, repairable design"],
+      "2": ["Premium kitchen aesthetic", "Smart-home integration with style"],
+      "3": ["Time-saving efficiency for busy days", "Low-maintenance reliability"],
+      "4": ["Affording reliable basics", "Avoiding frequent breakdowns"],
+      "5": ["Family-size capacity & durability", "Easy operation for everyone"],
+      "6": ["Quick replacement when appliance breaks", "Avoiding confusing new feature sets"]
+    },
+    "6": {
+      "1": ["Healthy cooking with clean energy", "Minimalist design on the counter"],
+      "2": ["Statement countertop design", "Premium coffee & lifestyle indulgences"],
+      "3": ["Time-saving kitchen tools", "Fast, performance-driven routines"],
+      "4": ["Affording essential kitchen kit", "Deals over premium brands"],
+      "5": ["Family meal prep at scale", "Cleaning efficiency for busy homes"],
+      "6": ["Practical, long-lasting appliances", "Avoiding unnecessary smart features"]
+    },
+    "7": {
+      "1": ["Noise-cancelling for focus & wellness", "Sound quality without wasteful design"],
+      "2": ["Wearable audio as style statement", "Premium sound signalling taste"],
+      "3": ["Pro-grade focus headphones for work", "Best-in-class noise cancellation"],
+      "4": ["Gaming-quality audio on a budget", "Portable speakers for social moments"],
+      "5": ["Family-friendly shared audio", "Simple everyday listening"],
+      "6": ["Basic audio without complex features", "Affordable upgrade only when needed"]
+    },
+    "8": {
+      "1": ["Automation supporting wellness & energy goals", "Monitoring usage to cut bills"],
+      "2": ["Smart home as tech-forward statement", "Status via cutting-edge automation"],
+      "3": ["Productivity-enhancing automation", "Low-friction, time-saving routines"],
+      "4": ["Accessible smart-home on tight budget", "Avoiding gimmicky features"],
+      "5": ["Security & peace of mind for family", "Simple practical home upgrades"],
+      "6": ["Low-cost add-ons without complexity", "Skepticism of non-essential tech"]
+    },
+    "9": {
+      "1": ["Self-care backed by health data", "Tracking wellness goals over time"],
+      "2": ["Premium beauty routine matching image", "Status-signalling personal-care"],
+      "3": ["Grooming for a polished professional image", "Time-efficient daily routines"],
+      "4": ["Affordable personal-care on tight budget", "Avoiding premium markups"],
+      "5": ["Family hygiene essentials", "Easy-to-use shared devices"],
+      "6": ["Reliable replacement when device breaks", "Skepticism of beauty-tech trends"]
+    },
+    "10": {
+      "1": ["Travel & exploration memories", "Creative minimalism over gear bloat"],
+      "2": ["Premium camera as status symbol", "Style-forward gear identity"],
+      "3": ["Pro-grade gear for creator ambitions", "Performance setups for content work"],
+      "4": ["Action & adventure capture on a budget", "Affordable entry-level gear"],
+      "5": ["Capturing family moments easily", "Point-and-shoot simplicity"],
+      "6": ["Occasional use without a learning curve", "Basic, practical camera purchase"]
+    }
+  },
   "category_needstates": {
     "1": {
       "1": "Home entertainment, premium quality",

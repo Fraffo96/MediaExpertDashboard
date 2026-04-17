@@ -294,11 +294,26 @@ def _effective_hcg_parent_category(
     return None
 
 
+def _curated_pain_points(cat_id: int, seg_id: int) -> list[str] | None:
+    """Segment-specific × category-specific pain points from segment_profiles.json."""
+    if not (1 <= seg_id <= 6 and 1 <= cat_id <= 10):
+        return None
+    profiles = _load_segment_profiles()
+    by_cat = profiles.get("pain_points_by_category") or {}
+    pts = by_cat.get(str(cat_id), {}).get(str(seg_id))
+    if isinstance(pts, list) and len(pts) >= 2 and all(isinstance(p, str) and p.strip() for p in pts):
+        return [p.strip() for p in pts[:2]]
+    return None
+
+
 def _segment_summary_pain_and_needstates_from_hcg(cat_id: int, seg_id: int) -> tuple[list[str], list[str]] | None:
     """
-    Pain points e needstate tag da needstates_hcg.json per (categoria, segmento).
-    - needstates: le 3 dimensioni col punteggio più alto per il segmento (come driver nello spider).
-    - pain points: le 2 dimensioni col punteggio più basso (minore affinità in quel contesto d’acquisto).
+    Pain points e needstate tag per (categoria, segmento).
+    - needstates: le 3 dimensioni col punteggio più alto per il segmento (come driver nello spider),
+      estratte da needstates_hcg.json.
+    - pain points: curati per (segmento, categoria) in segment_profiles.json → riflettono
+      le frizioni specifiche del segmento in quel contesto. Fallback sui 2 punteggi più
+      bassi di needstates_hcg.json se la mappa curata è assente.
     Con categoria «All» si usano invece i testi statici in segment_profiles.json.
     """
     if not (1 <= seg_id <= 6 and 1 <= cat_id <= 10):
@@ -321,9 +336,11 @@ def _segment_summary_pain_and_needstates_from_hcg(cat_id: int, seg_id: int) -> t
     if len(scored) < 2:
         return None
     by_desc = sorted(scored, key=lambda x: x[1], reverse=True)
-    by_asc = sorted(scored, key=lambda x: x[1])
     needstates = [by_desc[i][0] for i in range(min(3, len(by_desc)))]
-    pain_points = [by_asc[0][0], by_asc[1][0]]
+    pain_points = _curated_pain_points(cat_id, seg_id)
+    if pain_points is None:
+        by_asc = sorted(scored, key=lambda x: x[1])
+        pain_points = [by_asc[0][0], by_asc[1][0]]
     return (pain_points, needstates)
 
 
@@ -338,7 +355,7 @@ def get_segment_summary(
     """Segment summary: top categories/SKUs + tag Pain/Needstates. Con category o subcategory selezionata, pain e needstates derivano da needstates_hcg.json (come Needstates by Category); con «All» restano i testi in segment_profiles.json."""
     ps = ps or _DEFAULT_PERIOD[0]
     pe = pe or _DEFAULT_PERIOD[1]
-    key = cache_key("mkt_seg_v3", ps=ps, pe=pe, seg=segment_id or 0, cat=category_id or 0, sub=subcategory_id or 0, brand=brand_id or 0)
+    key = cache_key("mkt_seg_v4", ps=ps, pe=pe, seg=segment_id or 0, cat=category_id or 0, sub=subcategory_id or 0, brand=brand_id or 0)
     cached = get_cached(key)
     if cached is not None:
         return cached
