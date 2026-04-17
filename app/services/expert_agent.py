@@ -271,13 +271,13 @@ This conversation has reached 6+ assistant turns. You are now **winding down** t
 
 **Classify the current user request into one of two categories:**
 
-1. **SMALL DATA QUESTION** — The user wants a quick, specific metric or fact that one or two tool calls can answer (e.g. a price, a top-SKU list, a segment split, a single ROI number, any brief follow-up on what you already discussed).
-   → Answer it concisely with tools as usual. Keep the answer **short and focused** — no new deep-dives, no "what would you like to explore next?", no follow-up suggestions. Do NOT append any handoff sentence yourself — the system adds it automatically. **Never** end with open-ended prompts like "Would you like to…" or "We could also explore…".
+1. **ANSWERABLE WITH TOOLS** — Anything you can answer by calling available tools: metrics, figures, ROI estimates, competitor analysis, segment data, price checks, market share, trend data, product lookups, or any follow-up on what you already discussed. This includes questions that need 2–4 tool calls — as long as the tools can produce the answer, do it.
+   → Answer concisely with tools. Keep it **short** — no new deep-dives, no follow-up suggestions. Do NOT append any handoff sentence — the system adds it. **Never** end with "Would you like to…" or "We could also explore…".
 
-2. **ANYTHING ELSE** — Any request that would need a new multi-step analysis, a new strategic topic, a full plan, a deep-dive into an area not yet covered, or anything beyond a quick data lookup.
-   → Reply with **only** the exact string `[HANDOFF]` — no other text, no explanation, no preamble. Just the five characters: [HANDOFF]
+2. **NOT ANSWERABLE WITH TOOLS** — Only use this for requests that genuinely cannot be served by any combination of available tools: e.g. writing a full marketing plan from scratch, creating campaign creatives, things outside the scope of the dashboard data.
+   → Reply with **only** the exact string `[HANDOFF]` — no other text. Just: [HANDOFF]
 
-**Priority rule:** if the user is accepting or following up on something you proposed in the previous assistant turn, treat it as a SMALL DATA QUESTION. But still keep the answer concise and do not propose further exploration."""
+**Default to category 1.** When in doubt, try to answer it. Only use [HANDOFF] when the tools truly cannot help."""
 
 
 # Turns at which the hard block kicks in (no Gemini call at all).
@@ -433,10 +433,14 @@ class ExpertAgent:
                     }
                     return
                 if in_extended_mode and text:
-                    # Strip any handoff / next-step sentences Gemini may have added
+                    # Strip any handoff / nudge sentences Gemini may have copied from history
                     for _strip in (
                         "For a deeper strategic session, you can forward this conversation to our human experts.",
                         "For a deeper strategic session, you can forward this conversation to our human experts",
+                        "I've done my best to help with your request. If you'd like to go deeper, I'd recommend getting in touch with our human experts — they can build on everything we've covered here.",
+                        "I've done my best to help with your request.",
+                        "If you'd like to go deeper, I'd recommend getting in touch with our human experts — they can build on everything we've covered here.",
+                        "they can build on everything we've covered here.",
                     ):
                         text = text.replace(_strip, "")
                     text = text.rstrip()
