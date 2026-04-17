@@ -276,17 +276,17 @@ _HANDOFF_ADDENDUM = """
 
 ## Extended conversation mode (internal — not visible to user)
 
-This conversation has reached 6+ assistant turns. Apply these rules **for this turn only**:
+This conversation has reached 6+ assistant turns. You are now **winding down** the session.
 
 **Classify the current user request into one of two categories:**
 
-1. **DATA QUERY** — the user wants a specific metric, figure, or brief analysis that one or two tool calls can answer directly. Examples: ROI figures, product prices, top/worst SKUs, monthly sales trend, gender split, customer stats, competitor list, promo performance, segment breakdown, any dashboard metric — **including any item you yourself offered to explore in your previous turn** (e.g. "yes do that", "show me the ROI", "go ahead").
-   → Execute it: call the appropriate tool(s) and deliver a concise answer as usual. Do NOT append any handoff sentence yourself — the system handles that automatically.
+1. **SMALL DATA QUESTION** — The user wants a quick, specific metric or fact that one or two tool calls can answer (e.g. a price, a top-SKU list, a segment split, a single ROI number, any brief follow-up on what you already discussed).
+   → Answer it concisely with tools as usual. Keep the answer **short and focused** — no new deep-dives, no "what would you like to explore next?", no follow-up suggestions. Do NOT append any handoff sentence yourself — the system adds it automatically. **Never** end with open-ended prompts like "Would you like to…" or "We could also explore…".
 
-2. **COMPLEX STRATEGY REQUEST** — a request requiring a full multi-step plan, go-to-market strategy, complete marketing roadmap, or extensive synthesis of many unknowns that the conversation has not yet explored.
+2. **ANYTHING ELSE** — Any request that would need a new multi-step analysis, a new strategic topic, a full plan, a deep-dive into an area not yet covered, or anything beyond a quick data lookup.
    → Reply with **only** the exact string `[HANDOFF]` — no other text, no explanation, no preamble. Just the five characters: [HANDOFF]
 
-**Priority rule:** if the user is accepting or following up on something you proposed in the previous assistant turn, always treat it as a DATA QUERY regardless of how it sounds."""
+**Priority rule:** if the user is accepting or following up on something you proposed in the previous assistant turn, treat it as a SMALL DATA QUESTION. But still keep the answer concise and do not propose further exploration."""
 
 
 # Turns at which the hard block kicks in (no Gemini call at all).
@@ -442,10 +442,19 @@ class ExpertAgent:
                     }
                     return
                 if in_extended_mode and text:
-                    # Strip any handoff sentence Gemini already added (avoid duplication)
-                    text = text.replace(
-                        "For a deeper strategic session, you can forward this conversation to our human experts.", ""
-                    ).rstrip()
+                    # Strip any handoff / next-step sentences Gemini may have added
+                    for _strip in (
+                        "For a deeper strategic session, you can forward this conversation to our human experts.",
+                        "For a deeper strategic session, you can forward this conversation to our human experts",
+                    ):
+                        text = text.replace(_strip, "")
+                    text = text.rstrip()
+                    # Append a warm wrap-up nudge toward the human expert
+                    text += (
+                        "\n\nI've done my best to help with your request. "
+                        "If you'd like to go deeper, I'd recommend getting in touch with our human experts — "
+                        "they can build on everything we've covered here."
+                    )
                     # Signal the frontend to show a soft handoff button
                     yield {"type": "answer", "text": text, "handoff_hint": True}
                     return
