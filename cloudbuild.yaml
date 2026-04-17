@@ -62,7 +62,7 @@ steps:
           --port=8080
           --min-instances=1
           --max-instances=1
-          --timeout=120
+          --timeout=900
           --cpu-boost
         )
         if [ -n "${_VPC_CONNECTOR}" ]; then

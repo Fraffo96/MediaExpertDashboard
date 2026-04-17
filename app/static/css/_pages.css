@@ -572,6 +572,12 @@ body.landing-home .page-footer {
 }
 .expert-handoff-btn:hover { opacity: 0.85; }
 .expert-handoff-btn:disabled { opacity: 0.5; cursor: default; }
+.expert-handoff-btn--soft {
+  background: transparent;
+  color: var(--yellow);
+  border: 1px solid var(--yellow);
+  font-weight: 600;
+}
 .expert-handoff-confirmed {
   display: block;
   margin-top: 0.55rem;

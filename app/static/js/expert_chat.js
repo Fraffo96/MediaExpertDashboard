@@ -203,7 +203,10 @@
         continue;
       }
       if (onEvent) onEvent(ev);
-      if (ev && ev.type === 'answer') state.finalAnswer = String(ev.text || '');
+      if (ev && ev.type === 'answer') {
+        state.finalAnswer = String(ev.text || '');
+        if (ev.handoff_hint) state.handoffHint = true;
+      }
       if (ev && ev.type === 'handoff') state.handoffText = String(ev.text || '');
       if (ev && ev.type === 'error') throw new Error(String(ev.text || 'Error'));
     }
@@ -241,7 +244,7 @@
     const reader = r.body.getReader();
     const dec = new TextDecoder();
     let buf = '';
-    const state = { finalAnswer: null, handoffText: null };
+    const state = { finalAnswer: null, handoffText: null, handoffHint: false };
     while (true) {
       const { done, value } = await reader.read();
       if (value) buf += dec.decode(value, { stream: true });
@@ -265,6 +268,9 @@
     }
     if (state.handoffText != null) {
       return { type: 'handoff', text: state.handoffText };
+    }
+    if (state.handoffHint && state.finalAnswer != null) {
+      return { type: 'handoff_hint', text: state.finalAnswer };
     }
     return state.finalAnswer != null ? state.finalAnswer : 'Sorry — I could not generate an answer.';
   }
@@ -318,7 +324,8 @@
       });
 
       const isHandoff = answer && typeof answer === 'object' && answer.type === 'handoff';
-      const answerText = isHandoff ? answer.text : answer;
+      const isHandoffHint = answer && typeof answer === 'object' && answer.type === 'handoff_hint';
+      const answerText = (isHandoff || isHandoffHint) ? answer.text : answer;
 
       if (thinkingNode && thinkingNode.querySelector) {
         const b = thinkingNode.querySelector('.bubble');
@@ -338,6 +345,20 @@
               conf.className = 'expert-handoff-confirmed';
               conf.textContent = 'Your conversation has been forwarded. We will contact you shortly.';
               b.appendChild(conf);
+            });
+            b.appendChild(btn);
+          } else if (isHandoffHint) {
+            setBubbleContent(b, 'assistant', answerText);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'expert-handoff-btn expert-handoff-btn--soft';
+            btn.textContent = 'Forward to our human experts';
+            btn.addEventListener('click', () => {
+              btn.disabled = true;
+              const conf = document.createElement('span');
+              conf.className = 'expert-handoff-confirmed';
+              conf.textContent = 'Your conversation has been forwarded. We will contact you shortly.';
+              btn.parentNode.appendChild(conf);
             });
             b.appendChild(btn);
           } else {

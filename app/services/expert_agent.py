@@ -188,7 +188,8 @@ Map categories with the taxonomy below or `list_categories`.
 - Jump from "we want a smartphone" to segment recommendations and tool calls in the same turn — finish **DISCOVER** first.
 - Ask users for numeric category IDs — use taxonomy / `list_categories`.
 - Use a fixed report template; shape the answer to the question.
-- **No pre-work confirmation turns (general):** Never announce what you are about to investigate and then ask for permission before doing it on **any** turn — including follow-ups after portfolio lists. If the user asked a question, said **yes**, or requested impact analysis, **call the tools and answer in the same turn**. Forbidden pattern: "I will now check market share and segments — is that right?"
+- **No pre-work confirmation turns (general):** Never announce what you are about to investigate and then ask for permission before doing it on **any** turn — including follow-ups after portfolio lists. If the user asked a question, said **yes**, or requested impact analysis, **call the tools and answer in the same turn**. Forbidden patterns: "I will now check market share and segments — is that right?", "Let me pull the data…", "I'll investigate X — shall I proceed?". If you have enough context to call a tool, **call it now** — never describe the work without doing it.
+- **Always deliver a complete answer.** When you call tools and receive data, you **must** synthesize and present the findings in the same response. Never end a turn with "Let me analyze this" or "I'll look into that" without actually delivering the analysis. If tools returned data, use it to answer the user's question — do not defer to a future turn.
 - **Never mention tool or function names** (`get_…`, `list_…`) **in user-visible replies.** Describe actions in plain language (e.g. "I'll check how competitors are positioned" not "I'll call list_competitors_in_category"). Tool names are for your internal use only.
 - **Product IDs in replies:** Prefer **product names**; if you cite an id, use plain text like "catalog #10655" — never LaTeX-style escaped ids or odd backslashes in the wording.
 - **Never list {brand_name} as a competitor** — that is the user's brand (brand_id {brand_id}). If any output mixes it with rivals, exclude your brand from the competitor list and analyse **other** brands only.
@@ -280,17 +281,13 @@ This conversation has reached 6+ assistant turns. Apply these rules **for this t
 **Classify the current user request into one of two categories:**
 
 1. **DATA QUERY** — the user wants a specific metric, figure, or brief analysis that one or two tool calls can answer directly. Examples: ROI figures, product prices, top/worst SKUs, monthly sales trend, gender split, customer stats, competitor list, promo performance, segment breakdown, any dashboard metric — **including any item you yourself offered to explore in your previous turn** (e.g. "yes do that", "show me the ROI", "go ahead").
-   → Execute it: call the appropriate tool(s) and deliver a concise answer as usual. Append **exactly** this sentence at the very end of your reply, after the main answer: "For a deeper strategic session, you can forward this conversation to our human experts."
+   → Execute it: call the appropriate tool(s) and deliver a concise answer as usual. Do NOT append any handoff sentence yourself — the system handles that automatically.
 
 2. **COMPLEX STRATEGY REQUEST** — a request requiring a full multi-step plan, go-to-market strategy, complete marketing roadmap, or extensive synthesis of many unknowns that the conversation has not yet explored.
-   → Reply with **only** the exact string `[HANDOFF]` — no other text, no explanation.
+   → Reply with **only** the exact string `[HANDOFF]` — no other text, no explanation, no preamble. Just the five characters: [HANDOFF]
 
 **Priority rule:** if the user is accepting or following up on something you proposed in the previous assistant turn, always treat it as a DATA QUERY regardless of how it sounds."""
 
-# Soft suggest appended to answers in extended mode (shown as Markdown italic).
-_HANDOFF_SOFT_SUFFIX = (
-    "\n\n*For a deeper strategic session, you can forward this conversation to our human experts.*"
-)
 
 # Turns at which the hard block kicks in (no Gemini call at all).
 _HANDOFF_HARD_LIMIT = 10
@@ -434,7 +431,8 @@ class ExpertAgent:
             fcalls = [p for p in parts if getattr(p, "function_call", None)]
             if not fcalls:
                 text = "".join((p.text or "") for p in parts if p.text).strip()
-                if in_extended_mode and text.strip() == _HANDOFF_TRIGGER:
+                # Check for [HANDOFF] trigger anywhere in the text (not just exact match)
+                if in_extended_mode and _HANDOFF_TRIGGER in text:
                     yield {
                         "type": "handoff",
                         "text": (
@@ -444,12 +442,16 @@ class ExpertAgent:
                     }
                     return
                 if in_extended_mode and text:
-                    text = text + _HANDOFF_SOFT_SUFFIX
+                    # Strip any handoff sentence Gemini already added (avoid duplication)
+                    text = text.replace(
+                        "For a deeper strategic session, you can forward this conversation to our human experts.", ""
+                    ).rstrip()
+                    # Signal the frontend to show a soft handoff button
+                    yield {"type": "answer", "text": text, "handoff_hint": True}
+                    return
                 yield {"type": "answer", "text": text or (
-                    "I've noted everything you've shared. "
-                    "Let me pull the data to back this up — "
-                    "could you confirm what you'd like to explore first, "
-                    "or type 'go ahead' to proceed with the full analysis?"
+                    "I wasn't able to generate a complete answer for that question. "
+                    "Could you rephrase or tell me specifically what you'd like me to look into?"
                 )}
                 return
 
